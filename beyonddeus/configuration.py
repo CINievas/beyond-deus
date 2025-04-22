@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+
+# Copyright (C) 2025:
+#  GFZ Helmholtz-Zentrum für Geoforschung | GFZ Helmholtz Centre for Geosciences
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see http://www.gnu.org/licenses/.
+
+import sys
+import logging
+import yaml
+
+logger = logging.getLogger()
+
+
+class Configuration:
+    """This class handles the configuration parameters.
+
+    Attributes:
+        self.input_paths (dict):
+            Dictionary with full paths to input files. Keys:
+                "intensity": Path to intensity input file(s).
+    """
+
+    def __init__(self, filepath):
+        """
+        Args:
+            filepath (str):
+                Full file path to the .yml configuration file.
+        """
+
+        config = self._read_config_file(filepath)
+
+        self.input_paths = {}
+        self.input_paths["intensity"] = self._assign_parameter(
+            config["input_paths"], "intensity"
+        )
+
+    def _read_config_file(self, filepath):
+        """This function attempts to open the configuration file. If not found, it logs a
+        critical error and raises an OSError.
+
+        Args:
+            filepath (str):
+                Full file path to the .yml configuration file.
+
+        Returns:
+            config (dictionary):
+                The configuration file read as a dictionary, or an empty dictionary if the
+                configuration file was not found.
+        """
+
+        try:
+            with open(filepath, "r") as ymlfile:
+                config = yaml.load(ymlfile, Loader=yaml.FullLoader)
+        except FileNotFoundError:
+            config = {}
+            error_message = "Error instantiating Configuration: configuration file not found"
+            logger.critical(error_message)
+            raise OSError(error_message)
+
+        return config
+
+    def _assign_parameter(self, config, input_parameter):
+        """This function searches for the key input_parameter in the dictionary config. If
+        found, it returns its value (a string or a dictionary). If not found, it returns None.
+
+        Args:
+            config (dictionary):
+                The configuration file read as a dictionary. It may be an empty dictionary.
+            input_parameter (str):
+                Name of the desired parameter, to be searched for as a primary key of config.
+        Returns:
+            assigned_parameter (str, dictionary or None):
+                The content of config[input_parameter], which can be a string or a dictionary.
+                It is None if input_parameter is not a key of config.
+        """
+
+        try:
+            assigned_parameter = config[input_parameter]
+        except KeyError:
+            logger.warning(
+                "Warning: parameter '%s' is missing from configuration file" % (input_parameter)
+            )
+            assigned_parameter = None
+
+        return assigned_parameter
