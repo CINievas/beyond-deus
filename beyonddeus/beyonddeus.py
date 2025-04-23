@@ -20,7 +20,8 @@ import os
 import sys
 import logging
 
-from configuration import Configuration
+from beyonddeus.configuration import Configuration
+from beyonddeus.shakemap import Shakemaps
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -33,8 +34,17 @@ def main():
     logger.info("Beyond-DEUS has started")
 
     # Read configuration parameters
-    config = Configuration("../config.yml")
-    print("    The path to the intensity input files is %s" %(config.input_paths["intensity"]))
+    config = Configuration("config.yml")
+
+    # Read intensity files
+    filenames = os.listdir(config.input_paths["intensity"])
+    logger.info("Reading input intensity files: %s files found" % (len(filenames)))
+    intensity_provider = {}
+    
+    for i, filename in enumerate(filenames):
+        intensity_provider[i] = Shakemaps.from_file(
+            os.path.join(config.input_paths["intensity"], filename)
+        ).to_intensity_provider()
 
 
 if __name__ == "__main__":
