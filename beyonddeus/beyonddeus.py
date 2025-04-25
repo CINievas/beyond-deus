@@ -22,6 +22,7 @@ import logging
 
 from beyonddeus.configuration import Configuration
 from beyonddeus.shakemap import Shakemaps
+from beyonddeus.fragility import Fragility
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -45,6 +46,17 @@ def main():
         intensity_provider[i] = Shakemaps.from_file(
             os.path.join(config.input_paths["intensity"], filename)
         ).to_intensity_provider()
+
+    # Read fragility file
+    logger.info("Reading input fragility file")
+
+    fragility_provider = Fragility.from_file(
+       config.input_paths["fragility"]
+    ).to_fragility_provider()
+    logger.info(
+        "    %s building classes found"
+        % (len(fragility_provider.get_taxonomies()))
+    )
 
 
 if __name__ == "__main__":

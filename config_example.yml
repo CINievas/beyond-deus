@@ -1,2 +1,3 @@
 input_paths:
   intensity: path_to_directory_with_intensity_input_files  # All files in this directory will be processed
+  fragility: path_to_fragility_file  # One fragility json file

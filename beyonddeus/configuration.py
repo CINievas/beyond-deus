@@ -29,7 +29,8 @@ class Configuration:
     Attributes:
         self.input_paths (dict):
             Dictionary with full paths to input files. Keys:
-                "intensity": Path to intensity input file(s).
+                "intensity": Path to directory containing intensity input file(s).
+                "fragility": Path to fragility input file.
     """
 
     def __init__(self, filepath):
@@ -44,6 +45,9 @@ class Configuration:
         self.input_paths = {}
         self.input_paths["intensity"] = self._assign_parameter(
             config["input_paths"], "intensity"
+        )
+        self.input_paths["fragility"] = self._assign_parameter(
+            config["input_paths"], "fragility"
         )
 
     def _read_config_file(self, filepath):

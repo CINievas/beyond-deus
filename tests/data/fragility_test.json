@@ -1,0 +1,49 @@
+{
+"meta":{
+"id": "my_id",
+"assetCategory": "buildings",
+"lossCategory": "structural",
+"taxonomy_source": "my_id",
+"damage_states": "my_id",
+"format": "continuous",
+"shape": "logncdf",
+"description": "Fragility model for testing",
+"taxonomy" : "['bdg_class_1', 'bdg_class_2']",
+"limit states":[
+"D1",
+"D2",
+"D3",
+"D4"
+]
+},
+"data":[
+{
+"taxonomy" : "bdg_class_1",
+"D1_mean" : 0.32793063480977475,
+"D1_stddev" : 0.629186664350547,
+"D2_mean" : 0.7941931999147935,
+"D2_stddev" : 0.629186664350547,
+"D3_mean" : 1.0060316588419396,
+"D3_stddev" : 0.629186664350547,
+"D4_mean" : 1.1386445789279434,
+"D4_stddev" : 0.629186664350547,
+"id":"unique_id",
+"imt" : "PGA",
+"imu" : "g"
+},
+{
+"taxonomy" : "bdg_class_2",
+"D1_mean" : 0.32793063480977475,
+"D1_stddev" : 0.629186664350547,
+"D2_mean" : 0.7941931999147935,
+"D2_stddev" : 0.629186664350547,
+"D3_mean" : 1.0060316588419396,
+"D3_stddev" : 0.629186664350547,
+"D4_mean" : 1.1386445789279434,
+"D4_stddev" : 0.629186664350547,
+"id":"unique_id",
+"imt" : "PGA",
+"imu" : "g"
+}
+]
+}
