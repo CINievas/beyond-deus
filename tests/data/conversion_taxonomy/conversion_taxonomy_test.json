@@ -1,0 +1,27 @@
+{
+    "source_schema": "source_schema_name",
+    "target_schema": "target_schema_name",
+    "source_taxonomies": [
+        "source_1",
+        "source_2",
+        "source_3"
+    ],
+    "target_taxonomies": [
+        "target_1",
+        "target_2"
+    ],
+    "conv_matrix": {
+        "source_1": {
+            "target_1": 0.7,
+            "target_2": 0.3
+        },
+        "source_2": {
+            "target_1": 0.0,
+            "target_2": 1.0
+        },
+        "source_3": {
+            "target_1": 0.0,
+            "target_2": 1.0
+        }
+    }
+}

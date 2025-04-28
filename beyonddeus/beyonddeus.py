@@ -23,6 +23,7 @@ import logging
 from beyonddeus.configuration import Configuration
 from beyonddeus.shakemap import Shakemaps
 from beyonddeus.fragility import Fragility
+from beyonddeus.schemamapping import SchemaMapper
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -56,6 +57,14 @@ def main():
     logger.info(
         "    %s building classes found"
         % (len(fragility_provider.get_taxonomies()))
+    )
+
+    # Read taxonomy and damage states compatibility matrices
+    logger.info("Reading input compatibility matrices")
+
+    schema_mapper = SchemaMapper.from_taxonomy_and_damage_state_conversion_files(
+        config.input_paths["conversion_taxonomy"],
+        config.input_paths["conversion_damage_states"]
     )
 
 
