@@ -20,11 +20,11 @@ import os
 import sys
 import logging
 
-import exposure
 from beyonddeus.configuration import Configuration
 from beyonddeus.shakemap import Shakemaps
 from beyonddeus.fragility import Fragility
 from beyonddeus.schemamapping import SchemaMapper
+from beyonddeus.exposure import read_exposure
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -70,7 +70,7 @@ def main():
 
     # Read exposure
     logger.info("Reading input initial exposure model")
-    initial_exposure = exposure.read_exposure(config.input_paths["fragility"])
+    initial_exposure = read_exposure(config.input_paths["exposure"])
 
 
 if __name__ == "__main__":
