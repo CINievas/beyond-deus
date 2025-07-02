@@ -20,6 +20,7 @@ import os
 import sys
 import logging
 
+import exposure
 from beyonddeus.configuration import Configuration
 from beyonddeus.shakemap import Shakemaps
 from beyonddeus.fragility import Fragility
@@ -66,6 +67,10 @@ def main():
         config.input_paths["conversion_taxonomy"],
         config.input_paths["conversion_damage_states"]
     )
+
+    # Read exposure
+    logger.info("Reading input initial exposure model")
+    initial_exposure = exposure.read_exposure(config.input_paths["fragility"])
 
 
 if __name__ == "__main__":

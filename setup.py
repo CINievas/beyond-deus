@@ -32,6 +32,7 @@ setup(
         "numpy>=2.2.5",
         "scipy>=1.15.2",
         "lxml>=5.4",
+        "geopandas>=1.1.1",
     ],
     extras_require={
         "tests": tests_require,

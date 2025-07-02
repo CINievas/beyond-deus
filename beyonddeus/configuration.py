@@ -33,6 +33,8 @@ class Configuration:
                     Path to directory containing intensity input file(s).
                 "fragility":
                     Path to fragility input file.
+                "exposure":
+                    Path to exposure input file.
                 "conversion_taxonomy":
                     Path to directory containing conversion file(s) of building taxonomies.
                 "conversion_damage_states":
@@ -54,6 +56,9 @@ class Configuration:
         )
         self.input_paths["fragility"] = self._assign_parameter(
             config["input_paths"], "fragility"
+        )
+        self.input_paths["exposure"] = self._assign_parameter(
+            config["input_paths"], "exposure"
         )
         self.input_paths["conversion_taxonomy"] = self._assign_parameter(
             config["input_paths"], "conversion_taxonomy"

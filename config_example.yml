@@ -1,5 +1,6 @@
 input_paths:
   intensity: path_to_directory_with_intensity_input_files  # All files in this directory will be processed
   fragility: path_to_fragility_file  # One fragility json file
+  exposure: path_to_exposure_file  # One exposure json file
   conversion_taxonomy: path_to_directory_with_taxonomy_conversion_files # All files in this directory will be used
   conversion_damage_states: path_to_directory_with_damage_states_conversion_files  # All files in this directory will be used
