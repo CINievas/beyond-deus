@@ -39,6 +39,9 @@ class Configuration:
                     Path to directory containing conversion file(s) of building taxonomies.
                 "conversion_damage_states":
                     Path to directory containing conversion file(s) of damage states.
+                "consequence_and_costs":
+                    Path to file with input economic consequence model (loss ratios per damage
+                    state) and building replacement costs.
     """
 
     def __init__(self, filepath):
@@ -65,6 +68,9 @@ class Configuration:
         )
         self.input_paths["conversion_damage_states"] = self._assign_parameter(
             config["input_paths"], "conversion_damage_states"
+        )
+        self.input_paths["consequence_and_costs"] = self._assign_parameter(
+            config["input_paths"], "consequence_and_costs"
         )
 
     def _read_config_file(self, filepath):

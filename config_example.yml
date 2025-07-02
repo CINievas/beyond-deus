@@ -4,3 +4,4 @@ input_paths:
   exposure: path_to_exposure_file  # One exposure json file
   conversion_taxonomy: path_to_directory_with_taxonomy_conversion_files # All files in this directory will be used
   conversion_damage_states: path_to_directory_with_damage_states_conversion_files  # All files in this directory will be used
+  consequence_and_costs: path_to_consequence_and_costs_file  # One json file with economic consequence model and replacement costs

@@ -25,6 +25,7 @@ from beyonddeus.shakemap import Shakemaps
 from beyonddeus.fragility import Fragility
 from beyonddeus.schemamapping import SchemaMapper
 from beyonddeus.exposure import read_exposure
+from beyonddeus.loss import LossProvider
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -71,6 +72,10 @@ def main():
     # Read exposure
     logger.info("Reading input initial exposure model")
     initial_exposure = read_exposure(config.input_paths["exposure"])
+
+    # Read economic consequence model and building replacement costs
+    logger.info("Reading input economic consequence model and building replacement costs")
+    loss_provider = LossProvider.from_files(config.input_paths["consequence_and_costs"])
 
 
 if __name__ == "__main__":
