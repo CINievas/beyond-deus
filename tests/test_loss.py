@@ -17,7 +17,7 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import os
-from beyonddeus.loss import LossProvider
+from beyonddeus.loss import LossProvider, combine_losses
 
 
 def test_from_files():
@@ -28,7 +28,17 @@ def test_from_files():
 
     assert isinstance(loss_provider._data, dict)
 
-    assert "data" in loss_provider._data["my_id"].keys()
+    assert "data" in loss_provider._data["target_schema_name"].keys()
 
-    assert loss_provider._data["my_id"]["data"]["steps"]["3"] == 0.6
-    assert loss_provider._data["my_id"]["data"]["replacementCosts"]["bdg_class_1"] == 1000000
+    assert loss_provider._data["target_schema_name"]["data"]["steps"]["3"] == 0.6
+    assert (
+        loss_provider._data["target_schema_name"]["data"]["replacementCosts"]["bdg_class_1"]
+        == 1000000
+    )
+
+
+def test_combine_losses():
+
+    returned = combine_losses(17.5, 21.0)
+
+    assert round(returned, 6) == 38.5

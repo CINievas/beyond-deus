@@ -230,8 +230,7 @@ class DamageState:
 
     def get_probability_for_intensity(self, intensity, units):
         """
-        Returns the probability value for the given
-        intensity.
+        Returns the probability of occurrence for the given intensity.
 
         The intensity and units are given as dicts, for example:
         intensity = {
@@ -519,8 +518,7 @@ class FragilityProvider:
         (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
         https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
 
-    Class to give access to the taxonomies and
-    the damage states with the fragility functions.
+    Class to give access to the taxonomies and the damage states with the fragility functions.
     """
 
     def __init__(self, damage_states_by_taxonomy, schema):

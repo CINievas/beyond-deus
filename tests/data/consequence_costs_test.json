@@ -1,6 +1,6 @@
 {
     "meta": {
-        "id": "my_id"
+        "id": "target_schema_name"
     },
     "data": {
         "steps": {

@@ -24,7 +24,7 @@ from beyonddeus.configuration import Configuration
 from beyonddeus.shakemap import Shakemaps
 from beyonddeus.fragility import Fragility
 from beyonddeus.schemamapping import SchemaMapper
-from beyonddeus.exposure import read_exposure
+from beyonddeus.exposure import read_exposure, update_exposure_transitions_and_losses
 from beyonddeus.loss import LossProvider
 
 logger = logging.getLogger()
@@ -42,7 +42,8 @@ def main():
 
     # Read intensity files
     filenames = os.listdir(config.input_paths["intensity"])
-    logger.info("Reading input intensity files: %s files found" % (len(filenames)))
+    number_intensity_reals = len(filenames)
+    logger.info("Reading input intensity files: %s files found" % (number_intensity_reals))
     intensity_provider = {}
     
     for i, filename in enumerate(filenames):
@@ -61,6 +62,16 @@ def main():
         % (len(fragility_provider.get_taxonomies()))
     )
 
+    if fragility_provider.schema != config.parameters["building_schema_fragility"]:
+        error_message = (
+            "The name of the target building classification schema, that is, the schema of the "
+            "fragility model, as stated in the fragility input file, is different from the "
+            "name stated in the config.yml file. Please check and adjust. The current names "
+            "are %s and %s."
+            % (fragility_provider.schema, config.parameters["building_schema_fragility"])
+        )
+        raise ValueError(error_message)
+
     # Read taxonomy and damage states compatibility matrices
     logger.info("Reading input compatibility matrices")
 
@@ -76,6 +87,22 @@ def main():
     # Read economic consequence model and building replacement costs
     logger.info("Reading input economic consequence model and building replacement costs")
     loss_provider = LossProvider.from_files(config.input_paths["consequence_and_costs"])
+
+    # Calculate damage and economic losses
+    logger.info("Calculating damage and economic losses for each realisation of intensity")
+    for i in intensity_provider:
+        logger.info(
+            "   Working on intensity realisation %s of %s" % (i+1, number_intensity_reals)
+        )
+        updated_exposure = update_exposure_transitions_and_losses(
+            config.parameters["building_schema_exposure"],
+            config.parameters["building_schema_fragility"],
+            initial_exposure,
+            schema_mapper,
+            intensity_provider[i],
+            fragility_provider,
+            loss_provider,
+        )
 
 
 if __name__ == "__main__":

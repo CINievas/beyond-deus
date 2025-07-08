@@ -42,6 +42,13 @@ class Configuration:
                 "consequence_and_costs":
                     Path to file with input economic consequence model (loss ratios per damage
                     state) and building replacement costs.
+        self.parameters (dict):
+            Dictionary with parameters for the calculations. Keys:
+                "building_schema_exposure":
+                    Name of the building classification schema of the input exposure.
+                "building_schema_fragility":
+                    Name of the building classification schema of the output, i.e. of the
+                    input fragility and consequence models.
     """
 
     def __init__(self, filepath):
@@ -71,6 +78,14 @@ class Configuration:
         )
         self.input_paths["consequence_and_costs"] = self._assign_parameter(
             config["input_paths"], "consequence_and_costs"
+        )
+
+        self.parameters = {}
+        self.parameters["building_schema_exposure"] = self._assign_parameter(
+            config["parameters"], "building_schema_exposure"
+        )
+        self.parameters["building_schema_fragility"] = self._assign_parameter(
+            config["parameters"], "building_schema_fragility"
         )
 
     def _read_config_file(self, filepath):

@@ -330,3 +330,27 @@ def test_fragility_read_from_file():
             assert round(poe_returned, 12) == round(
                 expected_poes[from_damage_state][to_damage_state], 12
             )
+
+    # When the target intensity value is 0.0, get_probability_for_intensity() should return:
+    # * 0.0 if to_damage_state > from_damage_state (i.e. it is not possible to get more damage)
+    # * 1.0 if to_damage_state = from_damage_state (i.e. the object is already in that damage state)
+    data_bdg_class_2 = fragprov.get_damage_states_for_taxonomy("bdg_class_2")
+
+    for from_damage_state in [0, 1, 2, 3]:
+        for to_damage_state in [1, 2, 3]:
+            ds_requested = [
+                ds
+                for ds in data_bdg_class_2
+                if ds.from_state == from_damage_state
+                and ds.to_state == to_damage_state
+            ]
+            assert len(ds_requested) == 1
+            assert ds_requested[0].from_state == from_damage_state
+            assert ds_requested[0].to_state == to_damage_state
+            poe_returned = ds_requested[0].get_probability_for_intensity(
+                {"PGA": 0.0}, {"PGA": "g"}
+            )
+            if from_damage_state == to_damage_state:
+                assert round(poe_returned, 6) == 1.0
+            else:
+                assert round(poe_returned, 6) == 0.0

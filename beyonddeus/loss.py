@@ -46,3 +46,73 @@ class LossProvider:
             data[schema] = single_data
 
         return cls(data)
+
+    def get_fallback_replacement_cost(self, schema, taxonomy):
+        """
+        Return the replacement cost of one building with building class 'taxonomy', as indicated
+        in the input consequence model.
+
+        This function is used when the input exposure model itself does not provide a
+        replacement cost.
+
+        Args:
+            schema (str)
+            taxonomy (str)
+        """
+        if schema not in self._data:
+            raise Exception("schema is not known for loss computation")
+        data_for_schema = self._data[schema]["data"]
+        if taxonomy not in data_for_schema["replacementCosts"].keys():
+            raise Exception(
+                "no taxonomy candidates found for %s", repr(taxonomy)
+            )
+
+        return data_for_schema["replacementCosts"][taxonomy]
+
+    def get_loss(
+        self,
+        schema,
+        taxonomy,
+        from_damage_state,
+        to_damage_state,
+        replacement_cost,
+    ):
+        """
+        Returns the loss for the transition, i.e. the difference between the economic loss at
+        'to_damage_state' and the economic loss at 'from_damage_state'.
+        """
+
+        if schema not in self._data:
+            raise Exception("schema is not known for loss computation")
+        data_for_schema = self._data[schema]["data"]
+        steps = data_for_schema["steps"]
+
+        str_from_damage_state = str(from_damage_state)
+        str_to_damage_state = str(to_damage_state)
+
+        coeff_from = 0
+        if str_from_damage_state in steps.keys():
+            coeff_from = steps[str_from_damage_state]
+
+        coeff_to = steps[str_to_damage_state]
+        coeff = coeff_to - coeff_from
+
+        return replacement_cost * coeff
+
+
+def combine_losses(loss_value, existing_loss_value):
+    """
+    Class copied and adapted from:
+        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
+        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
+        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
+
+    Combine the losses of the various runs of deus.
+
+    Args:
+        loss_value (float): Incremental economic loss due to current hazard being run.
+        existing_loss_value (float): Cumulative economic loss due to all previous hazards run.
+    """
+    combined_loss_value = existing_loss_value + loss_value
+
+    return combined_loss_value
