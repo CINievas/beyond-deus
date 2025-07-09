@@ -42,6 +42,9 @@ class Configuration:
                 "consequence_and_costs":
                     Path to file with input economic consequence model (loss ratios per damage
                     state) and building replacement costs.
+        self.output_path (str):
+            Path to directory where outputs will be written. It must be empty. If it does not
+            exist, it will be created.
         self.parameters (dict):
             Dictionary with parameters for the calculations. Keys:
                 "building_schema_exposure":
@@ -78,6 +81,10 @@ class Configuration:
         )
         self.input_paths["consequence_and_costs"] = self._assign_parameter(
             config["input_paths"], "consequence_and_costs"
+        )
+
+        self.output_path = self._assign_parameter(
+            config, "output_path"
         )
 
         self.parameters = {}

@@ -5,6 +5,7 @@ input_paths:
   conversion_taxonomy: path_to_directory_with_taxonomy_conversion_files # All files in this directory will be used
   conversion_damage_states: path_to_directory_with_damage_states_conversion_files  # All files in this directory will be used
   consequence_and_costs: path_to_consequence_and_costs_file  # One json file with economic consequence model and replacement costs
+output_path: path_tooutput_folder  # Folder to which the outputs will be written, must be empty
 parameters:
   building_schema_exposure: source_schema_name  #  Name of the building classification schema of the input exposure (one string)
   building_schema_fragility: target_schema_name  # Name of the building classification schema of the output, i.e. of the fragility model (one string)

@@ -40,13 +40,26 @@ def main():
     # Read configuration parameters
     config = Configuration("config.yml")
 
+    if not os.path.exists(config.output_path):
+        # Create output directory if it does not exist yet
+        os.mkdir(config.output_path)
+
+    # Check if output directory is empty (it needs to be)
+    if not len(os.listdir(config.output_path)) == 0:
+        error_message = (
+            "The directory '%s' is not empty but should be. The program will stop."
+            % (config.output_path)
+        )
+        logger.critical(error_message)
+        raise OSError(error_message)
+
     # Read intensity files
-    filenames = os.listdir(config.input_paths["intensity"])
-    number_intensity_reals = len(filenames)
+    intensity_filenames = os.listdir(config.input_paths["intensity"])
+    number_intensity_reals = len(intensity_filenames)
     logger.info("Reading input intensity files: %s files found" % (number_intensity_reals))
     intensity_provider = {}
     
-    for i, filename in enumerate(filenames):
+    for i, filename in enumerate(intensity_filenames):
         intensity_provider[i] = Shakemaps.from_file(
             os.path.join(config.input_paths["intensity"], filename)
         ).to_intensity_provider()
@@ -90,7 +103,7 @@ def main():
 
     # Calculate damage and economic losses
     logger.info("Calculating damage and economic losses for each realisation of intensity")
-    for i in intensity_provider:
+    for i, filename in enumerate(intensity_filenames):
         logger.info(
             "   Working on intensity realisation %s of %s" % (i+1, number_intensity_reals)
         )
@@ -103,6 +116,11 @@ def main():
             fragility_provider,
             loss_provider,
         )
+
+        logger.info("      Exporting results")
+        out_filename = "%s_updated_exposure.json" % (os.path.splitext(filename)[0])
+        updated_exposure.to_file(os.path.join(config.output_path, out_filename), "GeoJSON")
+
 
 
 if __name__ == "__main__":
