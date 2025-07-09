@@ -87,11 +87,18 @@ def main():
 
     # Read taxonomy and damage states compatibility matrices
     logger.info("Reading input compatibility matrices")
-
-    schema_mapper = SchemaMapper.from_taxonomy_and_damage_state_conversion_files(
-        config.input_paths["conversion_taxonomy"],
-        config.input_paths["conversion_damage_states"]
-    )
+    #import pdb
+    #pdb.set_trace()
+    if (
+        config.input_paths["conversion_taxonomy"] == "None"
+        and config.input_paths["conversion_damage_states"] == "None"
+    ):
+        schema_mapper = SchemaMapper(None, None)
+    else:
+        schema_mapper = SchemaMapper.from_taxonomy_and_damage_state_conversion_files(
+            config.input_paths["conversion_taxonomy"],
+            config.input_paths["conversion_damage_states"]
+        )
 
     # Read exposure
     logger.info("Reading input initial exposure model")
