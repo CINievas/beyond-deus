@@ -8,7 +8,7 @@
 "format": "continuous",
 "shape": "logncdf",
 "description": "Fragility model for testing",
-"taxonomy" : "['bdg_class_1', 'bdg_class_2']",
+"taxonomy" : "['source_1', 'source_2']",
 "limit states":[
 "D1",
 "D2",
@@ -18,7 +18,7 @@
 },
 "data":[
 {
-"taxonomy" : "bdg_class_1",
+"taxonomy" : "source_1",
 "D1_mean" : 0.32793063480977475,
 "D1_stddev" : 0.629186664350547,
 "D2_mean" : 0.7941931999147935,
@@ -32,7 +32,7 @@
 "imu" : "g"
 },
 {
-"taxonomy" : "bdg_class_2",
+"taxonomy" : "source_2",
 "D1_mean" : -3.0,
 "D1_stddev" : 0.3,
 "D2_mean" : -2.5,

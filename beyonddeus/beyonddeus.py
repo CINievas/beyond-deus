@@ -19,12 +19,16 @@
 import os
 import sys
 import logging
+import numpy as np
+import pandas as pd
 
 from beyonddeus.configuration import Configuration
 from beyonddeus.shakemap import Shakemaps
 from beyonddeus.fragility import Fragility
 from beyonddeus.schemamapping import SchemaMapper
-from beyonddeus.exposure import read_exposure, update_exposure_transitions_and_losses
+from beyonddeus.exposure import (
+    read_exposure, map_exposure, update_exposure_transitions_and_losses
+)
 from beyonddeus.loss import LossProvider
 
 logger = logging.getLogger()
@@ -87,8 +91,6 @@ def main():
 
     # Read taxonomy and damage states compatibility matrices
     logger.info("Reading input compatibility matrices")
-    #import pdb
-    #pdb.set_trace()
     if (
         config.input_paths["conversion_taxonomy"] == "None"
         and config.input_paths["conversion_damage_states"] == "None"
@@ -102,11 +104,34 @@ def main():
 
     # Read exposure
     logger.info("Reading input initial exposure model")
-    initial_exposure = read_exposure(config.input_paths["exposure"])
+    initial_exposure_df, exposure_geoms = read_exposure(
+        config.input_paths["exposure_csv"], config.input_paths["exposure_gpkg"]
+    )
+
+    # Map exposure from source to target schemas
+    logger.info("Mapping input initial exposure model onto target schema")
+    mapped_exposure = map_exposure(
+        initial_exposure_df,
+        config.parameters["building_schema_exposure"],
+        config.parameters["building_schema_fragility"],
+        schema_mapper,
+    )
 
     # Read economic consequence model and building replacement costs
-    logger.info("Reading input economic consequence model and building replacement costs")
-    loss_provider = LossProvider.from_files(config.input_paths["consequence_and_costs"])
+    logger.info("Reading input economic consequence model")
+    loss_provider = LossProvider.from_files(config.input_paths["consequence"])
+
+    # Retrieve location (nearest neighbour position) of hazard intensity measures at the
+    # centroids indicated in the input exposure geometries
+    logger.info("Determining nearest-neighbour hazard positions for all exposure sites")
+    target_locations = np.array(
+        [exposure_geoms["centroid_lon"], exposure_geoms["centroid_lat"]]
+    ).T
+    nearest_neighbours = intensity_provider[0].identify_nearest_neighbours(target_locations)
+    intensity_positions = pd.DataFrame(
+        {"nearest_neighbour": nearest_neighbours},
+        index=exposure_geoms["building_id"]
+    )
 
     # Calculate damage and economic losses
     logger.info("Calculating damage and economic losses for each realisation of intensity")
@@ -115,18 +140,16 @@ def main():
             "   Working on intensity realisation %s of %s" % (i+1, number_intensity_reals)
         )
         updated_exposure = update_exposure_transitions_and_losses(
-            config.parameters["building_schema_exposure"],
-            config.parameters["building_schema_fragility"],
-            initial_exposure,
-            schema_mapper,
+            mapped_exposure,
             intensity_provider[i],
+            intensity_positions,
             fragility_provider,
             loss_provider,
         )
 
         logger.info("      Exporting results")
-        out_filename = "%s_updated_exposure.json" % (os.path.splitext(filename)[0])
-        updated_exposure.to_file(os.path.join(config.output_path, out_filename), "GeoJSON")
+        out_filename = "%s_updated_exposure.csv" % (os.path.splitext(filename)[0])
+        updated_exposure.to_csv(os.path.join(config.output_path, out_filename), index=False)
 
 
 

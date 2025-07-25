@@ -1,0 +1,5 @@
+building_id,taxonomy,initial_damage,number,replacement_cost_tot,id,cum_loss_value
+1230,source_1,0,2.5,2500000,res_1,0
+1230,source_2,0,5,2000000,res_2,0
+1231,source_1,0,4,4000000,res_3,0
+1231,source_2,0,10,4000000,res_4,0

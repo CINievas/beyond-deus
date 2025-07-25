@@ -117,3 +117,74 @@ class IntensityProvider:
             units[column] = unit
 
         return intensities, units
+
+    def get_values_at_position(self, target_position):
+        """
+        Returns a dict with the values and a dict with the units of the intensities that the
+        provider has at a given position of the data.
+
+        If the 'target_position' is a negative number, it is assumed that the target point is
+        too far away from all of the intensity points, and the returned value is self._na_value.
+
+        Args:
+            target_position (integer):
+                Position of the target intensity point, as in "self._intensity_data".
+
+        Returns:
+            intensities (dict):
+                Dictionary with as many keys as intensity measures in self._intensity_data, and
+                values associated with the requested 'target_position'.
+            units (dict):
+                Dictionary with same keys as `intensities`, containing their associated units of
+                measure.
+        """
+        intensities = {}
+        units = {}
+
+        for column in self._intensity_data.get_data_columns():  # each column is an IM
+            if target_position >= 0:
+                value = self._intensity_data.get_value_for_column_and_index(
+                    column=column,
+                    index=target_position
+                )
+            else:
+                value = self._na_value
+
+            intensities[column] = value
+
+            units[column] = self._intensity_data.get_unit_for_column_and_index(
+                column=column,
+                index=target_position
+            )
+
+        return intensities, units
+
+
+    def identify_nearest_neighbours(self, target_locations, not_available=-999):
+        """
+        This function determines the position of the nearest neighbours of all elements of
+        'target_locations'. If the nearest neighbour is too far away from the target location
+        (i.e., distance larger than self._max_dist), the returned position is 'not_available'.
+
+        Args:
+            target_locations (NumPy array):
+                Array with two columns, first longitude, second latitude, and as many rows as
+                target locations of interest.
+            not_available (int):
+                Position value to return if the nearest neighbour is too far away from the target
+                location. Default value: -999.
+
+        Returns:
+            nearest_neighbours (NumPy array):
+                Array with one element per row of 'target_locations'. It contains the position
+                of the nearest neighbour of each target location in self._intensity_data.
+        """
+        nearest_neighbours = np.zeros(target_locations.shape[0], dtype=int)
+        aux_distances = np.zeros(target_locations.shape[0])
+
+        for i, coord in enumerate(target_locations):
+            aux_distances[i], nearest_neighbours[i] = self._spatial_index.query(coord, k=1)
+
+        nearest_neighbours[np.where(aux_distances > self._max_dist)[0]] = not_available
+
+        return nearest_neighbours

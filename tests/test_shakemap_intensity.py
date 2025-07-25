@@ -17,6 +17,7 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import os
+import numpy as np
 from beyonddeus.shakemap import Shakemaps
 
 
@@ -53,3 +54,33 @@ def test_intensity_from_shakemap():
     for i, im in enumerate(expected[0].keys()):
         assert round(returned[0][im], 5) == round(expected[0][im], 5)
         assert returned[1][im] == expected[1][im]
+
+    target_locations = np.array([
+        [14.6, 37.1], [14.9, 36.9], [16.0, 37.0], [15.5, 37.0], [-14.0, -36.0]
+    ])
+    returned_nearest_neighbours = intensity_provider.identify_nearest_neighbours(
+        target_locations
+    )
+
+    expected_nearest_neighbours = np.array([8, 11, -999, 11, -999])
+
+    for i in range(expected_nearest_neighbours.shape[0]):
+        assert returned_nearest_neighbours[i] == expected_nearest_neighbours[i]
+
+    expected_im_values = [
+        {"PGA": 0.10, "SA(0.3)": 0.20, "SA(0.6)": 0.30, "SA(1.0)": 0.40},
+        {"PGA": 0.15, "SA(0.3)": 0.25, "SA(0.6)": 0.35, "SA(1.0)": 0.45},
+        {"PGA": 0.00, "SA(0.3)": 0.00, "SA(0.6)": 0.00, "SA(1.0)": 0.00},
+        {"PGA": 0.15, "SA(0.3)": 0.25, "SA(0.6)": 0.35, "SA(1.0)": 0.45},
+        {"PGA": 0.00, "SA(0.3)": 0.00, "SA(0.6)": 0.00, "SA(1.0)": 0.00}
+    ]
+
+    for i in range(expected_nearest_neighbours.shape[0]):
+
+        returned_ims, returned_units = intensity_provider.get_values_at_position(
+            expected_nearest_neighbours[i]
+        )
+
+        for im_type in expected_im_values[i]:
+            assert round(returned_ims[im_type], 5) == round(expected_im_values[i][im_type], 5)
+            assert returned_units[im_type] == "g"

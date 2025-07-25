@@ -33,15 +33,17 @@ class Configuration:
                     Path to directory containing intensity input file(s).
                 "fragility":
                     Path to fragility input file.
-                "exposure":
-                    Path to exposure input file.
+                "exposure_csv":
+                    Path to exposure CSV input file.
+                "exposure_gpkg":
+                    Path to exposure GeoPackage input file.
                 "conversion_taxonomy":
                     Path to directory containing conversion file(s) of building taxonomies.
                 "conversion_damage_states":
                     Path to directory containing conversion file(s) of damage states.
-                "consequence_and_costs":
+                "consequence":
                     Path to file with input economic consequence model (loss ratios per damage
-                    state) and building replacement costs.
+                    state).
         self.output_path (str):
             Path to directory where outputs will be written. It must be empty. If it does not
             exist, it will be created.
@@ -70,8 +72,11 @@ class Configuration:
         self.input_paths["fragility"] = self._assign_parameter(
             config["input_paths"], "fragility"
         )
-        self.input_paths["exposure"] = self._assign_parameter(
-            config["input_paths"], "exposure"
+        self.input_paths["exposure_csv"] = self._assign_parameter(
+            config["input_paths"], "exposure_csv"
+        )
+        self.input_paths["exposure_gpkg"] = self._assign_parameter(
+            config["input_paths"], "exposure_gpkg"
         )
         self.input_paths["conversion_taxonomy"] = self._assign_parameter(
             config["input_paths"], "conversion_taxonomy"
@@ -79,8 +84,8 @@ class Configuration:
         self.input_paths["conversion_damage_states"] = self._assign_parameter(
             config["input_paths"], "conversion_damage_states"
         )
-        self.input_paths["consequence_and_costs"] = self._assign_parameter(
-            config["input_paths"], "consequence_and_costs"
+        self.input_paths["consequence"] = self._assign_parameter(
+            config["input_paths"], "consequence"
         )
 
         self.output_path = self._assign_parameter(

@@ -532,6 +532,13 @@ class FragilityProvider:
         Returns list of DamageState objects.
         """
 
+        if not taxonomy in self._damage_states_by_taxonomy.keys():
+            error_message = (
+                "Building class '%s' from exposure not found in FragilityProvider"
+                % (taxonomy)
+            )
+            raise KeyError(error_message)
+
         return self._damage_states_by_taxonomy[taxonomy]
 
     def get_taxonomies(self):

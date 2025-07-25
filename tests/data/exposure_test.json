@@ -1,9 +1,0 @@
-{
-"type": "FeatureCollection",
-"name": "exposure",
-"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": [
-{ "type": "Feature", "properties": { "gid": "1230", "expo": { "Taxonomy": [ "bdg_class_1", "bdg_class_2" ], "Damage": [ "D0", "D0" ], "Buildings": [ 2.5, 5.0 ] } }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 14.55, 37.05 ], [ 14.65, 37.05 ], [ 14.65, 37.15 ], [ 14.55, 37.15 ], [ 14.55, 37.05 ] ] ] } },
-{ "type": "Feature", "properties": { "gid": "1231", "expo": { "Taxonomy": [ "bdg_class_1", "bdg_class_2" ], "Damage": [ "D0", "D0" ], "Buildings": [ 4.0, 10.0 ] } }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 14.85, 36.85 ], [ 14.95, 36.85 ], [ 14.95, 36.95 ], [ 14.85, 36.95 ], [ 14.85, 36.85 ] ] ] } }
-]
-}

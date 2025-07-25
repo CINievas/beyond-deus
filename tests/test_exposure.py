@@ -20,6 +20,7 @@ import os
 import pytest
 import collections
 import numpy as np
+import pandas as pd
 import geopandas as gpd
 from copy import deepcopy
 from beyonddeus.schemamapping import SchemaMapper
@@ -27,36 +28,49 @@ from beyonddeus.fragility import Fragility, DamageState
 from beyonddeus.shakemap import Shakemaps
 from beyonddeus.loss import LossProvider
 from beyonddeus.exposure import (
-    ExpoValues, empty_expo_values, read_exposure, map_exposure, expo_from_series_to_dict,
-    get_sorted_damage_states, get_updated_exposure_and_transitions, TransitionValues,
+    read_exposure, map_exposure, get_sorted_damage_states, get_updated_exposure_and_transitions,
     compute_loss, update_exposure_transitions_and_losses
 )
 
 
 def test_read_exposure():
 
-    initial_exposure = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.json")
+    initial_exposure, exposure_geometries = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
 
-    assert initial_exposure.shape[0] == 2  # rows
+    assert initial_exposure.shape[0] == 4  # rows
 
-    quadkeys = ["1230", "1231"]  # implicitly checking "gid" column read as strings
-    initial_exposure_quadkeys = initial_exposure["gid"].to_numpy()
+    expected_exposure_part = pd.DataFrame(
+        {
+            "building_id": ["1230", "1230", "1231", "1231"],
+            "taxonomy": ["source_1", "source_2", "source_1", "source_2"]
+        }
+    )
 
-    expo_keys = ["Taxonomy", "Damage", "Buildings"]
+    for row in expected_exposure_part.index:
+        assert (
+            initial_exposure.loc[row, "building_id"] ==
+            expected_exposure_part.loc[row, "building_id"]
+        )
+        assert (
+            initial_exposure.loc[row, "taxonomy"] ==
+            expected_exposure_part.loc[row, "taxonomy"]
+        )
 
-    for quadkey in quadkeys:
-        assert quadkey in initial_exposure_quadkeys
+    assert round(initial_exposure["number"].sum(), 5) == 21.5
+    assert round(initial_exposure["replacement_cost_tot"].sum(), 5) == 12.5E6
+    assert round(initial_exposure["cum_loss_value"].sum(), 5) == 0.0
 
-        row = np.where(initial_exposure_quadkeys == quadkey)[0][0]
+    # Test case in which GPKG does not contain polygons for all building_id of CSV
+    with pytest.raises(OSError) as excinfo:
+        initial_exposure, exposure_geometries = read_exposure(
+            os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
+            os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test_wrong.gpkg")
+        )
 
-        expo_dict = eval(initial_exposure.loc[row, "expo"])
-
-        assert isinstance(expo_dict, dict)
-
-        for expo_key in expo_keys:
-            assert expo_key in expo_dict.keys()
+    assert "OSError" in str(excinfo.type)
 
 
 def test_map_exposure():
@@ -76,41 +90,35 @@ def test_map_exposure():
     assert result_expo_returned == expo
 
     # Test case in which conversion is actually done
-    old_exposure = expo_from_series_to_dict(
-        {
-            "Taxonomy": ["source_1", "source_3"],
-            "Damage": ["D0", "D0"],
-            "Buildings": [2.5, 5.0]
-        }
+    old_exposure, _ = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
-    result_expo_returned = map_exposure(
+
+    expected_exposure, _ = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "expected_mapped_exposure.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+    expected_exposure.sort_values(
+        by=["building_id", "id", "taxonomy", "initial_damage"], inplace=True
+    )
+    expected_exposure.reset_index(inplace=True)
+
+    returned_exposure = map_exposure(
         old_exposure, "source_schema_name", "target_schema_name", schema_mapper
     )
 
-    ExpoKey = collections.namedtuple("ExpoKey", ["taxonomy", "damage_state"])
+    string_cols = ["building_id", "taxonomy", "id"]
+    numeric_cols = ["number", "initial_damage", "replacement_cost_tot", "cum_loss_value"]
 
-    result_expo_expected = collections.defaultdict(empty_expo_values)
-    result_expo_expected[ExpoKey("target_1", 0)] = ExpoValues(0.0875, 0, 0)
-    result_expo_expected[ExpoKey("target_1", 1)] = ExpoValues(1.3125, 0, 0)
-    result_expo_expected[ExpoKey("target_1", 2)] = ExpoValues(0.35, 0, 0)
-    # "target_2" gets contributions from both "source_1" and "source_3"
-    result_expo_expected[ExpoKey("target_2", 0)] = ExpoValues(0.2875, 0, 0)  # 0.0375 + 0.25
-    result_expo_expected[ExpoKey("target_2", 1)] = ExpoValues(4.3125, 0, 0)  # 0.5625 + 3.75
-    result_expo_expected[ExpoKey("target_2", 2)] = ExpoValues(1.15, 0, 0)  # 0.15 + 1.0
-
-    for expo_expected_key, expo_expected_value in result_expo_expected.items():
-        assert (
-            round(expo_expected_value.buildings, 4)
-            == round(result_expo_returned[expo_expected_key].buildings, 4)
-        )
-        assert (
-            round(expo_expected_value.population, 4)
-            == round(result_expo_returned[expo_expected_key].population, 4)
-        )
-        assert (
-            round(expo_expected_value.replcostbdg, 4)
-            == round(result_expo_returned[expo_expected_key].replcostbdg, 4)
-        )
+    for row in expected_exposure.index:
+        for col in string_cols:
+            assert returned_exposure.loc[row, col] == expected_exposure.loc[row, col]
+        for col in numeric_cols:
+            assert (
+                round(returned_exposure.loc[row, col], 5) ==
+                round(expected_exposure.loc[row, col], 5)
+            )
 
 
 def test_get_sorted_damage_states():
@@ -120,13 +128,13 @@ def test_get_sorted_damage_states():
     ).to_fragility_provider()
 
     # Initial damage state 0
-    dmg_states_returned = get_sorted_damage_states(fragprov, "bdg_class_1", 0)
+    dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 0)
 
     dmg_states_expected = [
-        DamageState("bdg_class_1", 0, 4, "PGA", "g", "not_needed_here"),
-        DamageState("bdg_class_1", 0, 3, "PGA", "g", "not_needed_here"),
-        DamageState("bdg_class_1", 0, 2, "PGA", "g", "not_needed_here"),
-        DamageState("bdg_class_1", 0, 1, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 0, 4, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 0, 3, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 0, 2, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 0, 1, "PGA", "g", "not_needed_here"),
     ]
 
     for i, dmg_state in enumerate(dmg_states_expected):
@@ -134,12 +142,12 @@ def test_get_sorted_damage_states():
         assert dmg_states_returned[i].to_state == dmg_state.to_state
 
     # Initial damage state 1
-    dmg_states_returned = get_sorted_damage_states(fragprov, "bdg_class_1", 1)
+    dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 1)
 
     dmg_states_expected = [
-        DamageState("bdg_class_1", 1, 4, "PGA", "g", "not_needed_here"),
-        DamageState("bdg_class_1", 1, 3, "PGA", "g", "not_needed_here"),
-        DamageState("bdg_class_1", 1, 2, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 1, 4, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 1, 3, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 1, 2, "PGA", "g", "not_needed_here"),
     ]
 
     for i, dmg_state in enumerate(dmg_states_expected):
@@ -147,11 +155,11 @@ def test_get_sorted_damage_states():
         assert dmg_states_returned[i].to_state == dmg_state.to_state
 
     # Initial damage state 2
-    dmg_states_returned = get_sorted_damage_states(fragprov, "bdg_class_1", 2)
+    dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 2)
 
     dmg_states_expected = [
-        DamageState("bdg_class_1", 2, 4, "PGA", "g", "not_needed_here"),
-        DamageState("bdg_class_1", 2, 3, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 2, 4, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 2, 3, "PGA", "g", "not_needed_here"),
     ]
 
     for i, dmg_state in enumerate(dmg_states_expected):
@@ -159,10 +167,10 @@ def test_get_sorted_damage_states():
         assert dmg_states_returned[i].to_state == dmg_state.to_state
 
     # Initial damage state 3
-    dmg_states_returned = get_sorted_damage_states(fragprov, "bdg_class_1", 3)
+    dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 3)
 
     dmg_states_expected = [
-        DamageState("bdg_class_1", 3, 4, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 3, 4, "PGA", "g", "not_needed_here"),
     ]
 
     for i, dmg_state in enumerate(dmg_states_expected):
@@ -170,21 +178,24 @@ def test_get_sorted_damage_states():
         assert dmg_states_returned[i].to_state == dmg_state.to_state
 
     # Initial damage state 4
-    dmg_states_returned = get_sorted_damage_states(fragprov, "bdg_class_1", 4)
+    dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 4)
 
     assert len(dmg_states_returned) == 0
 
 
 def test_get_updated_exposure_and_transitions():
 
+    # TEST 1
+
     # Read test exposure file
-    initial_exposure = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.json")
+    initial_exposure, exposure_geometries = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
 
     # Focus on the first exposure polygon of the file
-    # and transform to a collections.defaultdict
-    old_exposure = expo_from_series_to_dict(eval(initial_exposure.loc[0, "expo"]))
+    old_exposure = initial_exposure[initial_exposure.building_id == "1230"].copy()
+    intensity_position = 8
 
     # Read fragility input
     fragility_provider = Fragility.from_file(
@@ -196,79 +207,84 @@ def test_get_updated_exposure_and_transitions():
         os.path.join(os.path.dirname(__file__), "data", "intensity_test.xml"),
     ).to_intensity_provider()
 
-    returned_result_expo, returned_result_transitions = (
-        get_updated_exposure_and_transitions(
-            initial_exposure.loc[0, "geometry"],
-            old_exposure,
-            intensity_provider,
-            fragility_provider
-        )
+    returned_updated_exposure = get_updated_exposure_and_transitions(
+        old_exposure,
+        intensity_position,
+        intensity_provider,
+        fragility_provider
     )
 
-    ExpoKey = collections.namedtuple("ExpoKey", ["taxonomy", "damage_state"])
+    # Read expected results
+    expected_updated_exposure, _ = read_exposure(
+       os.path.join(
+           os.path.dirname(__file__), "data",
+           "expected_updated_exposure_damage_losses_no_previous_loss.csv"
+       ),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+    expected_updated_exposure = expected_updated_exposure[
+        expected_updated_exposure.building_id == "1230"
+    ].copy()
+    expected_updated_exposure = expected_updated_exposure.drop(columns=["incremental_loss"])
 
-    expected_result_expo = collections.defaultdict(empty_expo_values)
-    expected_result_expo[ExpoKey("bdg_class_1", 1)] = ExpoValues(3.5236E-5, 0, 0)
-    expected_result_expo[ExpoKey("bdg_class_1", 2)] = ExpoValues(8.9000E-7, 0, 0)
-    expected_result_expo[ExpoKey("bdg_class_1", 3)] = ExpoValues(1.2502E-7, 0, 0)
-    expected_result_expo[ExpoKey("bdg_class_1", 4)] = ExpoValues(5.6467E-8, 0, 0)
-    expected_result_expo[ExpoKey("bdg_class_2", 1)] = ExpoValues(1.22604768, 0, 0)
-    expected_result_expo[ExpoKey("bdg_class_2", 2)] = ExpoValues(2.94083859, 0, 0)
-    expected_result_expo[ExpoKey("bdg_class_2", 3)] = ExpoValues(0.73493773, 0, 0)
-    expected_result_expo[ExpoKey("bdg_class_2", 4)] = ExpoValues(0.04795817, 0, 0)
+    for col in expected_updated_exposure.columns:
+        assert col in returned_updated_exposure
 
-    for expo_expected_key, expo_expected_value in expected_result_expo.items():
-        assert (
-            round(expo_expected_value.buildings, 6)
-            == round(returned_result_expo[expo_expected_key].buildings, 6)
-        )
-        assert (
-            round(expo_expected_value.population, 6)
-            == round(returned_result_expo[expo_expected_key].population, 6)
-        )
-        assert (
-            round(expo_expected_value.replcostbdg, 6)
-            == round(returned_result_expo[expo_expected_key].replcostbdg, 6)
-        )
+    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_floats = ["number", "replacement_cost_tot"]
 
-    TransitionKey = collections.namedtuple(
-        "TransitionKey",
-        ["taxonomy", "from_damage_state", "to_damage_state"],
+    for row in expected_updated_exposure.index:
+        for col in cols_str_or_int:
+            assert (
+                returned_updated_exposure.loc[row, col] ==
+                expected_updated_exposure.loc[row, col]
+            )
+        for col in cols_floats:
+            if col == "number":
+                assert (
+                    round(returned_updated_exposure.loc[row, col], 10) ==
+                    round(expected_updated_exposure.loc[row, col], 10)
+                )
+            else:
+                assert (
+                    round(returned_updated_exposure.loc[row, col], 5) ==
+                    round(expected_updated_exposure.loc[row, col], 5)
+                )
+
+    # TEST 2: CASE IN WHICH THE NUMBER OF INPUT BUILDINGS ~0
+    # (It uses some data already loaded for TEST 1)
+
+    old_exposure["number"] = np.zeros(old_exposure.shape[0])
+
+    returned_updated_exposure_trivial = get_updated_exposure_and_transitions(
+        old_exposure,
+        intensity_position,
+        intensity_provider,
+        fragility_provider
     )
 
-    expected_result_transit = collections.defaultdict(empty_expo_values)
-    expected_result_transit[TransitionKey("bdg_class_1", 0, 1)] = TransitionValues(3.5236E-5, 0)
-    expected_result_transit[TransitionKey("bdg_class_1", 0, 2)] = TransitionValues(8.9000E-7, 0)
-    expected_result_transit[TransitionKey("bdg_class_1", 0, 3)] = TransitionValues(1.2502E-7, 0)
-    expected_result_transit[TransitionKey("bdg_class_1", 0, 4)] = TransitionValues(5.6467E-8, 0)
-    expected_result_transit[TransitionKey("bdg_class_2", 0, 1)] = TransitionValues(1.22604768, 0)
-    expected_result_transit[TransitionKey("bdg_class_2", 0, 2)] = TransitionValues(2.94083859, 0)
-    expected_result_transit[TransitionKey("bdg_class_2", 0, 3)] = TransitionValues(0.73493773, 0)
-    expected_result_transit[TransitionKey("bdg_class_2", 0, 4)] = TransitionValues(0.04795817, 0)
+    assert returned_updated_exposure_trivial.shape[0] == old_exposure.shape[0]
 
-
-    for transit_expected_key, transit_expected_value in expected_result_transit.items():
-
+    for row in old_exposure.index:
         assert (
-            round(transit_expected_value.buildings, 6)
-            == round(returned_result_transitions[transit_expected_key].buildings, 6)
-        )
-        assert (
-            round(transit_expected_value.replcostbdg, 6)
-            == round(returned_result_transitions[transit_expected_key].replcostbdg, 6)
+            returned_updated_exposure_trivial.loc[row, "final_damage"]
+            == old_exposure.loc[row, "initial_damage"]
         )
 
 
 def test_compute_loss():
 
+    # TEST 1: NO PRE-EXISTING CUMULATIVE LOSSES
+
     # Read test exposure file
-    initial_exposure = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.json")
+    initial_exposure, exposure_geometries = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
 
     # Focus on the first exposure polygon of the file
-    # and transform to a collections.defaultdict
-    old_exposure = expo_from_series_to_dict(eval(initial_exposure.loc[0, "expo"]))
+    old_exposure = initial_exposure[initial_exposure.building_id == "1230"].copy()
+    intensity_position = 8
 
     # Read fragility input
     fragility_provider = Fragility.from_file(
@@ -282,27 +298,120 @@ def test_compute_loss():
 
     # Read loss model provider
     loss_provider = LossProvider.from_files(
-        os.path.join(os.path.dirname(__file__), "data", "consequence_costs_test.json")
+        os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
     )
 
-    # Calculate damage transitions
-    _, result_transitions = (
-        get_updated_exposure_and_transitions(
-            initial_exposure.loc[0, "geometry"],
-            old_exposure,
-            intensity_provider,
-            fragility_provider
-        )
+    updated_exposure = get_updated_exposure_and_transitions(
+        old_exposure,
+        intensity_position,
+        intensity_provider,
+        fragility_provider
     )
 
     # Calculate economic losses
-    returned_loss_value = compute_loss(
-        transitions=result_transitions,
+    returned_updated_exposure_and_losses = compute_loss(
+        updated_exposure,
         loss_provider=loss_provider,
         schema=fragility_provider.schema,
     )
 
-    assert round(returned_loss_value, 6) == 396541.620518
+    # Read expected results
+    expected_updated_exposure_and_losses, _ = read_exposure(
+       os.path.join(
+           os.path.dirname(__file__), "data",
+           "expected_updated_exposure_damage_losses_no_previous_loss.csv"
+       ),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+    expected_updated_exposure_and_losses = expected_updated_exposure_and_losses[
+        expected_updated_exposure_and_losses.building_id == "1230"
+    ].copy()
+
+    cols = ["incremental_loss", "cum_loss_value"]
+
+    for row in expected_updated_exposure_and_losses.index:
+        for col in cols:
+            assert (
+                round(returned_updated_exposure_and_losses.loc[row, col], 5) ==
+                round(expected_updated_exposure_and_losses.loc[row, col], 5)
+            )
+
+    assert round(
+        returned_updated_exposure_and_losses["incremental_loss"].sum(), 6
+    ) == 396541.620518
+    assert round(
+        returned_updated_exposure_and_losses["cum_loss_value"].sum(), 6
+    ) == 396541.620518
+
+    # TEST 2: WITH PRE-EXISTING CUMULATIVE LOSSES,
+    # INCLUDING ASSETS FOR WHICH ADJUSTMENT IS NEEDED TO AVOID CUMULATIVE LOSS>REPLACEMENT COST
+
+    # Read test exposure file
+    initial_exposure, exposure_geometries = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+
+    # Focus on the first exposure polygon of the file
+    old_exposure = initial_exposure[initial_exposure.building_id == "1230"].copy()
+    intensity_position = 8
+
+    # Read fragility input
+    fragility_provider = Fragility.from_file(
+       os.path.join(os.path.dirname(__file__), "data", "fragility_test.json")
+    ).to_fragility_provider()
+
+    # Read intensity provider
+    intensity_provider = Shakemaps.from_file(
+        os.path.join(os.path.dirname(__file__), "data", "intensity_test.xml"),
+    ).to_intensity_provider()
+
+    # Read loss model provider
+    loss_provider = LossProvider.from_files(
+        os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
+    )
+
+    updated_exposure = get_updated_exposure_and_transitions(
+        old_exposure,
+        intensity_position,
+        intensity_provider,
+        fragility_provider
+    )
+
+    # Calculate economic losses
+    returned_updated_exposure_and_losses = compute_loss(
+        updated_exposure,
+        loss_provider=loss_provider,
+        schema=fragility_provider.schema,
+    )
+
+    # Read expected results
+    expected_updated_exposure_and_losses, _ = read_exposure(
+       os.path.join(
+           os.path.dirname(__file__), "data",
+           "expected_updated_exposure_damage_losses_with_previous_loss.csv"
+       ),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+    expected_updated_exposure_and_losses = expected_updated_exposure_and_losses[
+        expected_updated_exposure_and_losses.building_id == "1230"
+    ].copy()
+
+    cols = ["incremental_loss", "cum_loss_value"]
+
+    for row in expected_updated_exposure_and_losses.index:
+        for col in cols:
+            assert (
+                round(returned_updated_exposure_and_losses.loc[row, col], 3) ==
+                round(expected_updated_exposure_and_losses.loc[row, col], 3)
+            )
+
+    assert round(
+        returned_updated_exposure_and_losses["incremental_loss"].sum(), 5
+    ) == 395582.45595
+    assert round(
+        returned_updated_exposure_and_losses["cum_loss_value"].sum(), 3
+    ) == 545582.456
 
 
 def test_update_exposure_transitions_and_losses():
@@ -313,8 +422,9 @@ def test_update_exposure_transitions_and_losses():
     # (no existing "cum_loss_value" column)
 
     # Read test exposure file
-    initial_exposure = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.json")
+    initial_exposure, exposure_geometries = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
 
     # Read fragility input
@@ -333,152 +443,58 @@ def test_update_exposure_transitions_and_losses():
         os.path.join(os.path.dirname(__file__), "data", "intensity_test.xml"),
     ).to_intensity_provider()
 
+    # Intensity positions
+    intensity_positions = pd.DataFrame(
+        {"nearest_neighbour": [8, 11]},
+        index=["1230", "1231"]
+    )
+    intensity_positions.index.rename("building_id", inplace=True)
+
     # Read loss model provider
     loss_provider = LossProvider.from_files(
-        os.path.join(os.path.dirname(__file__), "data", "consequence_costs_test.json")
+        os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
     )
 
-    returned_updated_exposure = update_exposure_transitions_and_losses(
-        "target_schema_name",
-        "target_schema_name",
+    returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
-        schema_mapper,
         intensity_provider,
+        intensity_positions,
         fragility_provider,
         loss_provider,
     )
 
-    expected_updated_exposure = deepcopy(initial_exposure)
+    # Read expected results
+    expected_updated_exposure_and_losses, _ = read_exposure(
+       os.path.join(
+           os.path.dirname(__file__), "data",
+           "expected_updated_exposure_damage_losses_no_previous_loss.csv"
+       ),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
 
-    # First exposure polygon (1230)
-    new_expo_1230 = {
-        "Taxonomy": [
-            "bdg_class_1", "bdg_class_1", "bdg_class_1", "bdg_class_1", "bdg_class_1",
-            "bdg_class_2", "bdg_class_2", "bdg_class_2", "bdg_class_2", "bdg_class_2",
-        ],
-        "Damage": ["D4", "D3", "D2", "D1", "D0", "D4", "D3", "D2", "D1", "D0"],
-        "Buildings": [
-            5.6467E-8, 1.2502E-7, 8.9000E-7, 3.5236E-5, 2.49996369,
-            0.04795817, 0.73493773, 2.94083859, 1.22604768, 0.05021783
-        ],
-        "Population": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        "ReplCostPerBdg": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    }
+    for col in expected_updated_exposure_and_losses.columns:
+        assert col in returned_updated_exposure_and_losses
 
-    transitions_1230 = {
-        "taxonomy": [
-            "bdg_class_1", "bdg_class_1", "bdg_class_1", "bdg_class_1",
-            "bdg_class_2", "bdg_class_2", "bdg_class_2", "bdg_class_2",
-        ],
-        "from_damage_state": [0, 0, 0, 0, 0, 0, 0, 0],
-        "to_damage_state": [4, 3, 2, 1, 4, 3, 2, 1],
-        "n_buildings": [
-            5.6467E-8, 1.2502E-7, 8.9000E-7, 3.5236E-5,
-            0.04795817, 0.73493773, 2.94083859, 1.22604768
-        ],
-        "replacement_costs_usd_bdg": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    }
+    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_floats = ["number", "replacement_cost_tot", "incremental_loss", "cum_loss_value"]
 
-    # Second exposure polygon (1231)
-    new_expo_1231 = {
-        "Taxonomy": [
-            "bdg_class_1", "bdg_class_1", "bdg_class_1", "bdg_class_1", "bdg_class_1",
-            "bdg_class_2", "bdg_class_2", "bdg_class_2", "bdg_class_2", "bdg_class_2",
-        ],
-        "Damage": ["D4", "D3", "D2", "D1", "D0", "D4", "D3", "D2", "D1", "D0"],
-        "Buildings": [
-            2.8014E-6, 5.0933E-6, 2.99149E-5, 0.00077346, 3.99918874,
-            1.60989335, 4.73186377, 3.43587520, 0.22118432, 0.00118336
-        ],
-        "Population": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        "ReplCostPerBdg": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    }
-
-    transitions_1231 = {
-        "taxonomy": [
-            "bdg_class_1", "bdg_class_1", "bdg_class_1", "bdg_class_1",
-            "bdg_class_2", "bdg_class_2", "bdg_class_2", "bdg_class_2",
-        ],
-        "from_damage_state": [0, 0, 0, 0, 0, 0, 0, 0],
-        "to_damage_state": [4, 3, 2, 1, 4, 3, 2, 1],
-        "n_buildings": [
-            2.8014E-6, 5.0933E-6, 2.99149E-5, 0.00077346,
-            1.60989335, 4.73186377, 3.43587520, 0.22118432
-        ],
-        "replacement_costs_usd_bdg": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    }
-
-    # Update (i.e., replace existing) "expo" column
-    expected_updated_exposure["expo"] = [new_expo_1230, new_expo_1231]
-    # New columns
-    expected_updated_exposure["schema"] = ["target_schema_name", "target_schema_name"]
-    expected_updated_exposure["transitions"] = [transitions_1230, transitions_1231]
-    expected_updated_exposure["loss_value"] = [396541.620518, 1990229.860346]
-    expected_updated_exposure["cum_loss_value"] = [396541.620518, 1990229.860346]
-
-    assert returned_updated_exposure.shape[0] == expected_updated_exposure.shape[0]
-    assert returned_updated_exposure.shape[1] == expected_updated_exposure.shape[1]
-
-    simple_cols = ["gid", "geometry", "schema"]
-    float_cols = ["loss_value", "cum_loss_value"]
-
-    for row in expected_updated_exposure.index:
-        for col in simple_cols:
+    for row in expected_updated_exposure_and_losses.index:
+        for col in cols_str_or_int:
             assert (
-                returned_updated_exposure.loc[row, col] ==
-                expected_updated_exposure.loc[row, col]
+                returned_updated_exposure_and_losses.loc[row, col] ==
+                expected_updated_exposure_and_losses.loc[row, col]
             )
-
-        for col in float_cols:
-            assert (
-                round(returned_updated_exposure.loc[row, col], 6) ==
-                round(expected_updated_exposure.loc[row, col], 6)
-            )
-
-        # col = expo
-        returned_expo = returned_updated_exposure.loc[row, "expo"]
-        expected_expo = expected_updated_exposure.loc[row, "expo"]
-
-        expected_keys_str = ["Taxonomy", "Damage"]
-        expected_keys_float = ["Buildings", "Population", "ReplCostPerBdg"]
-
-        for key in expected_keys_str:
-            assert len(returned_expo[key]) == len(expected_expo[key])
-
-            for i, expected_element in enumerate(expected_expo[key]):
-                assert returned_expo[key][i] == expected_element
-
-        for key in expected_keys_float:
-            assert len(returned_expo[key]) == len(expected_expo[key])
-
-            for i, expected_val in enumerate(expected_expo[key]):
-                assert round(returned_expo[key][i], 6) == round(expected_val, 6)
-
-        # col = transitions
-        returned_transitions = returned_updated_exposure.loc[row, "transitions"]
-        expected_transitions = expected_updated_exposure.loc[row, "transitions"]
-
-        expected_keys_str = ["taxonomy"]
-        expected_keys_float = ["n_buildings", "replacement_costs_usd_bdg"]
-        expected_keys_int = ["from_damage_state", "to_damage_state"]
-
-        for key in expected_keys_str:
-            assert len(returned_transitions[key]) == len(expected_transitions[key])
-
-            for i, expected_element in enumerate(expected_transitions[key]):
-                assert returned_transitions[key][i] == expected_element
-
-        for key in expected_keys_float:
-            assert len(returned_transitions[key]) == len(expected_transitions[key])
-
-            for i, expected_val in enumerate(expected_transitions[key]):
-                assert round(returned_transitions[key][i], 6) == round(expected_val, 6)
-
-        for key in expected_keys_int:
-            assert len(returned_transitions[key]) == len(expected_transitions[key])
-
-            for i, expected_val in enumerate(expected_transitions[key]):
-                assert returned_transitions[key][i] == expected_val
+        for col in cols_floats:
+            if col == "number":
+                assert (
+                    round(returned_updated_exposure_and_losses.loc[row, col], 10) ==
+                    round(expected_updated_exposure_and_losses.loc[row, col], 10)
+                )
+            else:
+                assert (
+                    round(returned_updated_exposure_and_losses.loc[row, col], 5) ==
+                    round(expected_updated_exposure_and_losses.loc[row, col], 5)
+                )
 
     # TEST 2
     # Test case in which no conversion of building classes or damage states is needed
@@ -486,11 +502,12 @@ def test_update_exposure_transitions_and_losses():
     # "cum_loss_value" column). It also includes a "loss_value" that should be ignored.
 
     # Read test exposure file
-    initial_exposure = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.json")
+    initial_exposure, exposure_geometries = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
 
-    assert "loss_value" in initial_exposure.columns
+    assert "incremental_loss" in initial_exposure.columns
     assert "cum_loss_value" in initial_exposure.columns
 
     # Read fragility input
@@ -509,32 +526,55 @@ def test_update_exposure_transitions_and_losses():
         os.path.join(os.path.dirname(__file__), "data", "intensity_test.xml"),
     ).to_intensity_provider()
 
+    # Intensity positions
+    intensity_positions = pd.DataFrame(
+        {"nearest_neighbour": [8, 11]},
+        index=["1230", "1231"]
+    )
+    intensity_positions.index.rename("building_id", inplace=True)
+
     # Read loss model provider
     loss_provider = LossProvider.from_files(
-        os.path.join(os.path.dirname(__file__), "data", "consequence_costs_test.json")
+        os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
     )
 
-    returned_updated_exposure = update_exposure_transitions_and_losses(
-        "target_schema_name",
-        "target_schema_name",
+    returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
-        schema_mapper,
         intensity_provider,
+        intensity_positions,
         fragility_provider,
         loss_provider,
     )
 
-    expected_loss_value = [396541.620518, 1990229.860346]
-    expected_cum_loss_value = [396541.620518+150000.0, 1990229.860346+120000.0]
+    # Read expected results
+    expected_updated_exposure_and_losses, _ = read_exposure(
+       os.path.join(
+           os.path.dirname(__file__), "data",
+           "expected_updated_exposure_damage_losses_with_previous_loss.csv"
+       ),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
 
-    for row in returned_updated_exposure.index:
-        assert (
-            round(returned_updated_exposure.loc[row, "loss_value"], 6) ==
-            round(expected_loss_value[row], 6)
-        )
-        assert (
-            round(returned_updated_exposure.loc[row, "cum_loss_value"], 6) ==
-            round(expected_cum_loss_value[row], 6)
-        )
+    for col in expected_updated_exposure_and_losses.columns:
+        assert col in returned_updated_exposure_and_losses
 
-    # All other results are the same as for Test 1
+    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_floats = ["number", "replacement_cost_tot", "incremental_loss", "cum_loss_value"]
+
+    for row in expected_updated_exposure_and_losses.index:
+        for col in cols_str_or_int:
+            assert (
+                returned_updated_exposure_and_losses.loc[row, col] ==
+                expected_updated_exposure_and_losses.loc[row, col]
+            )
+        for col in cols_floats:
+            if col == "number":
+                assert (
+                    round(returned_updated_exposure_and_losses.loc[row, col], 10) ==
+                    round(expected_updated_exposure_and_losses.loc[row, col], 10)
+                )
+            else:
+                assert (
+                    round(returned_updated_exposure_and_losses.loc[row, col], 3) ==
+                    round(expected_updated_exposure_and_losses.loc[row, col], 3)
+                )

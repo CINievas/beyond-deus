@@ -16,145 +16,89 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
-import collections
 import ctypes
-import pandas
-import geopandas
+import pandas as pd
+import geopandas as gpd
 import numpy as np
 from copy import deepcopy
-from beyonddeus.loss import combine_losses
 
 
-ExpoKey = collections.namedtuple("ExpoKey", ["taxonomy", "damage_state"])
-
-TransitionKey = collections.namedtuple(
-    "TransitionKey",
-    ["taxonomy", "from_damage_state", "to_damage_state"],
-)
-
-
-def zero():
-    """Return 0. Needed as a function to pass as argument to collections.defaultdict()"""
-    return 0
-
-
-def read_exposure(filename):
+def read_exposure(filename_csv, filename_geoms):
     """
-    Function to read the exposure from the file.
+    Function to read the exposure from the input files: one CSV and one GPKG file.
 
-    Function copied and adapted from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-    """
-    gdf = geopandas.read_file(filename)
-    gdf["gid"] = gdf["gid"].astype(str)  # Read the ID of the cell as a string
+    Args:
+        filename_csv (str):
+            Path to the exposure CSV file, with one row per exposure asset (a number of
+            buildings of a particular building class, in a particular damage state, at a
+            particular location) and the following columns:
+                "id" (str):
+                    Unique ID of the asset.
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets. All the "building_id"s
+                    need to exist in "intensity_positions" (see below).
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "cum_loss_value" (float):
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before).
+        filename_geoms (str):
+            Path to the exposure GPKG file, which must contain one polygon per 'building_id' of
+            the exposure CSV file.
 
-    return gdf
-
-
-def str_Dx_to_int(damage_state_with_d_prefix):
-    """
-    Function to convert damage state name strings (e.g. "D2") into integers (e.g., 2).
-
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-    """
-    return int(damage_state_with_d_prefix[1:])
-
-
-def int_x_to_str_Dx(damage_state_without_d_prefix):
-    """
-    Function to convert damage states integers (e.g., 2) into name strings (e.g. "D2").
-
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-    """
-    return "D" + str(damage_state_without_d_prefix)
-
-
-def empty_transition_values():
-    """
-    Return an empty transition value.
-
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-    """
-    return TransitionValues(0, 0)
-
-
-class ExpoValues(ctypes.Structure):
-    """
-    Class to store the information for the values of an expo dict.
-
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
+    Returns:
+        exposure_df (Pandas DataFrame):
+            Pandas DataFrame with the contents of 'filename_csv' (see columns above).
+        exposure_geoms (GeoPandas GeoDataFrame):
+            GeoPandas GeoDataFrame with the contents of 'filename_geoms' (one polygon per
+            'building_id' of the exposure CSV file).
     """
 
-    _fields_ = [
-        ("buildings", ctypes.c_double),
-        ("population", ctypes.c_double),
-        ("replcostbdg", ctypes.c_double),
-    ]
+    # Read input CSV
+    exposure_df = pd.read_csv(filename_csv)
+    # Make sure "id" and "building_id" are strings
+    exposure_df["id"] = exposure_df["id"].astype(str)
+    exposure_df["building_id"] = exposure_df["building_id"].astype(str)
+    # Make sure "initial_damage" is an integer
+    exposure_df["initial_damage"] = exposure_df["initial_damage"].astype(int)
 
-    def __repr__(self):
-        return (
-            "ExpoValues("
-            + "buildings={0}, population={1}, replcostbdg={2})".format(
-                repr(self.buildings),
-                repr(self.population),
-                repr(self.replcostbdg),
-            )
+    # Read input GPKG
+    exposure_geoms = gpd.read_file(filename_geoms)
+    # Make sure "building_id" are strings
+    exposure_geoms["building_id"] = exposure_geoms["building_id"].astype(str)
+
+    # Check all "building_id"s from exposure_df have a geometry in exposure_geoms
+    unique_bdg_ids = exposure_df["building_id"].unique()
+    geom_bdg_ids = exposure_geoms["building_id"].to_numpy()
+
+    bdg_ids_not_found = []
+    for building_id in unique_bdg_ids:
+        if building_id not in geom_bdg_ids:
+            bdg_ids_not_found.append(building_id)
+
+    if len(bdg_ids_not_found) > 0:
+        error_message = (
+            "Not all exposure polygons (building_id) in the exposure CSV file are present "
+            "in the exposure GPKG file. The following building_ids are missing: %s"
+            % (", ".join(bdg_ids_not_found))
         )
+        raise OSError(error_message)
 
-
-def empty_expo_values():
-    """
-    Function copied and adapted from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-
-    Return an empty expo value.
-    """
-    return ExpoValues(0, 0, 0)
-
-
-class TransitionValues(ctypes.Structure):
-    """
-    Class to store the keys in the transition dict.
-
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-    """
-
-    _fields_ = [
-        ("buildings", ctypes.c_double),
-        ("replcostbdg", ctypes.c_double),
-    ]
-
-    def __repr__(self):
-        return "TransitionValues(buildings={0}, replcostbdg={1})".format(
-            repr(self.buildings), repr(self.replcostbdg)
-        )
+    return exposure_df, exposure_geoms
 
 
 def update_exposure_transitions_and_losses(
-    source_schema,
-    target_schema,
     exposure,
-    schema_mapper,
     intensity_provider,
+    intensity_positions,
     fragility_provider,
     loss_provider,
 ):
@@ -173,48 +117,35 @@ def update_exposure_transitions_and_losses(
     transitions and losses.
 
     Args:
-        source_schema (string):
-            Name of the source building schema, that is, the one used within the input
-            'exposure'.
-        target_schema (string):
-            Name of the target building schema, that is, the one used by the
-            'fragility_provider'.
-        exposure (GeoPandas GeoDataFrame):
-            GeoDataFrame with one row per exposure polygon and the following columns:
-                "gid":
-                    ID of the exposure polygon.
-                "expo":
-                    Dictionary in string format, with the following keys and contents:
-                        "Taxonomy":
-                            List with the names of the building classes present in the exposure
-                            polygon. If the exposure polygon contains instances of the same
-                            building class but different damage states, the name of the building
-                            classes needs to be repeated here.
-                        "Damage":
-                            List with the names of the damage states associated with the
-                            building classes listed in "Taxonomy".
-                        "Buildings":
-                            List with the number of buildings in exposure polygon associated
-                            with each element of "Taxonomy" and "Damage".
-                        "Population":
-                            To be fully implemented.
-                        "ReplCostPerBdg":
-                            To be fully implemented.
-                    "Taxonomy", "Damage" and "Buildings" must all be of the same length.
-                    Example of an "expo" cell:
-                        "{ "Taxonomy": [ "bdg_class_1", "bdg_class_2" ],
-                        "Damage": [ "D0", "D0" ],
-                        "Buildings": [ 2.5, 5.0 ] }"
-                "geometry":
-                    Geometry of the exposure polygon.
-                "cum_loss_value" (optional, float):
-                    Economic losses associated with the exposure polygon from a previously-run
-                    hazard.
-        schema_mapper (SchemaMapper):
-            Instance of SchemaMapper containing the compatibility matrices needed to map from
-            one schema to another, both in terms of building taxonomies and damage scales.
+        exposure (Pandas DataFrame):
+            DataFrame with one row per exposure asset (a number of buildings of a particular
+            building class, in a particular damage state, at a particular location) and the
+            following columns:
+                "id" (str):
+                    Unique ID of the asset.
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets. All the "building_id"s
+                    need to exist in "intensity_positions" (see below).
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "cum_loss_value" (float):
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before).
         intensity_provider (IntensityProvider):
             Instance of IntensityProvider for retrieving the hazard intensities at a location.
+        intensity_positions (Pandas DataFrame):
+            DataFrame whose index is the "building_id" of each exposure polygon that is
+            referenced in "exposure" (see above), and with the column "nearest_neighbour"
+            indicating the position of the nearest neighbour to the exposure centroid of the
+            intensity field (as in intensity_provider._intensity_data).
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
         loss_provider (LossProvider):
@@ -222,56 +153,40 @@ def update_exposure_transitions_and_losses(
             damage state) and building replacement costs.
 
     Returns:
-        updated_exposure (GeoPandas GeoDataFrame):
-            GeoDataFrame with one row per exposure polygon and the following columns:
-                "gid":
-                    ID of the exposure polygon.
-                "expo":
-                    Dictionary in string format, with the same keys and types of contents as in
-                    the input 'exposure' (but with updated damage states), all of the same length: 
-                        "Taxonomy"
-                        "Damage"
-                        "Buildings"
-                "geometry":
-                    Geometry of the exposure polygon.
-                "schema":
-                    Name of the target building schema ('target_schema'), which is the schema to
-                    which the contents of expo["Taxonomy"] belong in 'updated_exposure'.
-                "transitions":
-                    Dictionary in string format, with the following keys and contents:
-                        "Taxonomy":
-                            List with the names of the building classes.
-                        "from_damage_state":
-                            List with the initial damage state of the transition.
-                        "to_damage_state":
-                            List with the final damage state of the transition.
-                        "n_buildings":
-                            List with the number of buildings in exposure polygon associated
-                            with each element of "Taxonomy", "from_damage_state" and
-                            "to_damage_state".
-                        "replacement_costs_usd_bdg":
-                            Replacement costs.
-                    Example of a "transitions" cell:
-                        {'taxonomy': ['bdg_class_1', 'bdg_class_1', 'bdg_class_1', 'bdg_class_1',
-                                      'bdg_class_2', 'bdg_class_2', 'bdg_class_2', 'bdg_class_2'],
-                         'from_damage_state': [0, 0, 0, 0, 0, 0, 0, 0],
-                         'to_damage_state': [4, 3, 2, 1, 4, 3, 2, 1],
-                         'n_buildings': [5.647e-08, 1.815e-07, 1.071e-06, 3.631e-05,
-                                         1.129e-07, 3.630e-07, 2.143e-06, 7.262e-05],
-                         'replacement_costs_usd_bdg': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
-                "loss_value":
-                    Value of the buildings in the exposure polygon that has been lost due to the
-                    hazard intensities in the 'intensity_provider'.
+        updated_exposure_and_losses (Pandas DataFrame):
+            DataFrame with one row per (updated) exposure asset. The number of rows of
+            'updated_exposure_and_losses' is equal to or larger than the number of rows of
+            the input 'exposure_df', as each row of 'exposure_df' may remain in the same
+            damage state or transition to a new one, and each of these possible paths
+            becomes a new exposed asset. It contains the following columns:
+                "id" (str):
+                    Unique ID of the asset.
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets.
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "final_damage" (int):
+                    Final damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "incremental_loss" (float):
+                    Economic loss associated with the asset calculated in the current run of
+                    this function.
                 "cum_loss_value" (float):
-                    Economic losses associated with the exposure polygon from a previously-run
-                    hazard plus those calculated from the current hazard ("loss_value").
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before) plus the incremental loss
+                    calculated in this function (by calling 'compute_loss').
     """
     updater = Updater(
-        source_schema,
-        target_schema,
         fragility_provider,
-        schema_mapper,
         intensity_provider,
+        intensity_positions,
         loss_provider,
     )
 
@@ -286,52 +201,45 @@ def update_exposure_transitions_and_losses(
 
 class Updater:
     """
-    Class and methods copied and modified from:
+    Class attrributes and rationale of its methods copied and modified from:
         Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
         (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
         https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
+    The methods themselves are substantially different from those in DEUS, but the logic behind
+    them is based on them.
 
     Class used for running updates on the exposure.
 
     Attributes:
-        source_schema (string):
-            Name of the source building schema, that is, the one used within the input
-            'exposure'.
-        target_schema (string):
-            Name of the target building schema, that is, the one used by the
-            'fragility_provider'.
-        exposure (GeoPandas GeoDataFrame):
-            GeoDataFrame with one row per exposure polygon and the following columns:
-                "gid":
-                    ID of the exposure polygon.
-                "expo":
-                    Dictionary in string format, with the following keys and contents:
-                        "Taxonomy":
-                            List with the names of the building classes present in the exposure
-                            polygon. If the exposure polygon contains instances of the same
-                            building class but different damage states, the name of the building
-                            classes needs to be repeated here.
-                        "Damage":
-                            List with the names of the damage states associated with the
-                            building classes listed in "Taxonomy".
-                        "Buildings":
-                            List with the number of buildings in exposure polygon associated
-                            with each element of "Taxonomy" and "Damage".
-                    "Taxonomy", "Damage" and "Buildings" must all be of the same length.
-                    Example of an "expo" cell:
-                        "{ "Taxonomy": [ "bdg_class_1", "bdg_class_2" ],
-                        "Damage": [ "D0", "D0" ],
-                        "Buildings": [ 2.5, 5.0 ] }"
-                "geometry":
-                    Geometry of the exposure polygon.
-                "cum_loss_value" (optional, float):
-                    Economic losses associated with the exposure polygon from a previously-run
-                    hazard.
-        schema_mapper (SchemaMapper):
-            Instance of SchemaMapper containing the compatibility matrices needed to map from
-            one schema to another, both in terms of building taxonomies and damage scales.
+        exposure (Pandas DataFrame):
+            DataFrame with one row per exposure asset (a number of buildings of a particular
+            building class, in a particular damage state, at a particular location) and the
+            following columns:
+                "id" (str):
+                    Unique ID of the asset.
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets. All the "building_id"s
+                    need to exist in "intensity_positions" (see below).
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "cum_loss_value" (float):
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before).
         intensity_provider (IntensityProvider):
             Instance of IntensityProvider for retrieving the hazard intensities at a location.
+        intensity_positions (Pandas DataFrame):
+            DataFrame whose index is the "building_id" of each exposure polygon that is
+            referenced in "exposure" (see above), and with the column "nearest_neighbour"
+            indicating the position of the nearest neighbour to the exposure centroid of the
+            intensity field (as in intensity_provider._intensity_data).
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
         loss_provider (LossProvider):
@@ -341,18 +249,14 @@ class Updater:
 
     def __init__(
         self,
-        source_schema,
-        target_schema,
         fragility_provider,
-        schema_mapper,
         intensity_provider,
+        intensity_positions,
         loss_provider,
     ):
-        self.source_schema = source_schema
-        self.target_schema = target_schema
         self.fragility_provider = fragility_provider
-        self.schema_mapper = schema_mapper
         self.intensity_provider = intensity_provider
+        self.intensity_positions = intensity_positions
         self.loss_provider = loss_provider
 
     def update_df(self, exposure_df):
@@ -360,317 +264,152 @@ class Updater:
         Runs the update for each row of the input exposure model ('exposure_df').
 
         Args:
-        exposure_df (GeoPandas GeoDataFrame):
-            GeoDataFrame with one row per exposure polygon and the following columns:
-                "gid":
-                    ID of the exposure polygon.
-                "expo":
-                    Dictionary in string format, with the following keys and contents:
-                        "Taxonomy":
-                            List with the names of the building classes present in the exposure
-                            polygon. If the exposure polygon contains instances of the same
-                            building class but different damage states, the name of the building
-                            classes needs to be repeated here.
-                        "Damage":
-                            List with the names of the damage states associated with the
-                            building classes listed in "Taxonomy".
-                        "Buildings":
-                            List with the number of buildings in exposure polygon associated
-                            with each element of "Taxonomy" and "Damage".
-                    "Taxonomy", "Damage" and "Buildings" must all be of the same length.
-                    Example of an "expo" cell:
-                        "{ "Taxonomy": [ "bdg_class_1", "bdg_class_2" ],
-                        "Damage": [ "D0", "D0" ],
-                        "Buildings": [ 2.5, 5.0 ] }"
-                "geometry":
-                    Geometry of the exposure polygon.
-                "cum_loss_value" (optional, float):
-                    Economic losses associated with the exposure polygon from a previously-run
-                    hazard.
+        exposure_df (Pandas DataFrame):
+            DataFrame with one row per exposure asset (a number of buildings of a particular
+            building class, in a particular damage state, at a particular location) and the
+            following columns:
+                "id" (str):
+                    Unique ID of the asset.
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets.
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "cum_loss_value" (float):
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before).
+
+        Returns:
+            updated_exposure_and_losses (Pandas DataFrame):
+                DataFrame with one row per (updated) exposure asset. The number of rows of
+                'updated_exposure_and_losses' is equal to or larger than the number of rows of
+                the input 'exposure_df', as each row of 'exposure_df' may remain in the same
+                damage state or transition to a new one, and each of these possible paths
+                becomes a new exposed asset. It contains the following columns:
+                    "id" (str):
+                        Unique ID of the asset.
+                    "building_id" (str):
+                        ID of the exposure polygon that the asset belongs to. One exposure polygon
+                        (i.e., a geographic area) can contain several assets.
+                    "taxonomy" (str):
+                        Building class of the asset.
+                    "initial_damage" (int):
+                        Initial damage state of the asset, as an integer.
+                    "final_damage" (int):
+                        Final damage state of the asset, as an integer.
+                    "number" (float):
+                        Number of buildings in the asset.
+                    "replacement_cost_tot" (float):
+                        Total replacement cost of all the buildings in the asset. The replacement
+                        cost per building is equal to "replacement_cost_tot"/"number".
+                    "incremental_loss" (float):
+                        Economic loss associated with the asset calculated in the current run of
+                        this function.
+                    "cum_loss_value" (float):
+                        Economic loss associated with the asset from a previously-run calculation
+                        (i.e., a hazardous event that occurred before) plus the incremental loss
+                        calculated in this function (by calling 'compute_loss').
         """
         # If exposure_df is empty return None (otherwise "apply" would return an empty
         # GeoDataFrame with the columns of the input.
         if exposure_df.empty:
             return None
 
-        list_of_series = exposure_df.apply(self.update_series, axis=1)
+        # Go one by one each of the exposure polygons (i.e., "building_id")
 
-        return geopandas.GeoDataFrame(list_of_series)
+        updated_exposure_df = None
 
-    def update_series(self, series):
+        for bdg_id in self.intensity_positions.index:
+            # Retrieve assets of this building_id
+            exposure_bdg_id = exposure_df[exposure_df.building_id == bdg_id]
+            # Calculate new damage, incremental and cumulative losses
+            updated_exposure_bdg_id = self.update_exposure_polygon(
+                exposure_bdg_id, self.intensity_positions.loc[bdg_id, "nearest_neighbour"]
+            )
+
+            if updated_exposure_df is None:
+                updated_exposure_df = deepcopy(updated_exposure_bdg_id)
+            else:
+                updated_exposure_df = pd.concat(
+                    (updated_exposure_df, updated_exposure_bdg_id)
+                )
+
+        updated_exposure_df.reset_index(inplace=True)
+        updated_exposure_df.drop(columns=["index"], inplace=True)
+
+        return updated_exposure_df
+
+    def update_exposure_polygon(self, exposure, intensity_position):
         """
-        Updates one row of the exposure model (input as 'series').
+        Updates a set of assets of the exposure model associated with one exposure polygon.
 
         Args:
-            series (GeoPandas series):
-                One row of 'exposure_df' (see args for 'update_df' method).
+            exposure (Pandas DataFrame):
+                Exposure associated with one "building_id".
+            intensity_position (int):
+                Position of the hazard nearest neighbour to the centroid of the "building_id"
+                whose exposure is contained in the input 'exposure'.
 
         Returns:
-            GeoPandas series, the updated version of the input 'series', with the following
-            columns:
-                "gid":
-                    ID of the exposure polygon.
-                "expo":
-                    Dictionary in string format, with the same keys and types of contents as in
-                    the input 'series' (but with updated damage states), all of the same length: 
-                        "Taxonomy"
-                        "Damage"
-                        "Buildings"
-                "geometry":
-                    Geometry of the exposure polygon.
-                "schema":
-                    Name of the target building schema ('target_schema'), which is the schema to
-                    which the contents of expo["Taxonomy"] belong in 'updated_exposure'.
-                "transitions":
-                    Dictionary in string format, with the following keys and contents:
-                        "Taxonomy":
-                            List with the names of the building classes.
-                        "from_damage_state":
-                            List with the initial damage state of the transition.
-                        "to_damage_state":
-                            List with the final damage state of the transition.
-                        "n_buildings":
-                            List with the number of buildings in exposure polygon associated
-                            with each element of "Taxonomy", "from_damage_state" and
-                            "to_damage_state".
-                        "replacement_costs_usd_bdg":
-                            Replacement costs.
-                    Example of a "transitions" cell:
-                        {'taxonomy': ['bdg_class_1', 'bdg_class_1', 'bdg_class_1', 'bdg_class_1',
-                                      'bdg_class_2', 'bdg_class_2', 'bdg_class_2', 'bdg_class_2'],
-                         'from_damage_state': [0, 0, 0, 0, 0, 0, 0, 0],
-                         'to_damage_state': [4, 3, 2, 1, 4, 3, 2, 1],
-                         'n_buildings': [5.647e-08, 1.815e-07, 1.071e-06, 3.631e-05,
-                                         1.129e-07, 3.630e-07, 2.143e-06, 7.262e-05],
-                         'replacement_costs_usd_bdg': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
-                "loss_value":
-                    Value of the buildings in the exposure polygon that has been lost due to the
-                    hazard intensities in the 'intensity_provider'.
-                "cum_loss_value" (float):
-                    Economic losses associated with the exposure polygon from a previously-run
-                    hazard plus those calculated from the current hazard ("loss_value").
+            updated_exposure_and_losses (Pandas DataFrame):
+                DataFrame with one row per (updated) exposure asset. The number of rows of
+                'updated_exposure_and_losses' is equal to or larger than the number of rows of
+                the input 'exposure', as each row of 'exposure' may remain in the same damage
+                state or transition to a new one, and each of these possible paths becomes a new
+                exposed asset. It contains the following columns:
+                    "id" (str):
+                        Unique ID of the asset.
+                    "building_id" (str):
+                        ID of the exposure polygon that the asset belongs to. One exposure polygon
+                        (i.e., a geographic area) can contain several assets.
+                    "taxonomy" (str):
+                        Building class of the asset.
+                    "initial_damage" (int):
+                        Initial damage state of the asset, as an integer.
+                    "final_damage" (int):
+                        Final damage state of the asset, as an integer.
+                    "number" (float):
+                        Number of buildings in the asset.
+                    "replacement_cost_tot" (float):
+                        Total replacement cost of all the buildings in the asset. The replacement
+                        cost per building is equal to "replacement_cost_tot"/"number".
+                    "incremental_loss" (float):
+                        Economic loss associated with the asset calculated in the current run of
+                        this function.
+                    "cum_loss_value" (float):
+                        Economic loss associated with the asset from a previously-run calculation
+                        (i.e., a hazardous event that occurred before) plus the incremental loss
+                        calculated in this function (by calling 'compute_loss').
         """
-        # Prepare the input
-        # Convert the existing expo to an exposure dict (ExpoKeys & ExpoValues)
-        old_exposure = expo_from_series_to_dict(eval(series.expo))
-
-        # Map the building classes from the source schema (the one of "old exposure")
-        # to the target schema (the one of the fragility model)
-        mapped_exposure = map_exposure(
-            expo=old_exposure,
-            source_schema=self.source_schema,
-            target_schema=self.target_schema,
-            schema_mapper=self.schema_mapper,
-        )
 
         # Calculate new damage states (transitions) and update the exposure model
-        (
-            updated_exposure,
-            transitions,
-        ) = get_updated_exposure_and_transitions(
-            geometry=series.geometry,
-            expo=mapped_exposure,
-            intensity_provider=self.intensity_provider,
-            fragility_provider=self.fragility_provider,
+        updated_exposure = get_updated_exposure_and_transitions(
+            exposure,
+            intensity_position,
+            self.intensity_provider,
+            self.fragility_provider
         )
 
-        # Compute the loss of all the transitions in the exposure polygon
-        # ('loss_value' is the total loss for the whole exposure polygon)
-        loss_value = compute_loss(
-            transitions=transitions,
+        # Compute the incremental and cumulative economic losses
+        updated_exposure_and_losses = compute_loss(
+            updated_exposure,
             loss_provider=self.loss_provider,
             schema=self.fragility_provider.schema,
         )
 
-        # Cumulative loss value from previous DEUS runs
-        existing_loss_value = series.get("cum_loss_value", 0.0)
-        # New cumulative loss value (i.e., existing + new)
-        combined_loss_value = combine_losses(loss_value, existing_loss_value)
-
-        return pandas.Series(
-            {
-                "gid": series.gid,
-                "geometry": series.geometry,
-                "expo": updated_exposure_output_to_dict(updated_exposure),
-                "schema": self.fragility_provider.schema,
-                "transitions": transitions_output_to_dict(transitions),
-                "loss_value": loss_value, # due to this hazard being run
-                "cum_loss_value": combined_loss_value, # due to all cumulative hazards run
-            }
-        )
+        return updated_exposure_and_losses
 
 
-def updated_exposure_output_to_dict(updated_exposure):
+def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
     """
-    Convert data to a dictionary for output.
-
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-
-    Args:
-        updated_exposure (collections.defaultdict):
-            Dictionary with one key-value pair per combination of taxonomy and damage state of
-            an exposure polygon (a row of the overall exposure GeoDataFrame). Keys are ExpoKey
-            instances, values are ExpoValues instances.
-    """
-    result = {}
-    for key in [
-        "Taxonomy",
-        "Damage",
-        "Buildings",
-        "Population",
-        "ReplCostPerBdg",
-    ]:
-        result[key] = [None] * len(updated_exposure)
-
-    for idx, (expo_key, expo_value) in enumerate(updated_exposure.items()):
-        result["Taxonomy"][idx] = expo_key.taxonomy
-        result["Damage"][idx] = int_x_to_str_Dx(expo_key.damage_state)
-        result["Buildings"][idx] = expo_value.buildings
-        result["Population"][idx] = expo_value.population
-        result["ReplCostPerBdg"][idx] = expo_value.replcostbdg
-
-    return result
-
-
-def transitions_output_to_dict(transitions):
-    """
-    Convert the transitions to a dict for output.
-
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-
-    Args:
-        transitions (collections.defaultdict):
-            Dictionary with one key-value pair per combination of taxonomy and transition (i.e.,
-            change) from an initial damage state to a final damage state, and details on the
-            buildings associated with those transitions.
-    """
-    result = {}
-
-    for key in [
-        "taxonomy",
-        "from_damage_state",
-        "to_damage_state",
-        "n_buildings",
-        "replacement_costs_usd_bdg",
-    ]:
-        result[key] = [None] * len(transitions)
-
-    for idx, (transition_key, transition_value) in enumerate(
-        transitions.items()
-    ):
-        result["taxonomy"][idx] = transition_key.taxonomy
-        result["from_damage_state"][idx] = transition_key.from_damage_state
-        result["to_damage_state"][idx] = transition_key.to_damage_state
-        result["n_buildings"][idx] = transition_value.buildings
-        result["replacement_costs_usd_bdg"][idx] = transition_value.replcostbdg
-
-    return result
-
-
-def expo_from_series_to_dict(expo):
-    """
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-
-    Convert the existing expo to an exposure dict (ExpoKey & ExpoValues).
-
-    The resulting expo is the one to work with in the mapping & the update function.
-
-    Args:
-        expo (dict):
-            Dictionary in string format, corresponding to one exposure polygon (i.e. one row) of
-            the exposure GeoDataFrame, with the following keys and contents:
-                "Taxonomy":
-                    List with the names of the building classes present in the exposure
-                    polygon. If the exposure polygon contains instances of the same
-                    building class but different damage states, the name of the building
-                    classes needs to be repeated here.
-                "Damage":
-                    List with the names of the damage states associated with the
-                    building classes listed in "Taxonomy".
-                "Buildings":
-                    List with the number of buildings in exposure polygon associated
-                    with each element of "Taxonomy" and "Damage".
-                "Population":
-                    To be fully implemented.
-                "ReplCostPerBdg":
-                    To be fully implemented.
-            Example:
-                {'Taxonomy': ['bdg_class_1', 'bdg_class_2'],
-                 'Damage': ['D0', 'D0'],
-                 'Buildings': [2.5, 5.0]}
-
-    Returns:
-        as_dict (collections.defaultdict):
-            Dictionary with one key-value pair per element of the lists of the input 'expo'
-            (i.e., each combination of taxonomy and damage state). Keys are ExpoKey instances,
-            values are ExpoValues instances.
-
-            If no population or building replacement costs are present in 'expo', they are set
-            to 0.0 in the 'as_dict' output.
-
-            Example for the example input 'expo' above:
-                defaultdict(
-                    {ExpoKey(taxonomy='bdg_class_1', damage_state=0):
-                        ExpoValues(buildings=2.5, population=0.0, replcostbdg=0.0),
-                     ExpoKey(taxonomy='bdg_class_2', damage_state=0):
-                        ExpoValues(buildings=5.0, population=0.0, replcostbdg=0.0)}
-    """
-    as_dict = collections.defaultdict(empty_expo_values)
-
-    if isinstance(expo["Taxonomy"], list):
-        idx_generator = range(len(expo["Taxonomy"]))
-    else:
-        idx_generator = expo["Taxonomy"].keys()
-
-    for idx in idx_generator:
-        expo_key = ExpoKey(
-            get_from_series_expo(expo["Taxonomy"], idx, None),
-            str_Dx_to_int(get_from_series_expo(expo["Damage"], idx, None)),
-        )
-        buildings = get_from_series_expo(expo.get("Buildings", []), idx, 0)
-        population = get_from_series_expo(expo.get("Population", []), idx, 0)
-        replcostbdg = get_from_series_expo(
-            expo.get("ReplCostPerBdg", []), idx, 0
-        )
-        expo_value = ExpoValues(buildings, population, replcostbdg)
-        as_dict[expo_key] = expo_value
-
-    return as_dict
-
-
-def get_from_series_expo(column, idx, default):
-    """
-    Get the values from the expo. This is a helper function only.
-
-    Function copied from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-    """
-    if isinstance(column, list):
-        if idx < len(column):
-            return column[idx]
-        return default
-    return column.get(idx, default)
-
-
-def map_exposure(expo, source_schema, target_schema, schema_mapper):
-    """
-    Function copied and modified from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
-
-    The function to map the exposure to another schema if necessary.
+    Function to map the exposure to another schema if necessary.
 
     The input 'expo' refers to one exposure polygon, which contains a series of building classes
     (taxonomy) with their own damage states.
@@ -681,156 +420,232 @@ def map_exposure(expo, source_schema, target_schema, schema_mapper):
     the input expoure model ('expo') from their original 'source_schema' to the 'target_schema'.
 
     Args:
+        old_exposure (Pandas DataFrame):
+            DataFrame with one row per exposure asset (a number of buildings of a particular
+            building class, in a particular damage state, at a particular location) and the
+            following columns:
+                "id" (str):
+                    Unique ID of the asset.
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets.
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "cum_loss_value" (float):
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before).
         source_schema (string):
             Name of the source building schema, that is, the one used within the input
             'exposure'.
         target_schema (string):
             Name of the target building schema, that is, the one used by the
             'fragility_provider'.
-        expo (collections.defaultdict):
-            Dictionary with one key-value pair per combination of taxonomy and damage state of
-            an exposure polygon (a row of the overall exposure GeoDataFrame). Keys are ExpoKey
-            instances, values are ExpoValues instances.
-            Example:
-                defaultdict(
-                    {ExpoKey(taxonomy='bdg_class_1', damage_state=0):
-                        ExpoValues(buildings=2.5, population=0.0, replcostbdg=0.0),
-                     ExpoKey(taxonomy='bdg_class_2', damage_state=0):
-                        ExpoValues(buildings=5.0, population=0.0, replcostbdg=0.0)}
         schema_mapper (SchemaMapper):
             Instance of SchemaMapper containing the compatibility matrices needed to map from
             one schema to another, both in terms of building taxonomies and damage scales.
 
     Returns:
-        result_expo (collections.defaultdict):
-            Dictionary with one key-value pair per combination of taxonomy and damage state of
-            an exposure polygon (a row of the overall exposure GeoDataFrame). Keys are ExpoKey
-            instances, values are ExpoValues instances. I.e., the same format as the input
-            'expo', but with all building expressed in terms of the building taxonomy and damage
-            scale of the 'target_schema'.
+        mapped_exposure (Pandas DataFrame):
+            DataFrame with the same structure as 'old_exposure', and with each combination of
+            taxonomy and damage state of 'old_exposure' converted from the 'source_schema' to
+            the 'target_schema'. Its rows are ordered as per the contents of the following
+            columns (in order of consideration for sorting): "building_id", "id", "taxonomy",
+            and "initial_damage". The "id" and "building_id" of 'old_exposure' are kept.
     """
 
     if source_schema == target_schema:
-        return expo
+        return old_exposure
 
-    result_expo = collections.defaultdict(empty_expo_values)
+    # Identify unique combinations of "taxonomy" and "initial_damage"
+    unique_dmgd_bdg_classes = old_exposure.groupby(
+        ["taxonomy", "initial_damage"]
+    ).agg({"id": "first"})
+    unique_dmgd_bdg_classes.drop(columns=["id"], inplace=True)
 
-    # From DEUS, not clear if this is being used elsewhere or not, it is not output by this method.
-    # Moreover, note that if source_schema == target_schema (above), 'expo' is returned, so the
-    # calculation of n_buildings_per_tax and total_repl_per_tax would have not happened
-    # We have to collect the replacement costs over all
-    # damage states of the results (for each taxonomy).
-    #n_buildings_per_tax = collections.defaultdict(zero)
-    #total_repl_per_tax = collections.defaultdict(zero)
+    # Do the mapping for those unique combinations of "taxonomy" and "initial_damage"
+    all_mappings = []
+    for i in range(unique_dmgd_bdg_classes.shape[0]):
+        old_taxonomy = unique_dmgd_bdg_classes.index[i][0]
+        old_dmg_state = unique_dmgd_bdg_classes.index[i][1]
 
-    # Go one by one each source building class (taxonomy)-damage state combination in 'expo'
-    for old_expo_key, old_expo_value in expo.items():
-        # One taxonomy class with a damage state can map to different other taxonomy classes and
-        # different damage states --> mapping_results is a list of SchemaMapperResult objects,
-        # each for a particular combination of target building class and target damage state
-        mapping_results = schema_mapper.map_schema(
-            source_taxonomy=old_expo_key.taxonomy,
-            source_damage_state=old_expo_key.damage_state,
+        mapping_results = schema_mapper._map_schema_1(
+            source_taxonomy=old_taxonomy,
+            source_damage_state=old_dmg_state,
             source_schema=source_schema,
             target_schema=target_schema,
-            n_buildings=1.0,  # return proportions, not total number of buildings
+        ) # "mapping_results" is a list of SchemaMapperResult objects
+
+        # Vectorise results
+        new_taxonomies = []
+        new_dmg_states = []
+        new_proportions = []
+
+        for result_object in mapping_results:
+            new_taxonomies.append(result_object.taxonomy)
+            new_dmg_states.append(result_object.damage_state)
+            new_proportions.append(result_object.n_buildings)
+
+        all_mappings.append(
+            {
+                "taxonomy": np.array(new_taxonomies, dtype=object),
+                "damage_state": np.array(new_dmg_states, dtype=object),
+                "proportions": np.array(new_proportions)
+            }
+        )
+    unique_dmgd_bdg_classes["mapping"] = all_mappings
+
+    mapped_exposure = None
+
+    # Go one by one each unique combination of "taxonomy" and "initial_damage"
+    for index_tuple in unique_dmgd_bdg_classes.index:
+        old_taxonomy, old_dmg_state = index_tuple
+        mapping = unique_dmgd_bdg_classes.loc[index_tuple, "mapping"]
+
+        # Retrieve rows of "old_exposure" with this combination ("taxonomy" & "initial_damage")
+        sub_exposure = old_exposure[
+            (old_exposure["taxonomy"]==old_taxonomy) &
+            (old_exposure["initial_damage"]==old_dmg_state)
+        ]
+
+        new_number = np.outer(
+            sub_exposure["number"].to_numpy(), mapping["proportions"]
+        ).flatten()
+        # for inputs a & b, the order of "new_number" is: a1*b1, a1*b2, a1*b3...
+        # i.e. buildings of the same building_id will end up grouped together
+
+        new_costs = np.outer(
+            sub_exposure["replacement_cost_tot"].to_numpy(), mapping["proportions"]
+        ).flatten()
+
+        # Split exising cum_loss_value proportionally to "proportions"
+        new_cum_loss_values = np.outer(
+            sub_exposure["cum_loss_value"].to_numpy(), mapping["proportions"]
+        ).flatten()
+
+        new_taxonomies = np.outer(
+            np.ones(sub_exposure.shape[0], dtype=int), mapping["taxonomy"]
+        ).flatten()
+
+        new_dmg_states = np.outer(
+            np.ones(sub_exposure.shape[0], dtype=int), mapping["damage_state"]
+        ).flatten()
+
+        new_id = np.outer(
+            sub_exposure["id"], np.ones(len(mapping["proportions"]), dtype=int)
+        ).flatten()
+
+        new_building_id = np.outer(
+            sub_exposure["building_id"], np.ones(len(mapping["proportions"]), dtype=int)
+        ).flatten()
+
+        mapped_sub_exposure = pd.DataFrame(
+            {
+                "id": new_id,
+                "building_id": new_building_id,
+                "taxonomy": new_taxonomies,
+                "initial_damage": new_dmg_states,
+                "number": new_number,
+                "replacement_cost_tot": new_costs,
+                "cum_loss_value": new_cum_loss_values
+            }
         )
 
-        # Go one by one each target building class (taxonomy)-damage state combination
-        # (stemming from the conversion of (old_expo_key, old_expo_value))
-        for res in mapping_results:
-            expo_key = ExpoKey(res.taxonomy, res.damage_state)
-            # res.n_buildings is now only a number from 0 to 1 (proportion)
-            expo_value = result_expo[expo_key]
+        if mapped_exposure is None:
+            mapped_exposure = deepcopy(mapped_sub_exposure)
+        else:
+            mapped_exposure = pd.concat(
+                [mapped_exposure, mapped_sub_exposure]
+            )
 
-            new_buildings = res.n_buildings * old_expo_value.buildings
-            # Summing because different source taxonomy-damage
-            # can contribute to this target taxonomy-damage
-            expo_value.buildings += new_buildings
-            #n_buildings_per_tax[res.taxonomy] += new_buildings SEE NOTE ABOVE ABOUT n_buildings_per_tax
+    # Order the rows
+    mapped_exposure.sort_values(
+        by=["building_id", "id", "taxonomy", "initial_damage"], inplace=True
+    )
+    mapped_exposure.reset_index(inplace=True)
 
-            # From DEUS partial implementation of pop/costs, to be further evaluated
-            #new_pop = res.n_buildings * old_expo_value.population  # population input for all n_buildings
-            #expo_value.population += new_pop
-
-            # From DEUS partial implementation of pop/costs, to be further evaluated
-            #new_repl = new_buildings * old_expo_value.replcostbdg  # but cost is by bdg... but below it is divided?
-            #total_repl_per_tax[res.taxonomy] += new_repl
-
-    # From DEUS partial implementation of pop/costs, to be further evaluated
-    #for expo_key, expo_value in result_expo.items():
-    #    taxonomy = expo_key.taxonomy
-    #    n_bdg = n_buildings_per_tax[taxonomy]
-    #    if n_bdg != 0:
-    #        expo_value.replcostbdg = total_repl_per_tax[taxonomy] / n_bdg  # back to cost per bdg? why this process?
-
-    return result_expo
+    return mapped_exposure
 
 
 def get_updated_exposure_and_transitions(
-    geometry, expo, intensity_provider, fragility_provider
+    exposure, intensity_position, intensity_provider, fragility_provider
 ):
     """
-    Function copied and **significantly** modified from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
+    This function returns the exposure with damage updated due to the current run of the
+    software for one exposure polygon whose building information is contained in the input
+    'exposure' and for which the location of the nearest-neighbour hazard point is
+    'intensity_position'. The replacement costs and previous losses associated with each asset
+    (i.e., each row of the input 'exposure') are distributed proportionally to the probability
+    of occurrence of each new damage state.
 
-    This function returns the update exposure and all of the transitions that happend in this step.
-
-    The intensity measures are retrieved from the 'intensity_provider' at the centroid of the
-    input 'geometry'.
+    The intensity measures are retrieved from the 'intensity_provider' at the position defined
+    by 'intensity_position'.
 
     Args:
-        geometry:
-            Geometry of the exposure polygon.
-        expo (collections.defaultdict):
-            Dictionary with one key-value pair per combination of taxonomy and damage state of
-            an exposure polygon. Keys are ExpoKey instances, values are ExpoValues instances.
-            Example:
-                defaultdict(
-                    {ExpoKey(taxonomy='bdg_class_1', damage_state=0):
-                        ExpoValues(buildings=2.5, population=0.0, replcostbdg=0.0),
-                     ExpoKey(taxonomy='bdg_class_2', damage_state=0):
-                        ExpoValues(buildings=5.0, population=0.0, replcostbdg=0.0)}
+        exposure (Pandas DataFrame):
+            DataFrame with one row per exposure asset of one exposure polygon, which is defined
+            by a "building_id" and whose hazard will be retrieved at 'intensity_position', and
+            the following columns:
+                "id" (str):
+                    Unique ID of the asset.
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets.
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "cum_loss_value" (float):
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before).
+        intensity_position (int):
+            Position of the hazard nearest neighbour to the centroid of the "building_id"
+            whose exposure is contained in the input 'exposure'.
         intensity_provider (IntensityProvider):
             Instance of IntensityProvider for retrieving the hazard intensities at a location.
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
 
     Returns:
-        result_expo (collections.defaultdict):
-            Dictionary with one key-value pair per combination of taxonomy and damage state of
-            an exposure polygon (a row of the overall exposure GeoDataFrame). Keys are ExpoKey
-            instances, values are ExpoValues instances. I.e., the same format as the input
-            'expo', but with all building classes and damage state combinations updated as per
-            the input hazard ('intensity_provider') and fragility ('fragility_provider'). I.e.,
-            these are the post-event damage states.
-        result_transitions (collections.defaultdict):
-            Dictionary with one key-value pair per combination of taxonomy and transition (i.e.,
-            change) from an initial damage state to a final damage state, and details on the
-            buildings associated with those transitions.
+        result_expo (Pandas DataFrame):
+            DataFrame with the same base structure as the input 'exposure', but with all
+            building classes and damage state combinations updated as per the input hazard
+            ('intensity_provider') and fragility ('fragility_provider'). I.e., these are the
+            post-event damage states. Additional columns with respecto to 'exposure'):
+                "final_damage" (int):
+                    Final damage state of the asset, as an integer.
     """
 
-    # Initialise results with zeroes
-    result_transitions = collections.defaultdict(empty_transition_values)
-
     # Do not perform any operations if there are no buildings
-    if not any(expo_value.buildings > 0 for expo_value in expo.values()):
-        return expo, result_transitions
+    if exposure["number"].sum() < 1E-10:  # <1E-10 taken as zero
+        result_expo = deepcopy(exposure)
+        result_expo["final_damage"] = exposure["initial_damage"]
+        return result_expo
 
-    # Read intensity measures at the centroid of the exposure polygon
-    centroid = geometry.centroid
-    lon, lat = centroid.x, centroid.y
-    intensity, units = intensity_provider.get_nearest(lon=lon, lat=lat)
+    # Read intensity measures at 'intensity_position'
+    intensity, units = intensity_provider.get_values_at_position(intensity_position)
 
-    result_expo = collections.defaultdict(empty_expo_values)
+    result_expo = None
 
-    for old_expo_key, old_expo_value in expo.items():
-        n_bdgs = old_expo_value.buildings
-
-        old_damage_state = old_expo_key.damage_state
-        taxonomy = old_expo_key.taxonomy
+    for row in exposure.index:
+        n_bdgs = exposure.loc[row, "number"]
+        old_damage_state = exposure.loc[row, "initial_damage"]
+        taxonomy = exposure.loc[row, "taxonomy"]
+        replacement_cost = exposure.loc[row, "replacement_cost_tot"]
+        cum_loss_value = exposure.loc[row, "cum_loss_value"]
+        asset_id = exposure.loc[row, "id"]
+        building_id = exposure.loc[row, "building_id"]
 
         # Retrieve damage states that are worse than 'old_damage_state'
         # (it also returns the fragility curve corresponding to this damage transition)
@@ -842,6 +657,8 @@ def get_updated_exposure_and_transitions(
         # poes[-1] = 1, i.e. PoE the current damage state
         poes = np.ones(len(damage_states_to_care)+1)
 
+        final_damage_states = []
+
         for position, single_damage_state in enumerate(damage_states_to_care):
             # position != damage state value
             # position=0 belongs to the worst damage state
@@ -850,53 +667,86 @@ def get_updated_exposure_and_transitions(
                 intensity, units
             )
 
+            final_damage_states.append(single_damage_state.to_state)
+
+        final_damage_states.append(old_damage_state)
+
         # Probabilities of occurrence (the position order is the same as in poes)
         poos = np.zeros_like(poes)
         poos[0] = poes[0]  # first element is the worst damage state, for which PoE=PoO
         poos[1:] = np.flip(np.flip(poes)[:-1] - np.flip(poes)[1:])
 
-        for position, single_damage_state in enumerate(damage_states_to_care):
-            expo_key = ExpoKey(taxonomy, single_damage_state.to_state)
+        aux_result_expo = pd.DataFrame(
+            {
+                "id": [asset_id for i in range(poos.shape[0])],
+                "building_id": [building_id for i in range(poos.shape[0])],
+                "taxonomy": [taxonomy for i in range(poos.shape[0])],
+                "initial_damage": [old_damage_state for i in range(poos.shape[0])],
+                "final_damage": final_damage_states,
+                "number": n_bdgs * poos,
+                "replacement_cost_tot": replacement_cost * poos,
+                "cum_loss_value": cum_loss_value * poos
+            }
+        )
+        if result_expo is None:
+            result_expo = deepcopy(aux_result_expo)
+        else:
+            result_expo = pd.concat((result_expo, aux_result_expo))
 
-            n_buildings_in_damage_state = poos[position] * n_bdgs
+    result_expo["initial_damage"] = result_expo["initial_damage"].astype(int)
+    result_expo["final_damage"] = result_expo["final_damage"].astype(int)
+    result_expo.reset_index(inplace=True)
+    result_expo = result_expo.drop(columns=["index"])
 
-            expo_value = result_expo[expo_key]
-
-            expo_value.buildings += n_buildings_in_damage_state
-
-            transition_key = TransitionKey(
-                taxonomy,
-                old_damage_state,
-                single_damage_state.to_state,
-            )
-            result_transitions[
-                transition_key
-            ].buildings += n_buildings_in_damage_state
-
-        # Buildings that remain in the same damage state
-        expo_key = ExpoKey(taxonomy, old_damage_state)
-        expo_value = result_expo[expo_key]
-        expo_value.buildings += poos[-1] * n_bdgs
-
-    return result_expo, result_transitions
+    return result_expo
 
 
-def compute_loss(transitions, loss_provider, schema):
+def compute_loss(updated_exposure, loss_provider, schema):
     """
-    Function copied and modified from:
-        Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
-        (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
-        https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
+    This function calculates the economic losses associated with the transitions from the
+    "initial_damage" states to the "final_damage" states in the input 'updated_exposure', as per
+    the consequence model (loss ratios per damage state) contained in 'loss_provider' for the
+    corresponding 'schema'.
 
-    Calculate the total economic loss associated due to all the damage 'transitions' associated
-    with one exposure polygon. As the economic loss is transition-based, it is incremental by
-    nature.
+    Assets (rows of 'updated_exposure') for which the damage state remains the same have zero
+    incremental loss and their cumulative loss remains the same as in the input.
+
+    Assets (rows of 'updated_exposure') for which the damage state gets worse have a non-zero
+    incremental loss, calculated as:
+        incremental loss = replacement cost * [LR(new damage state) - LR(previous_damage state)]
+
+    As pre-existing cumulative loss values (i.e., the "cum_loss_value" column of the input
+    'updated_exposure') may have been calculated with a different consequence model than the one
+    of the current run, it is possible to calculate new cumulative loss values that are larger
+    than 100% the replacement cost of the building. For this reason, this function checks if
+    this happens and adjusts these cases by setting the maximum cumulative loss value to be
+    equal to 100% the replacement cost, and back-calculating the associated incremental loss.
+    This assumption requires that the consequence model contained in 'loss_provider' contains
+    only loss ratios equal to or smaller than 100% (i.e., no possibility of accounting for
+    additional costs due to, for e.g., demolition).
 
     Args:
-        transitions (collections.defaultdict):
-            Dictionary with one key-value pair per combination of taxonomy and transition (i.e.,
-            change) from an initial damage state to a final damage state, and details on the
-            buildings associated with those transitions. All this, for one exposure polygon.
+        updated_exposure (Pandas DataFrame):
+            DataFrame with one row per exposure asset and the following columns:
+                "id" (str):
+                    Unique ID of the asset.
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets.
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "final_damage" (int):
+                    Final damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "cum_loss_value" (float):
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before).
         loss_provider (LossProvider):
             Instance of LossProvider to access the economic consequence model (loss ratios per
             damage state) and building replacement costs.
@@ -904,39 +754,67 @@ def compute_loss(transitions, loss_provider, schema):
             Name of the schema associated with the consequence model of 'loss_provider'.
 
     Returns:
-        loss_value (float):
-            Incremental economic loss associated with the exposure polygon whose damage
-            transitions are described in 'transitions'.
+        updated_exposure_with_losses (Pandas DataFrame):
+            The same as the input 'updated_exposure', with an additional column
+            'incremental_loss', which contains the incremental losses due to the current hazard,
+            and with updated values of 'cum_loss_value' (= previously-existing values of
+            'cum_loss_value' plus new 'incremental_loss').
     """
-    loss_value = 0
 
-    for transition_key, transition_value in transitions.items():
+    # Split the input into rows that transition and rows that do not
+    transitions = updated_exposure[
+        updated_exposure.initial_damage != updated_exposure.final_damage
+    ].copy()
+    nontransitions = updated_exposure[
+        updated_exposure.initial_damage == updated_exposure.final_damage
+    ].copy()
+    nontransitions["incremental_loss"] = np.zeros(nontransitions.shape[0])
+    nontransitions["cum_loss_value"] = (
+        nontransitions["cum_loss_value"] + nontransitions["incremental_loss"]
+    )
 
-        replacement_cost = transition_value.replcostbdg
+    # Calculate incremental losses for rows that transition
+    incremental_loss_ratios = np.zeros(transitions.shape[0])
 
-        # If replacement costs are not given within the exposure,
-        # retrieve them from the loss_provider
-        if replacement_cost == 0:
-            replacement_cost = loss_provider.get_fallback_replacement_cost(
-                schema=schema, taxonomy=transition_key.taxonomy
+    for i, row in enumerate(transitions.index):
+        incremental_loss_ratios[i] = loss_provider.get_incremental_loss_ratio(
+            schema=schema,
+            taxonomy=transitions.loc[row, "taxonomy"],
+            from_damage_state=transitions.loc[row, "initial_damage"],
+            to_damage_state=transitions.loc[row, "final_damage"],
             )
 
-        # Incremental loss (additional loss starting from 'from_damage_state' and
-        # moving up to 'to_damage_state')
-        single_loss_value = loss_provider.get_loss(
-            schema=schema,
-            taxonomy=transition_key.taxonomy,
-            from_damage_state=transition_key.from_damage_state,
-            to_damage_state=transition_key.to_damage_state,
-            replacement_cost=replacement_cost,
-        )
-        # single_loss_value refers to one building (because replacement_cost is for one
-        # building) --> multiply by the number of buildings in this transition
-        n_loss_value = single_loss_value * transition_value.buildings
+    transitions["incremental_loss"] = (
+        transitions["replacement_cost_tot"] * incremental_loss_ratios
+    )
 
-        loss_value += n_loss_value
+    # Make sure that no new cumulative loss is larger than the replacement cost of the building
+    previous_cum_loss_value = transitions["cum_loss_value"].to_numpy()
+    transitions["cum_loss_value"] = (
+        transitions["cum_loss_value"] + transitions["incremental_loss"]
+    )
+    which_exceed_replacement_cost = (
+        transitions.cum_loss_value > transitions.replacement_cost_tot
+    )  # rows in which the new cumulative loss is larger than the replacement cost
 
-    return loss_value
+    if which_exceed_replacement_cost.any():
+        # Adjust rows that need adjustment
+        transitions.loc[which_exceed_replacement_cost, "incremental_loss"] = (
+            transitions.loc[which_exceed_replacement_cost, "replacement_cost_tot"] -
+            previous_cum_loss_value[which_exceed_replacement_cost]
+        ) # new incremental loss is the replacement cost minus the pre-existing cumulative loss
+        transitions.loc[which_exceed_replacement_cost, "cum_loss_value"] = (
+            transitions.loc[which_exceed_replacement_cost, "replacement_cost_tot"]
+        )  # new cumulative loss is the replacement cost
+
+    # Join the transition and non-transition rows back together
+    updated_exposure_with_losses = pd.concat(
+        (transitions, nontransitions)
+    )
+    # Sort by the original indices (the same as in input 'updated_exposure')
+    updated_exposure_with_losses.sort_index(inplace=True)
+
+    return updated_exposure_with_losses
 
 
 def get_sorted_damage_states(fragility_provider, taxonomy, old_damage_state):

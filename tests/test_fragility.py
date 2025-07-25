@@ -274,7 +274,7 @@ def test_fragility_read_from_file():
 
     assert len(fragprov.get_taxonomies()) == 2
 
-    data_bdg_class_1 = fragprov.get_damage_states_for_taxonomy("bdg_class_1")
+    data_bdg_class_1 = fragprov.get_damage_states_for_taxonomy("source_1")
     
     assert len(data_bdg_class_1) == 20
 
@@ -334,7 +334,7 @@ def test_fragility_read_from_file():
     # When the target intensity value is 0.0, get_probability_for_intensity() should return:
     # * 0.0 if to_damage_state > from_damage_state (i.e. it is not possible to get more damage)
     # * 1.0 if to_damage_state = from_damage_state (i.e. the object is already in that damage state)
-    data_bdg_class_2 = fragprov.get_damage_states_for_taxonomy("bdg_class_2")
+    data_bdg_class_2 = fragprov.get_damage_states_for_taxonomy("source_2")
 
     for from_damage_state in [0, 1, 2, 3]:
         for to_damage_state in [1, 2, 3]:

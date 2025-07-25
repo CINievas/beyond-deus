@@ -17,13 +17,13 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import os
-from beyonddeus.loss import LossProvider, combine_losses
+from beyonddeus.loss import LossProvider
 
 
 def test_from_files():
 
     loss_provider = LossProvider.from_files(
-        os.path.join(os.path.dirname(__file__), "data", "consequence_costs_test.json")
+        os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
     )
 
     assert isinstance(loss_provider._data, dict)
@@ -31,14 +31,3 @@ def test_from_files():
     assert "data" in loss_provider._data["target_schema_name"].keys()
 
     assert loss_provider._data["target_schema_name"]["data"]["steps"]["3"] == 0.6
-    assert (
-        loss_provider._data["target_schema_name"]["data"]["replacementCosts"]["bdg_class_1"]
-        == 1000000
-    )
-
-
-def test_combine_losses():
-
-    returned = combine_losses(17.5, 21.0)
-
-    assert round(returned, 6) == 38.5
