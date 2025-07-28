@@ -56,12 +56,12 @@ def profile_beyonddeus():
     p = pstats.Stats(output_filepath)
     print(
         "30 functions with longest cumulative time results (time spent including time spent in "
-        "the functions/methods that it calls: \n"
+        "the functions/methods that it calls): \n"
     )
     p.sort_stats(SortKey.CUMULATIVE).print_stats(30)
     print(
         "30 functions with longest total time results (time spent excluding time spent in "
-        "the functions/methods that it calls: \n"
+        "the functions/methods that it calls): \n"
     )
     p.sort_stats(SortKey.TIME).print_stats(30)
 

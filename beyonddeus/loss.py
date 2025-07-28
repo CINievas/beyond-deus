@@ -48,7 +48,6 @@ class LossProvider:
     def get_incremental_loss_ratio(
         self,
         schema,
-        taxonomy,
         from_damage_state,
         to_damage_state
     ):

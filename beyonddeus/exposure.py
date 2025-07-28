@@ -775,11 +775,11 @@ def compute_loss(updated_exposure, loss_provider, schema):
     for i, row in enumerate(transitions.index):
         incremental_loss_ratios[i] = loss_provider.get_incremental_loss_ratio(
             schema=schema,
-            taxonomy=transitions.loc[row, "taxonomy"],
             from_damage_state=transitions.loc[row, "initial_damage"],
             to_damage_state=transitions.loc[row, "final_damage"],
-            )
+        )
 
+    # Calculate incremental loss
     transitions["incremental_loss"] = (
         transitions["replacement_cost_tot"] * incremental_loss_ratios
     )
