@@ -324,7 +324,7 @@ class Updater:
 
         # Go one by one each of the exposure polygons (i.e., "building_id")
 
-        updated_exposure_df = None
+        all_updated_exposure_bdg_id = []
 
         for bdg_id in self.intensity_positions.index:
             # Retrieve assets of this building_id
@@ -334,13 +334,9 @@ class Updater:
                 exposure_bdg_id, self.intensity_positions.loc[bdg_id, "nearest_neighbour"]
             )
 
-            if updated_exposure_df is None:
-                updated_exposure_df = deepcopy(updated_exposure_bdg_id)
-            else:
-                updated_exposure_df = pd.concat(
-                    (updated_exposure_df, updated_exposure_bdg_id)
-                )
+            all_updated_exposure_bdg_id.extend(updated_exposure_bdg_id.to_dict(orient="records"))
 
+        updated_exposure_df = pd.DataFrame(all_updated_exposure_bdg_id)
         updated_exposure_df.reset_index(inplace=True)
         updated_exposure_df.drop(columns=["index"], inplace=True)
 
@@ -501,7 +497,14 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
         )
     unique_dmgd_bdg_classes["mapping"] = all_mappings
 
-    mapped_exposure = None
+    all_mapped_sub_exposure = {}
+    all_mapped_sub_exposure["id"] = []
+    all_mapped_sub_exposure["building_id"] = []
+    all_mapped_sub_exposure["taxonomy"] = []
+    all_mapped_sub_exposure["initial_damage"] = []
+    all_mapped_sub_exposure["number"] = []
+    all_mapped_sub_exposure["replacement_cost_tot"] = []
+    all_mapped_sub_exposure["cum_loss_value"] = []
 
     # Go one by one each unique combination of "taxonomy" and "initial_damage"
     for index_tuple in unique_dmgd_bdg_classes.index:
@@ -545,24 +548,15 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
             sub_exposure["building_id"], np.ones(len(mapping["proportions"]), dtype=int)
         ).flatten()
 
-        mapped_sub_exposure = pd.DataFrame(
-            {
-                "id": new_id,
-                "building_id": new_building_id,
-                "taxonomy": new_taxonomies,
-                "initial_damage": new_dmg_states,
-                "number": new_number,
-                "replacement_cost_tot": new_costs,
-                "cum_loss_value": new_cum_loss_values
-            }
-        )
+        all_mapped_sub_exposure["id"].extend(new_id)
+        all_mapped_sub_exposure["building_id"].extend(new_building_id)
+        all_mapped_sub_exposure["taxonomy"].extend(new_taxonomies)
+        all_mapped_sub_exposure["initial_damage"].extend(new_dmg_states)
+        all_mapped_sub_exposure["number"].extend(new_number)
+        all_mapped_sub_exposure["replacement_cost_tot"].extend(new_costs)
+        all_mapped_sub_exposure["cum_loss_value"].extend(new_cum_loss_values)
 
-        if mapped_exposure is None:
-            mapped_exposure = deepcopy(mapped_sub_exposure)
-        else:
-            mapped_exposure = pd.concat(
-                [mapped_exposure, mapped_sub_exposure]
-            )
+    mapped_exposure = pd.DataFrame(all_mapped_sub_exposure)
 
     # Order the rows
     mapped_exposure.sort_values(
@@ -636,7 +630,15 @@ def get_updated_exposure_and_transitions(
     # Read intensity measures at 'intensity_position'
     intensity, units = intensity_provider.get_values_at_position(intensity_position)
 
-    result_expo = None
+    aux_result_expo = {}
+    aux_result_expo["id"] = []
+    aux_result_expo["building_id"] = []
+    aux_result_expo["taxonomy"] = []
+    aux_result_expo["initial_damage"] = []
+    aux_result_expo["final_damage"] = []
+    aux_result_expo["number"] = []
+    aux_result_expo["replacement_cost_tot"] = []
+    aux_result_expo["cum_loss_value"] = []
 
     for row in exposure.index:
         n_bdgs = exposure.loc[row, "number"]
@@ -676,22 +678,16 @@ def get_updated_exposure_and_transitions(
         poos[0] = poes[0]  # first element is the worst damage state, for which PoE=PoO
         poos[1:] = np.flip(np.flip(poes)[:-1] - np.flip(poes)[1:])
 
-        aux_result_expo = pd.DataFrame(
-            {
-                "id": [asset_id for i in range(poos.shape[0])],
-                "building_id": [building_id for i in range(poos.shape[0])],
-                "taxonomy": [taxonomy for i in range(poos.shape[0])],
-                "initial_damage": [old_damage_state for i in range(poos.shape[0])],
-                "final_damage": final_damage_states,
-                "number": n_bdgs * poos,
-                "replacement_cost_tot": replacement_cost * poos,
-                "cum_loss_value": cum_loss_value * poos
-            }
-        )
-        if result_expo is None:
-            result_expo = deepcopy(aux_result_expo)
-        else:
-            result_expo = pd.concat((result_expo, aux_result_expo))
+        aux_result_expo["id"].extend([asset_id for i in range(poos.shape[0])])
+        aux_result_expo["building_id"].extend([building_id for i in range(poos.shape[0])])
+        aux_result_expo["taxonomy"].extend([taxonomy for i in range(poos.shape[0])])
+        aux_result_expo["initial_damage"].extend([old_damage_state for i in range(poos.shape[0])])
+        aux_result_expo["final_damage"].extend(final_damage_states)
+        aux_result_expo["number"].extend(list(n_bdgs * poos))
+        aux_result_expo["replacement_cost_tot"].extend(list(replacement_cost * poos))
+        aux_result_expo["cum_loss_value"].extend(list(cum_loss_value * poos))
+
+    result_expo = pd.DataFrame(aux_result_expo)
 
     result_expo["initial_damage"] = result_expo["initial_damage"].astype(int)
     result_expo["final_damage"] = result_expo["final_damage"].astype(int)
