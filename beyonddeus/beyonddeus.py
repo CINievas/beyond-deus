@@ -19,6 +19,7 @@
 import os
 import sys
 import logging
+import datetime
 import numpy as np
 import pandas as pd
 
@@ -39,7 +40,11 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 def main():
 
     # Log the start of the run
-    logger.info("Beyond-DEUS has started")
+    now = datetime.datetime.now()
+    logger.info(
+        "%s: Beyond-DEUS has started"
+        % (format_time(now))
+    )
 
     # Read configuration parameters
     config = Configuration("config.yml")
@@ -60,7 +65,11 @@ def main():
     # Read intensity files
     intensity_filenames = os.listdir(config.input_paths["intensity"])
     number_intensity_reals = len(intensity_filenames)
-    logger.info("Reading input intensity files: %s files found" % (number_intensity_reals))
+    now = datetime.datetime.now()
+    logger.info(
+        "%s: Reading input intensity files: %s files found"
+        % (format_time(now), number_intensity_reals)
+    )
     intensity_provider = {}
     
     for i, filename in enumerate(intensity_filenames):
@@ -69,7 +78,8 @@ def main():
         ).to_intensity_provider()
 
     # Read fragility file
-    logger.info("Reading input fragility file")
+    now = datetime.datetime.now()
+    logger.info("%s: Reading input fragility file" % (format_time(now)))
 
     fragility_provider = Fragility.from_file(
        config.input_paths["fragility"]
@@ -90,7 +100,8 @@ def main():
         raise ValueError(error_message)
 
     # Read taxonomy and damage states compatibility matrices
-    logger.info("Reading input compatibility matrices")
+    now = datetime.datetime.now()
+    logger.info("%s: Reading input compatibility matrices" % (format_time(now)))
     if (
         config.input_paths["conversion_taxonomy"] == "None"
         and config.input_paths["conversion_damage_states"] == "None"
@@ -103,13 +114,18 @@ def main():
         )
 
     # Read exposure
-    logger.info("Reading input initial exposure model")
+    now = datetime.datetime.now()
+    logger.info("%s: Reading input initial exposure model" % (format_time(now)))
     initial_exposure_df, exposure_geoms = read_exposure(
         config.input_paths["exposure_csv"], config.input_paths["exposure_gpkg"]
     )
 
     # Map exposure from source to target schemas
-    logger.info("Mapping input initial exposure model onto target schema")
+    now = datetime.datetime.now()
+    logger.info(
+        "%s: Mapping input initial exposure model onto target schema"
+        % (format_time(now))
+    )
     mapped_exposure = map_exposure(
         initial_exposure_df,
         config.parameters["building_schema_exposure"],
@@ -118,12 +134,17 @@ def main():
     )
 
     # Read economic consequence model and building replacement costs
-    logger.info("Reading input economic consequence model")
+    now = datetime.datetime.now()
+    logger.info("%s: Reading input economic consequence model" % (format_time(now)))
     loss_provider = LossProvider.from_files(config.input_paths["consequence"])
 
     # Retrieve location (nearest neighbour position) of hazard intensity measures at the
     # centroids indicated in the input exposure geometries
-    logger.info("Determining nearest-neighbour hazard positions for all exposure sites")
+    now = datetime.datetime.now()
+    logger.info(
+        "%s: Determining nearest-neighbour hazard positions for all exposure sites"
+        % (format_time(now))
+    )
     target_locations = np.array(
         [exposure_geoms["centroid_lon"], exposure_geoms["centroid_lat"]]
     ).T
@@ -134,10 +155,16 @@ def main():
     )
 
     # Calculate damage and economic losses
-    logger.info("Calculating damage and economic losses for each realisation of intensity")
+    now = datetime.datetime.now()
+    logger.info(
+        "%s: Calculating damage and economic losses for each realisation of intensity"
+        % (format_time(now))
+    )
     for i, filename in enumerate(intensity_filenames):
+        now = datetime.datetime.now()
         logger.info(
-            "   Working on intensity realisation %s of %s" % (i+1, number_intensity_reals)
+            "   %s: Working on intensity realisation %s of %s"
+            % (format_time(now), i+1, number_intensity_reals)
         )
         updated_exposure = update_exposure_transitions_and_losses(
             mapped_exposure,
@@ -147,10 +174,28 @@ def main():
             loss_provider,
         )
 
-        logger.info("      Exporting results")
+        now = datetime.datetime.now()
+        logger.info("      %s: Exporting results" % (format_time(now)))
         out_filename = "%s_updated_exposure.csv" % (os.path.splitext(filename)[0])
         updated_exposure.to_csv(os.path.join(config.output_path, out_filename), index=False)
 
+    now = datetime.datetime.now()
+    logger.info(
+        "%s: Beyond-DEUS has finished"
+        % (format_time(now))
+    )
+
+
+def format_time(timeval):
+    formatted_time = "%s-%s-%s %s:%s:%s" % (
+        str(timeval.year),
+        str(timeval.month).zfill(2),
+        str(timeval.day).zfill(2),
+        str(timeval.hour).zfill(2),
+        str(timeval.minute).zfill(2),
+        str(timeval.second).zfill(2),
+    )
+    return formatted_time
 
 
 if __name__ == "__main__":
