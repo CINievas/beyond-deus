@@ -25,6 +25,8 @@ following parameters:
 - `output_path`: Path to the folder to which the outputs will be written. If it does not exist,
 it will be created. If it exists, it must be empty, otherwise the software will not run (to
 avoid overwritting results from previous runs).
+- `output_path_profiling`: Path to the folder to which the outputs of `profiling.py` will be
+written, if `profiling.py` is manually run.
 - `parameters`:
   - `building_schema_exposure`: Name of the building classification schema of the input exposure
   (one string).

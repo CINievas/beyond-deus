@@ -47,6 +47,8 @@ class Configuration:
         self.output_path (str):
             Path to directory where outputs will be written. It must be empty. If it does not
             exist, it will be created.
+        self.output_path_profiling (str):
+            Path to directory where outputs of profiling.py will be written, if manually run.
         self.parameters (dict):
             Dictionary with parameters for the calculations. Keys:
                 "building_schema_exposure":
@@ -90,6 +92,10 @@ class Configuration:
 
         self.output_path = self._assign_parameter(
             config, "output_path"
+        )
+
+        self.output_path_profiling = self._assign_parameter(
+            config, "output_path_profiling"
         )
 
         self.parameters = {}
