@@ -106,3 +106,22 @@ def test_read_intensity_files():
 
     assert isinstance(intensity_provider, dict)
     assert len(intensity_provider.keys()) == 0
+    
+    # 7 Set of Tsunami NetCDF files provided in sub-directories
+    intensity_provider = read_intensity_files(
+        os.path.join(os.path.dirname(__file__), "data", "reading_intensity_two_branch_Tsu"),
+        "netcdf_tsu"
+    )
+
+    expected_branches = ["subdir_1", "subdir_2"]
+    expected_realisations = [0, 1]
+
+    assert len(intensity_provider.keys()) == len(expected_branches)
+
+    for branch in expected_branches:
+    
+        assert branch in intensity_provider.keys()
+        assert len(intensity_provider[branch].keys()) == len(expected_realisations)
+
+        for realisation in expected_realisations:
+            assert realisation in intensity_provider[branch].keys()

@@ -21,7 +21,7 @@ import numpy as np
 from beyonddeus.earthquake_hdf_reader import EQ_HDF_fields
 
 
-def test_intensity_from_shakemap():
+def test_intensity_from_EQ_HDF():
 
     intensity_provider = EQ_HDF_fields(
         os.path.join(os.path.dirname(__file__), "data", "EQ_ground_motion_fields_test.hdf5"),

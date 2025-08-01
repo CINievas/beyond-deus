@@ -11,4 +11,4 @@ output_path_profiling: path_to_profiling_output_fikder  # Folder to which the ou
 parameters:
   building_schema_exposure: source_schema_name  #  Name of the building classification schema of the input exposure (one string)
   building_schema_fragility: target_schema_name  # Name of the building classification schema of the output, i.e. of the fragility model (one string)
-  intensity_file_type: intensity_file_type  # Type of intensity input files. Supported values: xml, hdf5
+  intensity_file_type: intensity_file_type  # Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu

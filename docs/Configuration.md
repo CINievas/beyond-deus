@@ -4,8 +4,14 @@ The software automatically searches for the `config.yml` file. This file should 
 following parameters:
 
 - `input_paths`:
-  - `intensity`: Path to directory that contains the hazard intensity input files. All files in
-  this directory will be processed.
+  - `intensity`: This can be:
+    - A path to a directory that contains several hazard intensity input files. All files in
+    this directory will be processed. If the files are not organised into sub-directories, they
+    are all treated as realisations of intensity of one logic tree branch. If the files are
+    organised into sub-directories, it is assumed that each sub-directory corresponds to a logic
+    tree branch, and all files within are realisations within each branch.
+    - A path to one earthquake HDF5 file, which may contain intensity fields for more than one
+    logic tree branch and more than one realisations per branch.
   - `fragility`: Path to fragility `.json` file.
   - `exposure_csv`: Path to exposure `.csv` file with one row per exposure asset (a number of
   buildings of a particular building class, in a particular damage state, at a particular
@@ -32,5 +38,9 @@ written, if `profiling.py` is manually run.
   (one string).
   - `building_schema_fragility`: Name of the building classification schema of the output, i.e.
   of the fragility model (one string).
+  - `intensity_file_type`: Type of intensity input files. Currently supported values: "xml",
+  "hdf5" (i.e., earthquake ground motions as output by
+  [shakyground2](https://git.gfz.de/shakemap/shakyground2)), "netcdf_tsu" (i.e., tsunami
+  inundations as output by [TsunAWI](https://tsunami.awi.de/).
 
 An example of a config.yml file can be found [here](../config_example.yml).

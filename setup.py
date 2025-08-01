@@ -33,7 +33,8 @@ setup(
         "scipy>=1.15.2",
         "lxml>=5.4",
         "geopandas>=1.1.1",
-        "h5py>=3.14.0"
+        "h5py>=3.14.0",
+        "netCDF4>=1.7.2"
     ],
     extras_require={
         "tests": tests_require,

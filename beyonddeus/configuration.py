@@ -57,7 +57,7 @@ class Configuration:
                     Name of the building classification schema of the output, i.e. of the
                     input fragility and consequence models.
                 "intensity_file_type":
-                    Type of intensity input files. Supported values: xml, hdf5.
+                    Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu.
     """
 
     def __init__(self, filepath):
