@@ -24,9 +24,33 @@ class DictWithListDataWrapper:
         https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
 
     Wrapper for accessing the intensity data using a dictionary with lists for the data
-    and an addtional dictionary for the units.
+    and an additional dictionary for the units.
+
+    Attrs:
+        data (dict):
+            Dictionary with individual keys for the longitude and latitude of the sites, as well
+            as for the different intensity measures. Each of the keys contains a list with
+            values (float) of lon/lat or intensity measures.
+        units (dict):
+            Dictionary with the same keys as 'data', each containing a string of the units of
+            measurement of the key.
+        _x_column (str):
+            Name of the key of 'data' that contains the longitude coordinates.
+        _y_column (str):
+            Name of the key of 'data' that contains the latitude coordinates.
     """
     def __init__(self, data, units, possible_x_columns, possible_y_columns):
+        """
+        Args:
+            data (dict):
+                See description in attrs.
+            units (dict):
+                See description in attrs.
+            possible_x_columns (list of str):
+                Possible names of the key of 'data' that contains the longitude coordinates.
+            possible_y_columns (list of str):
+                Possible names of the key of 'data' that contains the latitude coordinates.
+        """
         self._data = data
         self._units = units
 

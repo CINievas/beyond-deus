@@ -55,6 +55,7 @@ def test_intensity_from_shakemap():
         assert round(returned[0][im], 5) == round(expected[0][im], 5)
         assert returned[1][im] == expected[1][im]
 
+    # 3, identify nearest neighbour positions
     target_locations = np.array([
         [14.6, 37.1], [14.9, 36.9], [16.0, 37.0], [15.5, 37.0], [-14.0, -36.0]
     ])
