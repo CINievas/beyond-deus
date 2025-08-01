@@ -56,6 +56,8 @@ class Configuration:
                 "building_schema_fragility":
                     Name of the building classification schema of the output, i.e. of the
                     input fragility and consequence models.
+                "intensity_file_type":
+                    Type of intensity input files. Supported values: xml, hdf5.
     """
 
     def __init__(self, filepath):
@@ -104,6 +106,9 @@ class Configuration:
         )
         self.parameters["building_schema_fragility"] = self._assign_parameter(
             config["parameters"], "building_schema_fragility"
+        )
+        self.parameters["intensity_file_type"] = self._assign_parameter(
+            config["parameters"], "intensity_file_type"
         )
 
     def _read_config_file(self, filepath):

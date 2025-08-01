@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from beyonddeus.configuration import Configuration
-from beyonddeus.shakemap import Shakemaps
+from beyonddeus.intensity_reader import read_intensity_files
 from beyonddeus.fragility import Fragility
 from beyonddeus.schemamapping import SchemaMapper
 from beyonddeus.exposure import (
@@ -63,19 +63,19 @@ def main():
         raise OSError(error_message)
 
     # Read intensity files
-    intensity_filenames = os.listdir(config.input_paths["intensity"])
-    number_intensity_reals = len(intensity_filenames)
     now = datetime.datetime.now()
-    logger.info(
-        "%s: Reading input intensity files: %s files found"
-        % (format_time(now), number_intensity_reals)
+    logger.info("%s: Reading input intensity file(s)" % (format_time(now)))
+    intensity_provider = read_intensity_files(
+        config.input_paths["intensity"],
+        config.parameters["intensity_file_type"]
     )
-    intensity_provider = {}
-    
-    for i, filename in enumerate(intensity_filenames):
-        intensity_provider[i] = Shakemaps.from_file(
-            os.path.join(config.input_paths["intensity"], filename)
-        ).to_intensity_provider()
+
+    if len(intensity_provider.keys()) == 0:
+        logger.info(
+            "No intensity files found. Check if 'intensity_file_type' "
+            "in 'config.yml' is supported."
+        )
+        return
 
     # Read fragility file
     now = datetime.datetime.now()
@@ -148,7 +148,10 @@ def main():
     target_locations = np.array(
         [exposure_geoms["centroid_lon"], exposure_geoms["centroid_lat"]]
     ).T
-    nearest_neighbours = intensity_provider[0].identify_nearest_neighbours(target_locations)
+    first_branch = list(intensity_provider.keys())[0]
+    nearest_neighbours = intensity_provider[first_branch][0].identify_nearest_neighbours(
+        target_locations
+    )
     intensity_positions = pd.DataFrame(
         {"nearest_neighbour": nearest_neighbours},
         index=exposure_geoms["building_id"]
@@ -160,24 +163,36 @@ def main():
         "%s: Calculating damage and economic losses for each realisation of intensity"
         % (format_time(now))
     )
-    for i, filename in enumerate(intensity_filenames):
+
+    number_branches = len(intensity_provider.keys())
+
+    for l, branch in enumerate(intensity_provider.keys()):
         now = datetime.datetime.now()
         logger.info(
-            "   %s: Working on intensity realisation %s of %s"
-            % (format_time(now), i+1, number_intensity_reals)
-        )
-        updated_exposure = update_exposure_transitions_and_losses(
-            mapped_exposure,
-            intensity_provider[i],
-            intensity_positions,
-            fragility_provider,
-            loss_provider,
+            "   %s: Working on logic tree branch '%s' (%s of %s)"
+            % (format_time(now), branch, l+1, number_branches)
         )
 
-        now = datetime.datetime.now()
-        logger.info("      %s: Exporting results" % (format_time(now)))
-        out_filename = "%s_updated_exposure.csv" % (os.path.splitext(filename)[0])
-        updated_exposure.to_csv(os.path.join(config.output_path, out_filename), index=False)
+        number_intensity_reals = len(intensity_provider[branch].keys())
+
+        for k, realisation in enumerate(intensity_provider[branch]):
+            now = datetime.datetime.now()
+            logger.info(
+                "      %s: Working on intensity realisation %s of %s"
+                % (format_time(now), k+1, number_intensity_reals)
+            )
+            updated_exposure = update_exposure_transitions_and_losses(
+                mapped_exposure,
+                intensity_provider[branch][i],
+                intensity_positions,
+                fragility_provider,
+                loss_provider,
+            )
+
+            now = datetime.datetime.now()
+            logger.info("      %s: Exporting results" % (format_time(now)))
+            out_filename = "b_%s_r_%s_updated_exposure.csv" % (branch, realisation)
+            updated_exposure.to_csv(os.path.join(config.output_path, out_filename), index=False)
 
     now = datetime.datetime.now()
     logger.info(

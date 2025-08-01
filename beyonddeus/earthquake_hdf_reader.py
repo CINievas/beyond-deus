@@ -17,9 +17,14 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import h5py
+import logging
 
 from beyonddeus.intensityprovider import IntensityProvider
 from beyonddeus.intensitydatawrapper import DictWithListDataWrapper
+
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 class EQ_HDF_fields:
@@ -130,6 +135,12 @@ def read_earthquake_ground_motions_HDF(file_name):
     gmpes = fle["GMMs"][:] # dimension "l"
     for l in range(gmpes.shape[0]):
         gmpes[l] = gmpes[l].decode("utf-8")
+    logger.info(
+        "      %s branches of a logic tree found" % (gmpes.shape[0])
+    )
+    logger.info(
+        "      %s ground motion fields per logic tree branch found" % (number_gmfs)
+    )
 
     # Names of the intensity measure types
     intensity_types = fle["IMTs"][:] # dimension "i"
