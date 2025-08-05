@@ -183,7 +183,7 @@ def main():
             )
             updated_exposure = update_exposure_transitions_and_losses(
                 mapped_exposure,
-                intensity_provider[branch][i],
+                intensity_provider[branch][k],
                 intensity_positions,
                 fragility_provider,
                 loss_provider,

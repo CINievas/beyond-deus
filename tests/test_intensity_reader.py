@@ -81,12 +81,16 @@ def test_read_intensity_files():
             assert realisation in intensity_provider[branch].keys()
 
     # 4 No files or sub-directories found
+    # Create temporary empty directory
+    os.mkdir(os.path.join(os.path.dirname(__file__), "data", "reading_intensity_empty_DELETE"))
     with pytest.raises(OSError) as excinfo:
         intensity_provider = read_intensity_files(
-            os.path.join(os.path.dirname(__file__), "data", "reading_intensity_empty"),
+            os.path.join(os.path.dirname(__file__), "data", "reading_intensity_empty_DELETE"),
             "xml"
         )
     assert "OSError" in str(excinfo.type)
+    # Delete temporary empty directory
+    os.rmdir(os.path.join(os.path.dirname(__file__), "data", "reading_intensity_empty_DELETE"))
 
     # 5 Both files and sub-directories found
     with pytest.raises(OSError) as excinfo:
