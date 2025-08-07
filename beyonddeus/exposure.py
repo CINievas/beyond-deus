@@ -98,6 +98,7 @@ def read_exposure(filename_csv, filename_geoms):
 def update_exposure_transitions_and_losses(
     exposure,
     hazard_intensities,
+    intensity_threshold,
     fragility_provider,
     loss_provider,
 ):
@@ -149,6 +150,10 @@ def update_exposure_transitions_and_losses(
                 than the intensity_threshold set in the configuration, False if all of them are
                 smaller. Buildings in exposure polygons with "run" = False are assumed to remain
                 in the same current damage state (now damage calculation is run for them).
+        intensity_threshold (float):
+            Threshold of hazard intensity, to be used so that if the intensity value at a target
+            exposure point is smaller than the threshold, no further damage is assumed (and the
+            detailed calculation is avoided).
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
         loss_provider (LossProvider):
@@ -189,6 +194,7 @@ def update_exposure_transitions_and_losses(
     updater = Updater(
         fragility_provider,
         hazard_intensities,
+        intensity_threshold,
         loss_provider,
     )
 
@@ -246,6 +252,10 @@ class Updater:
                 than the intensity_threshold set in the configuration, False if all of them are
                 smaller. Buildings in exposure polygons with "run" = False are assumed to remain
                 in the same current damage state (now damage calculation is run for them).
+        intensity_threshold (float):
+            Threshold of hazard intensity, to be used so that if the intensity value at a target
+            exposure point is smaller than the threshold, no further damage is assumed (and the
+            detailed calculation is avoided).
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
         loss_provider (LossProvider):
@@ -257,10 +267,12 @@ class Updater:
         self,
         fragility_provider,
         hazard_intensities,
+        intensity_threshold,
         loss_provider,
     ):
         self.fragility_provider = fragility_provider
         self.hazard_intensities = hazard_intensities
+        self.intensity_threshold = intensity_threshold
         self.loss_provider = loss_provider
 
     def update_df(self, exposure_df):
@@ -349,7 +361,7 @@ class Updater:
             exposure_bdg_id = exposure_df_run[exposure_df_run.building_id == bdg_id]
             # Calculate new damage, incremental and cumulative losses
             updated_exposure_bdg_id = self.update_exposure_polygon(
-                exposure_bdg_id, self.hazard_intensities.loc[bdg_id, :]
+                exposure_bdg_id, self.hazard_intensities.loc[bdg_id, :], self.intensity_threshold
             )
 
             all_updated_exposure_bdg_id.extend(updated_exposure_bdg_id.to_dict(orient="records"))
@@ -363,7 +375,7 @@ class Updater:
 
         return updated_exposure_df
 
-    def update_exposure_polygon(self, exposure, intensity_values):
+    def update_exposure_polygon(self, exposure, intensity_values, intensity_threshold):
         """
         Updates a set of assets of the exposure model associated with one exposure polygon.
 
@@ -374,6 +386,10 @@ class Updater:
                 Values of hazard intensity associated with the exposure polygon that the input
                 'exposure' corresponds to. The labels of the Series are the hazard intensity
                 measure types.
+            intensity_threshold (float):
+                Threshold of hazard intensity, to be used so that if the intensity value at a
+                target exposure point is smaller than the threshold, no further damage is
+                assumed (and the detailed calculation is avoided).
 
         Returns:
             updated_exposure_and_losses (Pandas DataFrame):
@@ -411,6 +427,7 @@ class Updater:
         updated_exposure = get_updated_exposure_and_transitions(
             exposure,
             intensity_values,
+            intensity_threshold,
             self.fragility_provider
         )
 
@@ -589,7 +606,7 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
 
 
 def get_updated_exposure_and_transitions(
-    exposure, intensity_values, fragility_provider
+    exposure, intensity_values, intensity_threshold, fragility_provider
 ):
     """
     This function returns the exposure with damage updated due to the current run of the
@@ -628,6 +645,9 @@ def get_updated_exposure_and_transitions(
             Values of hazard intensity associated with the exposure polygon that the input
             'exposure' corresponds to. The labels of the Series are the hazard intensity
             measure types.
+        intensity_threshold (float):
+            Threshold of hazard intensity, to be used so that if the intensity value at a target
+            exposure point is smaller than the threshold, no further damage is assumed.
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
 
@@ -671,6 +691,13 @@ def get_updated_exposure_and_transitions(
         damage_states_to_care = get_sorted_damage_states(
             fragility_provider, taxonomy, old_damage_state
         )
+
+        # Ignore all worse damage states if the intensity value is smaller than
+        # 'intensity_threshold'
+        if len(damage_states_to_care) > 0:  # i.e. there are worse damage states to consider
+            intensity_val = intensity_values[damage_states_to_care[0].intensity_field]
+            if intensity_val < intensity_threshold:
+                damage_states_to_care = []
 
         # Initialise Probability of Exceedance (PoE) array
         # poes[-1] = 1, i.e. PoE the current damage state

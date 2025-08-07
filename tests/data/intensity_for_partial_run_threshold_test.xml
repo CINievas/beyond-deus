@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='us-ascii'?>
+<shakemap_grid xmlns="http://earthquake.usgs.gov/eqcenter/shakemap">
+  <grid_specification lon_min="13.5" lat_min="36.0" lon_max="15.0" lat_max="37.0" nominal_lon_spacing="0.5" nominal_lat_spacing="0.5" nlon="4" nlat="3" regular_grid="1" />
+  <grid_field index="1" name="LON" units="dd" />
+  <grid_field index="2" name="LAT" units="dd" />
+  <grid_field index="3" name="PGA" units="g" />
+  <grid_field index="4" name="SA(0.3)" units="g" />
+  <grid_field index="5" name="SA(0.6)" units="g" />
+  <grid_field index="6" name="SA(1.0)" units="g" />
+  <grid_data>13.5 36.0 0.1 0.2 0.3 0.4
+13.5 36.5 0.15 0.25 0.35 0.45
+13.5 37.0 0.1 0.2 0.3 0.4
+14.0 36.0 0.15 0.25 0.35 0.45
+14.0 36.5 0.2 0.3 0.4 0.5
+14.0 37.0 0.15 0.25 0.35 0.45
+14.5 36.0 0.1 0.2 0.3 0.4
+14.5 36.5 0.15 0.25 0.35 0.45
+14.5 37.0 0.1 0.2 0.3 0.4
+15.0 36.0 0.15 0.25 0.35 0.45
+15.0 36.5 0.2 0.3 0.4 0.5
+15.0 37.0 0.0005 0.25 0.35 0.45</grid_data>
+</shakemap_grid>

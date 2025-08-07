@@ -211,13 +211,15 @@ def test_get_updated_exposure_and_transitions():
         os.path.join(os.path.dirname(__file__), "data", "intensity_test.xml"),
     ).to_intensity_provider()
 
+    intensity_threshold = 0.001
     all_intensities = intensity_provider.get_values_at_multiple_positions(
-        intensity_positions, 0.001
+        intensity_positions, intensity_threshold
     )
 
     returned_updated_exposure = get_updated_exposure_and_transitions(
         old_exposure,
         all_intensities.loc["1230", :],
+        intensity_threshold,
         fragility_provider
     )
 
@@ -266,6 +268,7 @@ def test_get_updated_exposure_and_transitions():
     returned_updated_exposure_trivial = get_updated_exposure_and_transitions(
         old_exposure,
         all_intensities.loc["1230", :],
+        intensity_threshold,
         fragility_provider
     )
 
@@ -306,8 +309,9 @@ def test_compute_loss():
         os.path.join(os.path.dirname(__file__), "data", "intensity_test.xml"),
     ).to_intensity_provider()
 
+    intensity_threshold = 0.001
     all_intensities = intensity_provider.get_values_at_multiple_positions(
-        intensity_positions, 0.001
+        intensity_positions, intensity_threshold
     )
 
     # Read loss model provider
@@ -318,6 +322,7 @@ def test_compute_loss():
     updated_exposure = get_updated_exposure_and_transitions(
         old_exposure,
         all_intensities.loc["1230", :],
+        intensity_threshold,
         fragility_provider
     )
 
@@ -383,8 +388,9 @@ def test_compute_loss():
         os.path.join(os.path.dirname(__file__), "data", "intensity_test.xml"),
     ).to_intensity_provider()
 
+    intensity_threshold = 0.001
     all_intensities = intensity_provider.get_values_at_multiple_positions(
-        intensity_positions, 0.001
+        intensity_positions, intensity_threshold
     )
 
     # Read loss model provider
@@ -395,6 +401,7 @@ def test_compute_loss():
     updated_exposure = get_updated_exposure_and_transitions(
         old_exposure,
         all_intensities.loc["1230", :],
+        intensity_threshold,
         fragility_provider
     )
 
@@ -471,8 +478,9 @@ def test_update_exposure_transitions_and_losses():
     intensity_positions.index.rename("building_id", inplace=True)
 
     # Intensity values
+    intensity_threshold = 0.001
     all_hazard_intensities = intensity_provider.get_values_at_multiple_positions(
-        intensity_positions, 0.001
+        intensity_positions, intensity_threshold
     )
 
     # Read loss model provider
@@ -483,6 +491,7 @@ def test_update_exposure_transitions_and_losses():
     returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
         all_hazard_intensities,
+        intensity_threshold,
         fragility_provider,
         loss_provider,
     )
@@ -558,8 +567,9 @@ def test_update_exposure_transitions_and_losses():
     intensity_positions.index.rename("building_id", inplace=True)
 
     # Intensity values
+    intensity_threshold = 0.001
     all_hazard_intensities = intensity_provider.get_values_at_multiple_positions(
-        intensity_positions, 0.001
+        intensity_positions, intensity_threshold
     )
 
     # Read loss model provider
@@ -570,6 +580,7 @@ def test_update_exposure_transitions_and_losses():
     returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
         all_hazard_intensities,
+        intensity_threshold,
         fragility_provider,
         loss_provider,
     )
@@ -609,6 +620,7 @@ def test_update_exposure_transitions_and_losses():
 
     # TEST 3: SAME AS TEST 2 BUT MODIFIED INTENSITIES & SETTING AN "intensity_threshold"
     #         SO THAT ONE OF THE building_ids IS NOT PROCESSED
+    #         (i.e., ALL INTENSITIES BELOW THRESHOLD)
     # Test case in which no conversion of building classes or damage states is needed
     # In this test, the exposure model includes previous values of losses (i.e.,
     # "cum_loss_value" column). It also includes a "loss_value" that should be ignored.
@@ -636,7 +648,7 @@ def test_update_exposure_transitions_and_losses():
     # Read intensity provider
     intensity_provider = Shakemaps.from_file(
         os.path.join(
-            os.path.dirname(__file__), "data", "intensity_test_for_threshold_test.xml"
+            os.path.dirname(__file__), "data", "intensity_for_not_run_threshold_test.xml"
         ),
     ).to_intensity_provider()
 
@@ -648,8 +660,9 @@ def test_update_exposure_transitions_and_losses():
     intensity_positions.index.rename("building_id", inplace=True)
 
     # Intensity values
+    intensity_threshold = 0.001
     all_hazard_intensities = intensity_provider.get_values_at_multiple_positions(
-        intensity_positions, 0.001
+        intensity_positions, intensity_threshold
     )
 
     # Read loss model provider
@@ -660,6 +673,100 @@ def test_update_exposure_transitions_and_losses():
     returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
         all_hazard_intensities,
+        intensity_threshold,
+        fragility_provider,
+        loss_provider,
+    )
+
+    # Read expected results
+    expected_updated_exposure_and_losses, _ = read_exposure(
+       os.path.join(
+           os.path.dirname(__file__), "data",
+           "expected_updated_exposure_damage_losses_with_previous_loss_intensity_threshold.csv"
+       ),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+
+    for col in expected_updated_exposure_and_losses.columns:
+        assert col in returned_updated_exposure_and_losses
+
+    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_floats = ["number", "replacement_cost_tot", "incremental_loss", "cum_loss_value"]
+
+    for row in expected_updated_exposure_and_losses.index:
+        for col in cols_str_or_int:
+            assert (
+                returned_updated_exposure_and_losses.loc[row, col] ==
+                expected_updated_exposure_and_losses.loc[row, col]
+            )
+        for col in cols_floats:
+            if col == "number":
+                assert (
+                    round(returned_updated_exposure_and_losses.loc[row, col], 10) ==
+                    round(expected_updated_exposure_and_losses.loc[row, col], 10)
+                )
+            else:
+                assert (
+                    round(returned_updated_exposure_and_losses.loc[row, col], 3) ==
+                    round(expected_updated_exposure_and_losses.loc[row, col], 3)
+                )
+
+    # TEST 4: SAME AS TEST 2 BUT MODIFIED INTENSITIES & SETTING AN "intensity_threshold"
+    #         SO THAT ONE OF THE building_ids IS INITIALLY PROCESSED BUT THEN DAMAGE NOT CALC'D
+    #         (i.e. NOT ALL INTENSITIES < THRESHOLD, ONLY THE ONE THAT MATTERS)
+    # Test case in which no conversion of building classes or damage states is needed
+    # In this test, the exposure model includes previous values of losses (i.e.,
+    # "cum_loss_value" column). It also includes a "loss_value" that should be ignored.
+
+    # Read test exposure file
+    initial_exposure, exposure_geometries = read_exposure(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv"),
+       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+
+    assert "incremental_loss" in initial_exposure.columns
+    assert "cum_loss_value" in initial_exposure.columns
+
+    # Read fragility input
+    fragility_provider = Fragility.from_file(
+       os.path.join(os.path.dirname(__file__), "data", "fragility_test.json")
+    ).to_fragility_provider()
+
+    # Read schema mapper (will not be used)
+    schema_mapper = SchemaMapper.from_taxonomy_and_damage_state_conversion_files(
+        os.path.join(os.path.dirname(__file__), "data", "conversion_taxonomy"),
+        os.path.join(os.path.dirname(__file__), "data", "conversion_damage")
+    )
+
+    # Read intensity provider
+    intensity_provider = Shakemaps.from_file(
+        os.path.join(
+            os.path.dirname(__file__), "data", "intensity_for_partial_run_threshold_test.xml"
+        ),
+    ).to_intensity_provider()
+
+    # Intensity positions
+    intensity_positions = pd.DataFrame(
+        {"nearest_neighbour": [8, 11]},
+        index=["1230", "1231"]
+    )
+    intensity_positions.index.rename("building_id", inplace=True)
+
+    # Intensity values
+    intensity_threshold = 0.001
+    all_hazard_intensities = intensity_provider.get_values_at_multiple_positions(
+        intensity_positions, intensity_threshold
+    )
+
+    # Read loss model provider
+    loss_provider = LossProvider.from_files(
+        os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
+    )
+
+    returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
+        initial_exposure,
+        all_hazard_intensities,
+        intensity_threshold,
         fragility_provider,
         loss_provider,
     )

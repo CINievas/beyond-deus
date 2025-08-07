@@ -189,6 +189,7 @@ def main():
             updated_exposure = update_exposure_transitions_and_losses(
                 mapped_exposure,
                 all_intensities_lk,
+                config.parameters["intensity_threshold"],
                 fragility_provider,
                 loss_provider,
             )
