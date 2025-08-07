@@ -185,6 +185,14 @@ def main():
             all_intensities_lk = intensity_provider[branch][k].get_values_at_multiple_positions(
                 intensity_positions, config.parameters["intensity_threshold"]
             )
+            logger.info(
+                "                           %s out of %s building_id "
+                "assumed with no further damage (intensity < threshold)"
+                % (
+                    all_intensities_lk.shape[0] - all_intensities_lk["run"].sum(),
+                    all_intensities_lk.shape[0]
+                )
+            )
 
             updated_exposure = update_exposure_transitions_and_losses(
                 mapped_exposure,
