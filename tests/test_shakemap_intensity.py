@@ -30,30 +30,22 @@ def test_intensity_from_shakemap():
     # 1
     target_lon = 13.55
     target_lat = 36.1
-    expected = (
-        {"PGA": 0.1, "SA(0.3)": 0.2, "SA(0.6)": 0.3, "SA(1.0)": 0.4},
-        {"PGA": "g", "SA(0.3)": "g", "SA(0.6)": "g", "SA(1.0)": "g"}
-    )
+    expected = {"PGA": 0.1, "SA(0.3)": 0.2, "SA(0.6)": 0.3, "SA(1.0)": 0.4}
 
     returned = intensity_provider.get_nearest(target_lon, target_lat)
 
-    for i, im in enumerate(expected[0].keys()):
-        assert round(returned[0][im], 5) == round(expected[0][im], 5)
-        assert returned[1][im] == expected[1][im]
+    for i, im in enumerate(expected.keys()):
+        assert round(returned[im], 5) == round(expected[im], 5)
 
     # 2, point too far away
     target_lon = 12.5
     target_lat = 36.1
-    expected = (
-        {"PGA": 0.0, "SA(0.3)": 0.0, "SA(0.6)": 0.0, "SA(1.0)": 0.0},
-        {"PGA": "g", "SA(0.3)": "g", "SA(0.6)": "g", "SA(1.0)": "g"}
-    )
+    expected = {"PGA": 0.0, "SA(0.3)": 0.0, "SA(0.6)": 0.0, "SA(1.0)": 0.0}
 
     returned = intensity_provider.get_nearest(target_lon, target_lat)
 
-    for i, im in enumerate(expected[0].keys()):
-        assert round(returned[0][im], 5) == round(expected[0][im], 5)
-        assert returned[1][im] == expected[1][im]
+    for i, im in enumerate(expected.keys()):
+        assert round(returned[im], 5) == round(expected[im], 5)
 
     # 3, identify nearest neighbour positions
     target_locations = np.array([
@@ -78,10 +70,9 @@ def test_intensity_from_shakemap():
 
     for i in range(expected_nearest_neighbours.shape[0]):
 
-        returned_ims, returned_units = intensity_provider.get_values_at_position(
+        returned_ims = intensity_provider.get_values_at_position(
             expected_nearest_neighbours[i]
         )
 
         for im_type in expected_im_values[i]:
             assert round(returned_ims[im_type], 5) == round(expected_im_values[i][im_type], 5)
-            assert returned_units[im_type] == "g"

@@ -32,48 +32,36 @@ def test_intensity_from_EQ_HDF():
     realisation = 0
     target_lon = 13.55
     target_lat = 36.1
-    expected = (
-        {"PGA": 0.1, "SA(0.3)": 0.2, "SA(0.6)": 0.3, "SA(1.0)": 0.4},
-        {"PGA": "g", "SA(0.3)": "g", "SA(0.6)": "g", "SA(1.0)": "g"}
-    )
+    expected = {"PGA": 0.1, "SA(0.3)": 0.2, "SA(0.6)": 0.3, "SA(1.0)": 0.4}
 
     returned = intensity_provider[gmpe_name][realisation].get_nearest(target_lon, target_lat)
 
-    for i, im in enumerate(expected[0].keys()):
-        assert round(returned[0][im], 5) == round(expected[0][im], 5)
-        assert returned[1][im] == expected[1][im]
+    for i, im in enumerate(expected.keys()):
+        assert round(returned[im], 5) == round(expected[im], 5)
 
     # 2, same as # 1, but for a different GMPE name and realisation number
     gmpe_name = "GMPE2"
     realisation = 2
     target_lon = 13.55
     target_lat = 36.1
-    expected = (
-        {"PGA": 0.6, "SA(0.3)": 1.2, "SA(0.6)": 1.8, "SA(1.0)": 2.4},
-        {"PGA": "g", "SA(0.3)": "g", "SA(0.6)": "g", "SA(1.0)": "g"}
-    )
+    expected = {"PGA": 0.6, "SA(0.3)": 1.2, "SA(0.6)": 1.8, "SA(1.0)": 2.4}
 
     returned = intensity_provider[gmpe_name][realisation].get_nearest(target_lon, target_lat)
 
-    for i, im in enumerate(expected[0].keys()):
-        assert round(returned[0][im], 5) == round(expected[0][im], 5)
-        assert returned[1][im] == expected[1][im]
+    for i, im in enumerate(expected.keys()):
+        assert round(returned[im], 5) == round(expected[im], 5)
 
     # 3, point too far away
     gmpe_name = "GMPE1"
     realisation = 0
     target_lon = 12.5
     target_lat = 36.1
-    expected = (
-        {"PGA": 0.0, "SA(0.3)": 0.0, "SA(0.6)": 0.0, "SA(1.0)": 0.0},
-        {"PGA": "g", "SA(0.3)": "g", "SA(0.6)": "g", "SA(1.0)": "g"}
-    )
+    expected = {"PGA": 0.0, "SA(0.3)": 0.0, "SA(0.6)": 0.0, "SA(1.0)": 0.0}
 
     returned = intensity_provider[gmpe_name][realisation].get_nearest(target_lon, target_lat)
 
-    for i, im in enumerate(expected[0].keys()):
-        assert round(returned[0][im], 5) == round(expected[0][im], 5)
-        assert returned[1][im] == expected[1][im]
+    for i, im in enumerate(expected.keys()):
+        assert round(returned[im], 5) == round(expected[im], 5)
 
     # 4, identify nearest neighbour positions
     gmpe_name = "GMPE1"
@@ -100,10 +88,9 @@ def test_intensity_from_EQ_HDF():
 
     for i in range(expected_nearest_neighbours.shape[0]):
 
-        returned_ims, returned_units = intensity_provider[
-            gmpe_name][realisation
-                      ].get_values_at_position(expected_nearest_neighbours[i])
+        returned_ims = intensity_provider[
+            gmpe_name
+        ][realisation].get_values_at_position(expected_nearest_neighbours[i])
 
         for im_type in expected_im_values[i]:
             assert round(returned_ims[im_type], 5) == round(expected_im_values[i][im_type], 5)
-            assert returned_units[im_type] == "g"

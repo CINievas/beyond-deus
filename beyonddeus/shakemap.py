@@ -86,13 +86,12 @@ class EqShakemap:
         Returns an instance of intensityprovider.IntensityProvider, which later
         enables access to the intensity data point that is closest to a given location.
         """
-        data, units = read_shakemap_data_and_units(
+        data = read_shakemap_data(
             grid_fields=self._find_grid_fields(),
             grid_data=self._find_grid_data())
 
         wrapped_data = DictWithListDataWrapper(
             data=data,
-            units=units,
             possible_x_columns=['LON', 'CENTROID_LON'],
             possible_y_columns=['LAT', 'CENTROID_LAT'],
         )
@@ -123,12 +122,6 @@ class ShakemapGridField:
         Returns the name of the field.
         """
         return self._xml.get('name')
-
-    def get_units(self):
-        """
-        Returns the unit of the field.
-        """
-        return self._xml.get('units')
 
 
 class ShakemapGridData:
@@ -184,7 +177,7 @@ def read_shakemap_data_from_str(grid_data_text):
         token_before = token
 
 
-def read_shakemap_data_and_units(grid_fields, grid_data):
+def read_shakemap_data(grid_fields, grid_data):
     """
     Method copied from:
         Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
@@ -192,14 +185,13 @@ def read_shakemap_data_and_units(grid_fields, grid_data):
         https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
 
     Function to read the grid_data and the grid fields.
-    Returns a dict with the values (in lists) and a dict with units for the different fields.
+    Returns a dict with the values (in lists) for the different fields.
     """
     names = [x.get_name().upper() for x in grid_fields]
-    units = {x.get_name().upper(): x.get_units() for x in grid_fields}
     data = collections.defaultdict(list)
     values = read_shakemap_data_from_str(grid_data.get_text())
     for idx, value in enumerate(values):
         name_idx = idx % len(names)
         name = names[name_idx]
         data[name].append(value)
-    return data, units
+    return data

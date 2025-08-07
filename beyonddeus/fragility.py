@@ -193,8 +193,7 @@ class DamageState:
         dmg_state.get_probability_for_intensity({"PGA": 0.5}, {"PGA": "g"}):
             Returns the probability of exceedance of dmg_state.to_state, given an initial
             dmg_state.from_state, for a building with class dmg_state.taxonomy and the intensity
-            measure's value and units passed on as arguments (i.e., PGA = 0.5 g in this
-            example).
+            measure's value passed on as arguments (i.e., PGA = 0.5 g in this example).
     """
 
     def __init__(
@@ -203,7 +202,6 @@ class DamageState:
         from_state,
         to_state,
         intensity_field,
-        intensity_unit,
         fragility_function,
     ):
         """
@@ -216,8 +214,6 @@ class DamageState:
                 Final damage state.
             intensity_field (str):
                 Name of intensity measure (IM).
-            intensity_unit (str):
-                Units of intensity measure.
             fragility_function (CachedFunction)                
         """
 
@@ -225,7 +221,6 @@ class DamageState:
         self.from_state = from_state
         self.to_state = to_state
         self.intensity_field = intensity_field.upper()
-        self.intensity_unit = intensity_unit
         self.fragility_function = fragility_function
 
     def get_probability_for_intensity(self, intensity):
@@ -299,7 +294,6 @@ class Fragility:
         for dataset in self._data["data"]:
             taxonomy = dataset["taxonomy"]
             intensity_field = dataset["imt"]
-            intensity_unit = dataset["imu"]
 
             for damage_state_mean_key in [
                 k
@@ -336,7 +330,6 @@ class Fragility:
                     from_state=from_state,
                     to_state=to_state,
                     intensity_field=intensity_field,
-                    intensity_unit=intensity_unit,
                     fragility_function=fragility_function(mean, stddev),
                 )
 
@@ -418,16 +411,6 @@ class Fragility:
                 % (taxonomy_name)
             )
 
-        # Identify the IM unit
-        im_units = np.array([ds.intensity_unit for ds in damage_states])
-        if len(np.unique(im_units)) == 1:
-            im_unit = np.unique(im_units)[0]
-        else:
-            raise ValueError(
-                "The IM units of fragility curves for %s is different for different damage states"
-                % (taxonomy_name)
-            )
-
         for from_damage_state in range(0, max_damage_state + 1):
             for to_damage_state in range(1, max_damage_state + 1):
                 ds_option = [
@@ -457,7 +440,6 @@ class Fragility:
                             from_state=from_damage_state,
                             to_state=to_damage_state,
                             intensity_field=im_type,
-                            intensity_unit=im_unit,
                             fragility_function=fragility_function(),
                         )
                         damage_states.append(ds_new)
@@ -470,7 +452,6 @@ class Fragility:
                             from_state=from_damage_state,
                             to_state=to_damage_state,
                             intensity_field=im_type,
-                            intensity_unit=im_unit,
                             fragility_function=fragility_function(),
                         )
                         damage_states.append(ds_new)
@@ -491,7 +472,6 @@ class Fragility:
                                 from_state=from_damage_state,
                                 to_state=to_damage_state,
                                 intensity_field=ds_lower.intensity_field,
-                                intensity_unit=ds_lower.intensity_unit,
                                 fragility_function=ds_lower.fragility_function,
                             )
                             damage_states.append(ds_new)

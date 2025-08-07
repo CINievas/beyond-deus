@@ -30,30 +30,22 @@ def test_intensity_from_TSU_NetCD():
     # 1
     target_lon = 14.86
     target_lat = 37.04
-    expected = (
-        {"max_inundation_depth": 3.25},
-        {"max_inundation_depth": "meters"}
-    )
+    expected = {"max_inundation_depth": 3.25}
 
     returned = intensity_provider.get_nearest(target_lon, target_lat)
 
-    for i, im in enumerate(expected[0].keys()):
-        assert round(returned[0][im], 5) == round(expected[0][im], 5)
-        assert returned[1][im] == expected[1][im]
+    for i, im in enumerate(expected.keys()):
+        assert round(returned[im], 5) == round(expected[im], 5)
 
     # 2, point too far away
     target_lon = 13.5
     target_lat = 37.0
-    expected = (
-        {"max_inundation_depth": 0.0},
-        {"max_inundation_depth": "meters"}
-    )
+    expected = {"max_inundation_depth": 0.0}
 
     returned = intensity_provider.get_nearest(target_lon, target_lat)
 
-    for i, im in enumerate(expected[0].keys()):
-        assert round(returned[0][im], 5) == round(expected[0][im], 5)
-        assert returned[1][im] == expected[1][im]
+    for i, im in enumerate(expected.keys()):
+        assert round(returned[im], 5) == round(expected[im], 5)
 
     # 3, identify nearest neighbour positions
     target_locations = np.array([
@@ -78,10 +70,9 @@ def test_intensity_from_TSU_NetCD():
 
     for i in range(expected_nearest_neighbours.shape[0]):
 
-        returned_ims, returned_units = intensity_provider.get_values_at_position(
+        returned_ims = intensity_provider.get_values_at_position(
             expected_nearest_neighbours[i]
         )
 
         for im_type in expected_im_values[i]:
             assert round(returned_ims[im_type], 5) == round(expected_im_values[i][im_type], 5)
-            assert returned_units[im_type] == "meters"

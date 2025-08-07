@@ -82,8 +82,8 @@ class IntensityProvider:
 
     def get_nearest(self, lon, lat):
         """
-        Returns a dict with the values and a dict with the units of the intensities that the
-        provider has at a given location (longitude, latitude).
+        Returns a dict with the values of the intensities that the provider has at a given
+        location (longitude, latitude).
 
         If the point is too far away from all of the intensity measurements (i.e., more distant
         to its nearest neighbour than self._max_dist), the returned value is self._na_value.
@@ -92,15 +92,11 @@ class IntensityProvider:
             intensities (dict):
                 Dictionary with as many keys as intensity measures in self._intensity_data, and
                 values associated with the nearest neighbour of the requested (lon, lat).
-            units (dict):
-                Dictionary with same keys as `intensities`, containing their associated units of
-                measurement.
         """
         coord = np.array([lon, lat])
         dist, idx = self._spatial_index.query(coord, k=1)
 
         intensities = {}
-        units = {}
 
         for column in self._intensity_data.get_data_columns():  # each column is an IM
             if dist <= self._max_dist:
@@ -110,19 +106,15 @@ class IntensityProvider:
                 )
             else:
                 value = self._na_value
-            unit = self._intensity_data.get_unit_for_column_and_index(
-                column=column,
-                index=idx
-            )
-            intensities[column] = value
-            units[column] = unit
 
-        return intensities, units
+            intensities[column] = value
+
+        return intensities
 
     def get_values_at_position(self, target_position):
         """
-        Returns a dict with the values and a dict with the units of the intensities that the
-        provider has at a given position of the data.
+        Returns a dict with the values of the intensities that the provider has at a given
+        position of the data.
 
         If the 'target_position' is a negative number, it is assumed that the target point is
         too far away from all of the intensity points, and the returned value is self._na_value.
@@ -135,12 +127,8 @@ class IntensityProvider:
             intensities (dict):
                 Dictionary with as many keys as intensity measures in self._intensity_data, and
                 values associated with the requested 'target_position'.
-            units (dict):
-                Dictionary with same keys as `intensities`, containing their associated units of
-                measure.
         """
         intensities = {}
-        units = {}
 
         for column in self._intensity_data.get_data_columns():  # each column is an IM
             if target_position >= 0:
@@ -153,12 +141,7 @@ class IntensityProvider:
 
             intensities[column] = value
 
-            units[column] = self._intensity_data.get_unit_for_column_and_index(
-                column=column,
-                index=target_position
-            )
-
-        return intensities, units
+        return intensities
 
     def get_values_at_multiple_positions(self, intensity_positions, intensity_threshold):
         """
@@ -198,10 +181,9 @@ class IntensityProvider:
         unique_target_positions = target_positions.unique()
 
         intensities = {}
-        units = {}
 
         for target_pos in unique_target_positions:
-            intensities[target_pos], units[target_pos] = self.get_values_at_position(target_pos)
+            intensities[target_pos] = self.get_values_at_position(target_pos)
 
         # The intensity measure types are the same for all points
         intensities_keys = list(intensities.keys())

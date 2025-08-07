@@ -59,12 +59,6 @@ class EQ_HDF_fields:
                 for that specific GMPE and realisation.
         """
 
-        units = {}
-        units["lon"] = "deg"
-        units["lat"] = "deg"
-        for imt in self.intensity_types:
-            units[imt] = "g"
-
         intensity_provider = {}
         for l, gmpe_name in enumerate(self.gmpes):
  
@@ -81,7 +75,6 @@ class EQ_HDF_fields:
 
                 wrapped_data = DictWithListDataWrapper(
                     data=data_k,
-                    units=units,
                     possible_x_columns=["lon"],
                     possible_y_columns=["lat"],
                 )

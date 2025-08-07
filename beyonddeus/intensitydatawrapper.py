@@ -18,33 +18,27 @@
 
 class DictWithListDataWrapper:
     """
-    Class copied from:
+    Class copied and modified from:
         Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
         (2021): DEUS: Damage-Exposure-Update-Service. V. 1.0. GFZ Data Services.
         https://doi.org/10.5880/riesgos.2021.011, https://github.com/gfzriesgos/deus
 
-    Wrapper for accessing the intensity data using a dictionary with lists for the data
-    and an additional dictionary for the units.
+    Wrapper for accessing the intensity data using a dictionary with lists for the data.
 
     Attrs:
         data (dict):
             Dictionary with individual keys for the longitude and latitude of the sites, as well
             as for the different intensity measures. Each of the keys contains a list with
             values (float) of lon/lat or intensity measures.
-        units (dict):
-            Dictionary with the same keys as 'data', each containing a string of the units of
-            measurement of the key.
         _x_column (str):
             Name of the key of 'data' that contains the longitude coordinates.
         _y_column (str):
             Name of the key of 'data' that contains the latitude coordinates.
     """
-    def __init__(self, data, units, possible_x_columns, possible_y_columns):
+    def __init__(self, data, possible_x_columns, possible_y_columns):
         """
         Args:
             data (dict):
-                See description in attrs.
-            units (dict):
                 See description in attrs.
             possible_x_columns (list of str):
                 Possible names of the key of 'data' that contains the longitude coordinates.
@@ -52,7 +46,6 @@ class DictWithListDataWrapper:
                 Possible names of the key of 'data' that contains the latitude coordinates.
         """
         self._data = data
-        self._units = units
 
         self._x_column = None
         self._y_column = None
@@ -98,10 +91,3 @@ class DictWithListDataWrapper:
         Returns the value for the column and the index.
         """
         return self._data[column][index]
-
-    def get_unit_for_column_and_index(self, column, index):
-        """
-        Returns the unit for the column and the index.
-        This implementation ignores the index.
-        """
-        return self._units[column]

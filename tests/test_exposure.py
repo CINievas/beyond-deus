@@ -131,10 +131,10 @@ def test_get_sorted_damage_states():
     dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 0)
 
     dmg_states_expected = [
-        DamageState("source_1", 0, 4, "PGA", "g", "not_needed_here"),
-        DamageState("source_1", 0, 3, "PGA", "g", "not_needed_here"),
-        DamageState("source_1", 0, 2, "PGA", "g", "not_needed_here"),
-        DamageState("source_1", 0, 1, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 0, 4, "PGA", "not_needed_here"),
+        DamageState("source_1", 0, 3, "PGA", "not_needed_here"),
+        DamageState("source_1", 0, 2, "PGA", "not_needed_here"),
+        DamageState("source_1", 0, 1, "PGA", "not_needed_here"),
     ]
 
     for i, dmg_state in enumerate(dmg_states_expected):
@@ -145,9 +145,9 @@ def test_get_sorted_damage_states():
     dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 1)
 
     dmg_states_expected = [
-        DamageState("source_1", 1, 4, "PGA", "g", "not_needed_here"),
-        DamageState("source_1", 1, 3, "PGA", "g", "not_needed_here"),
-        DamageState("source_1", 1, 2, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 1, 4, "PGA", "not_needed_here"),
+        DamageState("source_1", 1, 3, "PGA", "not_needed_here"),
+        DamageState("source_1", 1, 2, "PGA", "not_needed_here"),
     ]
 
     for i, dmg_state in enumerate(dmg_states_expected):
@@ -158,8 +158,8 @@ def test_get_sorted_damage_states():
     dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 2)
 
     dmg_states_expected = [
-        DamageState("source_1", 2, 4, "PGA", "g", "not_needed_here"),
-        DamageState("source_1", 2, 3, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 2, 4, "PGA", "not_needed_here"),
+        DamageState("source_1", 2, 3, "PGA", "not_needed_here"),
     ]
 
     for i, dmg_state in enumerate(dmg_states_expected):
@@ -170,7 +170,7 @@ def test_get_sorted_damage_states():
     dmg_states_returned = get_sorted_damage_states(fragprov, "source_1", 3)
 
     dmg_states_expected = [
-        DamageState("source_1", 3, 4, "PGA", "g", "not_needed_here"),
+        DamageState("source_1", 3, 4, "PGA", "not_needed_here"),
     ]
 
     for i, dmg_state in enumerate(dmg_states_expected):

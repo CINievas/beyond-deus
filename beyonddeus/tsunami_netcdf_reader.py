@@ -38,7 +38,6 @@ class TSU_NetCDF_fields:
         (
             self.sites,
             self.max_inundation_depth,
-            self.inundation_depth_units
         ) = read_tsunami_inundations_NetCDF(file_name)
 
 
@@ -48,11 +47,6 @@ class TSU_NetCDF_fields:
         to the intensity data point that is closest to a target location.
         """
 
-        units = {}
-        units["lon"] = "deg"
-        units["lat"] = "deg"
-        units["max_inundation_depth"] = self.inundation_depth_units
-
         data = {}
         data["lon"] = self.sites["lon"]
         data["lat"] = self.sites["lat"]
@@ -60,7 +54,6 @@ class TSU_NetCDF_fields:
 
         wrapped_data = DictWithListDataWrapper(
             data=data,
-            units=units,
             possible_x_columns=["lon"],
             possible_y_columns=["lat"],
         )
@@ -85,8 +78,6 @@ def read_tsunami_inundations_NetCDF(file_name):
         max_inundation_depth (arr of float):
             Array of values of maximum inundation depths (above mean sea level on sea and above
             after-shock topography on land) for each point defined by (lons, lats).
-        inundation_depth_units (str):
-            Units of measurement of 'max_inundation_depth'.
     """
 
     nc_dataset = Dataset(file_name)
@@ -96,6 +87,5 @@ def read_tsunami_inundations_NetCDF(file_name):
     sites["lat"] = nc_dataset["latitude"][:].filled(0.0)
 
     max_inundation_depth = nc_dataset["max_wave_height"][:].filled(0.0)
-    inundation_depth_units = nc_dataset["max_wave_height"].units
 
-    return sites, max_inundation_depth, inundation_depth_units
+    return sites, max_inundation_depth
