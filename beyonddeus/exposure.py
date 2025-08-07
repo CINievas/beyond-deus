@@ -372,6 +372,7 @@ class Updater:
 
         updated_exposure_df = pd.concat((updated_exposure_df, exposure_df_not_run))
         updated_exposure_df.reset_index(inplace=True)
+        updated_exposure_df.drop(columns=["index"], inplace=True)
 
         return updated_exposure_df
 

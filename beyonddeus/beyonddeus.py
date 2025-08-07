@@ -31,6 +31,7 @@ from beyonddeus.exposure import (
     read_exposure, map_exposure, update_exposure_transitions_and_losses
 )
 from beyonddeus.loss import LossProvider
+from beyonddeus.output_generator import write_exposure_to_HDF5
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -206,6 +207,25 @@ def main():
             logger.info("      %s: Exporting results" % (format_time(now)))
             out_filename = "b_%s_r_%s_updated_exposure.csv" % (branch, realisation)
             updated_exposure.to_csv(os.path.join(config.output_path, out_filename), index=False)
+
+            out_filename = "b_%s_r_%s_updated_exposure.hdf5" % (branch, realisation)
+            write_exposure_to_HDF5(
+                updated_exposure, os.path.join(config.output_path, out_filename)
+            )
+
+            out_filename = "b_%s_updated_exposure.hdf5" % (branch)
+            write_exposure_to_HDF5(
+                updated_exposure,
+                os.path.join(config.output_path, out_filename),
+                dataset_name=str(realisation)
+            )
+
+            out_filename = "updated_exposure_all.hdf5"
+            write_exposure_to_HDF5(
+                updated_exposure,
+                os.path.join(config.output_path, out_filename),
+                dataset_name="b_%s_r_%s" % (branch, realisation)
+            )
 
     now = datetime.datetime.now()
     logger.info(
