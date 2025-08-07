@@ -97,8 +97,7 @@ def read_exposure(filename_csv, filename_geoms):
 
 def update_exposure_transitions_and_losses(
     exposure,
-    intensity_provider,
-    intensity_positions,
+    hazard_intensities,
     fragility_provider,
     loss_provider,
 ):
@@ -126,7 +125,7 @@ def update_exposure_transitions_and_losses(
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets. All the "building_id"s
-                    need to exist in "intensity_positions" (see below).
+                    need to exist in "hazard_intensities" (see below).
                 "taxonomy" (str):
                     Building class of the asset.
                 "initial_damage" (int):
@@ -139,13 +138,17 @@ def update_exposure_transitions_and_losses(
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
-        intensity_provider (IntensityProvider):
-            Instance of IntensityProvider for retrieving the hazard intensities at a location.
-        intensity_positions (Pandas DataFrame):
-            DataFrame whose index is the "building_id" of each exposure polygon that is
-            referenced in "exposure" (see above), and with the column "nearest_neighbour"
-            indicating the position of the nearest neighbour to the exposure centroid of the
-            intensity field (as in intensity_provider._intensity_data).
+        hazard_intensities (Pandas DataFrame):
+            DataFrame indicating the values of hazard intensity associated with all exposure
+            polygons of 'exposure', identified by the "building_id" (index of the DataFrame).
+            The DataFrame contains the following columns:
+                - "nearest_neighbour" (int): The position of the nearest neighbour site.
+                - One column per intensity measure type, containing the hazard intensity
+                values (float) associated with that intensity measure type.
+                - "run" (bool): True if at least one of the hazard intensity values is larger
+                than the intensity_threshold set in the configuration, False if all of them are
+                smaller. Buildings in exposure polygons with "run" = False are assumed to remain
+                in the same current damage state (now damage calculation is run for them).
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
         loss_provider (LossProvider):
@@ -185,8 +188,7 @@ def update_exposure_transitions_and_losses(
     """
     updater = Updater(
         fragility_provider,
-        intensity_provider,
-        intensity_positions,
+        hazard_intensities,
         loss_provider,
     )
 
@@ -220,7 +222,7 @@ class Updater:
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets. All the "building_id"s
-                    need to exist in "intensity_positions" (see below).
+                    need to exist in "hazard_intensities" (see below).
                 "taxonomy" (str):
                     Building class of the asset.
                 "initial_damage" (int):
@@ -233,13 +235,17 @@ class Updater:
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
-        intensity_provider (IntensityProvider):
-            Instance of IntensityProvider for retrieving the hazard intensities at a location.
-        intensity_positions (Pandas DataFrame):
-            DataFrame whose index is the "building_id" of each exposure polygon that is
-            referenced in "exposure" (see above), and with the column "nearest_neighbour"
-            indicating the position of the nearest neighbour to the exposure centroid of the
-            intensity field (as in intensity_provider._intensity_data).
+        hazard_intensities (Pandas DataFrame):
+            DataFrame indicating the values of hazard intensity associated with all exposure
+            polygons of 'exposure', identified by the "building_id" (index of the DataFrame).
+            The DataFrame contains the following columns:
+                - "nearest_neighbour" (int): The position of the nearest neighbour site.
+                - One column per intensity measure type, containing the hazard intensity
+                values (float) associated with that intensity measure type.
+                - "run" (bool): True if at least one of the hazard intensity values is larger
+                than the intensity_threshold set in the configuration, False if all of them are
+                smaller. Buildings in exposure polygons with "run" = False are assumed to remain
+                in the same current damage state (now damage calculation is run for them).
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
         loss_provider (LossProvider):
@@ -250,13 +256,11 @@ class Updater:
     def __init__(
         self,
         fragility_provider,
-        intensity_provider,
-        intensity_positions,
+        hazard_intensities,
         loss_provider,
     ):
         self.fragility_provider = fragility_provider
-        self.intensity_provider = intensity_provider
-        self.intensity_positions = intensity_positions
+        self.hazard_intensities = hazard_intensities
         self.loss_provider = loss_provider
 
     def update_df(self, exposure_df):
@@ -322,16 +326,30 @@ class Updater:
         if exposure_df.empty:
             return None
 
-        # Go one by one each of the exposure polygons (i.e., "building_id")
+        # Split input 'exposure_df' into rows for which damage needs to be calculated and rows
+        # for which not
+        need_to_run = pd.Series([
+            self.hazard_intensities.loc[bdg_id, "run"] for bdg_id in exposure_df["building_id"]
+        ])
+
+        exposure_df_run = exposure_df.loc[need_to_run].copy()
+
+        exposure_df_not_run = exposure_df.loc[~need_to_run].copy()
+        exposure_df_not_run["final_damage"] = exposure_df_not_run["initial_damage"].copy()
+        exposure_df_not_run["incremental_loss"] = [
+            0.0 for i in range(exposure_df_not_run.shape[0])
+        ]
+
+        # Go one by one each of the exposure polygons (i.e., "building_id") of 'exposure_df_run'
 
         all_updated_exposure_bdg_id = []
 
-        for bdg_id in self.intensity_positions.index:
+        for bdg_id in self.hazard_intensities.index:
             # Retrieve assets of this building_id
-            exposure_bdg_id = exposure_df[exposure_df.building_id == bdg_id]
+            exposure_bdg_id = exposure_df_run[exposure_df_run.building_id == bdg_id]
             # Calculate new damage, incremental and cumulative losses
             updated_exposure_bdg_id = self.update_exposure_polygon(
-                exposure_bdg_id, self.intensity_positions.loc[bdg_id, "nearest_neighbour"]
+                exposure_bdg_id, self.hazard_intensities.loc[bdg_id, :]
             )
 
             all_updated_exposure_bdg_id.extend(updated_exposure_bdg_id.to_dict(orient="records"))
@@ -340,18 +358,22 @@ class Updater:
         updated_exposure_df.reset_index(inplace=True)
         updated_exposure_df.drop(columns=["index"], inplace=True)
 
+        updated_exposure_df = pd.concat((updated_exposure_df, exposure_df_not_run))
+        updated_exposure_df.reset_index(inplace=True)
+
         return updated_exposure_df
 
-    def update_exposure_polygon(self, exposure, intensity_position):
+    def update_exposure_polygon(self, exposure, intensity_values):
         """
         Updates a set of assets of the exposure model associated with one exposure polygon.
 
         Args:
             exposure (Pandas DataFrame):
                 Exposure associated with one "building_id".
-            intensity_position (int):
-                Position of the hazard nearest neighbour to the centroid of the "building_id"
-                whose exposure is contained in the input 'exposure'.
+            intensity_values (Pandas Series):
+                Values of hazard intensity associated with the exposure polygon that the input
+                'exposure' corresponds to. The labels of the Series are the hazard intensity
+                measure types.
 
         Returns:
             updated_exposure_and_losses (Pandas DataFrame):
@@ -388,8 +410,7 @@ class Updater:
         # Calculate new damage states (transitions) and update the exposure model
         updated_exposure = get_updated_exposure_and_transitions(
             exposure,
-            intensity_position,
-            self.intensity_provider,
+            intensity_values,
             self.fragility_provider
         )
 
@@ -568,7 +589,7 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
 
 
 def get_updated_exposure_and_transitions(
-    exposure, intensity_position, intensity_provider, fragility_provider
+    exposure, intensity_values, fragility_provider
 ):
     """
     This function returns the exposure with damage updated due to the current run of the
@@ -603,11 +624,10 @@ def get_updated_exposure_and_transitions(
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
-        intensity_position (int):
-            Position of the hazard nearest neighbour to the centroid of the "building_id"
-            whose exposure is contained in the input 'exposure'.
-        intensity_provider (IntensityProvider):
-            Instance of IntensityProvider for retrieving the hazard intensities at a location.
+        intensity_values (Pandas Series):
+            Values of hazard intensity associated with the exposure polygon that the input
+            'exposure' corresponds to. The labels of the Series are the hazard intensity
+            measure types.
         fragility_provider (FragilityProvider):
             Instance of FragilityProvider that gives access to the fragility functions.
 
@@ -626,9 +646,6 @@ def get_updated_exposure_and_transitions(
         result_expo = deepcopy(exposure)
         result_expo["final_damage"] = exposure["initial_damage"]
         return result_expo
-
-    # Read intensity measures at 'intensity_position'
-    intensity, units = intensity_provider.get_values_at_position(intensity_position)
 
     aux_result_expo = {}
     aux_result_expo["id"] = []
@@ -666,7 +683,7 @@ def get_updated_exposure_and_transitions(
             # position=0 belongs to the worst damage state
             # position=-1 will belong to the initial damage state, with PoE=1
             poes[position] = single_damage_state.get_probability_for_intensity(
-                intensity, units
+                intensity_values
             )
 
             final_damage_states.append(single_damage_state.to_state)

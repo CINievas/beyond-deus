@@ -18,6 +18,7 @@
 
 import os
 import pytest
+import pandas as pd
 from beyonddeus.fragility import Fragility, LogncdfFactory, AllOnes, UnitPoE
 
 
@@ -94,7 +95,7 @@ def test_fragility_data_without_sublevel():
             assert ds_requested[0].from_state == from_damage_state
             assert ds_requested[0].to_state == to_damage_state
             poe_returned = ds_requested[0].get_probability_for_intensity(
-                {"PGA": 150.0}, {"PGA": "g"}
+                {"PGA": 150.0}
             )
             assert round(poe_returned, 6) == round(
                 expected_poes[from_damage_state][to_damage_state], 6
@@ -227,7 +228,7 @@ def test_fragility_data_with_sublevel():
             assert ds_requested[0].from_state == from_damage_state
             assert ds_requested[0].to_state == to_damage_state
             poe_returned = ds_requested[0].get_probability_for_intensity(
-                {"PGA": 150.0}, {"PGA": "g"}
+                {"PGA": 150.0}
             )
             assert round(poe_returned, 6) == round(
                 expected_poes[from_damage_state][to_damage_state], 6
@@ -255,13 +256,19 @@ def test_fragility_data_with_sublevel():
             assert ds_requested[0].from_state == from_damage_state
             assert ds_requested[0].to_state == to_damage_state
             poe_returned = ds_requested[0].get_probability_for_intensity(
-                {"PGA": 150.0}, {"PGA": "g"}
+                {"PGA": 150.0}
             )
             assert round(poe_returned, 6) == round(
                 expected_poes[from_damage_state][to_damage_state], 6
             )
+            # Test that also Pandas Series can be passed to get_probability_for_intensity()
+            poe_returned_from_series = ds_requested[0].get_probability_for_intensity(
+                pd.Series({"PGA": 150.0})
+            )
+            assert round(poe_returned_from_series, 6) == round(
+                expected_poes[from_damage_state][to_damage_state], 6
+            )
 
-            
 def test_fragility_read_from_file():
     """
     Test Fragility.from_file(), using realistic fragility curve values.
@@ -298,7 +305,7 @@ def test_fragility_read_from_file():
             assert ds_requested[0].from_state == from_damage_state
             assert ds_requested[0].to_state == to_damage_state
             poe_returned = ds_requested[0].get_probability_for_intensity(
-                {"PGA": 2.0}, {"PGA": "g"}
+                {"PGA": 2.0}
             )
             assert round(poe_returned, 6) == round(
                 expected_poes[from_damage_state][to_damage_state], 6
@@ -325,7 +332,7 @@ def test_fragility_read_from_file():
             assert ds_requested[0].from_state == from_damage_state
             assert ds_requested[0].to_state == to_damage_state
             poe_returned = ds_requested[0].get_probability_for_intensity(
-                {"PGA": -2.0}, {"PGA": "g"}
+                {"PGA": -2.0}
             )
             assert round(poe_returned, 12) == round(
                 expected_poes[from_damage_state][to_damage_state], 12
@@ -348,7 +355,7 @@ def test_fragility_read_from_file():
             assert ds_requested[0].from_state == from_damage_state
             assert ds_requested[0].to_state == to_damage_state
             poe_returned = ds_requested[0].get_probability_for_intensity(
-                {"PGA": 0.0}, {"PGA": "g"}
+                {"PGA": 0.0}
             )
             if from_damage_state == to_damage_state:
                 assert round(poe_returned, 6) == 1.0

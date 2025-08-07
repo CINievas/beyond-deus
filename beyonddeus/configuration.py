@@ -58,6 +58,10 @@ class Configuration:
                     input fragility and consequence models.
                 "intensity_file_type":
                     Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu.
+                "intensity_threshold":
+                    Threshold of hazard intensity, to be used so that if the intensity value
+                    at a target point is smaller than the threshold, no further damage is
+                    assumed (and the detailed calculation is avoided).
     """
 
     def __init__(self, filepath):
@@ -109,6 +113,9 @@ class Configuration:
         )
         self.parameters["intensity_file_type"] = self._assign_parameter(
             config["parameters"], "intensity_file_type"
+        )
+        self.parameters["intensity_threshold"] = self._assign_parameter(
+            config["parameters"], "intensity_threshold"
         )
 
     def _read_config_file(self, filepath):

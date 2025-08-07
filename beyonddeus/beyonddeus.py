@@ -181,10 +181,14 @@ def main():
                 "      %s: Working on intensity realisation %s of %s"
                 % (format_time(now), k+1, number_intensity_reals)
             )
+
+            all_intensities_lk = intensity_provider[branch][k].get_values_at_multiple_positions(
+                intensity_positions, config.parameters["intensity_threshold"]
+            )
+
             updated_exposure = update_exposure_transitions_and_losses(
                 mapped_exposure,
-                intensity_provider[branch][k],
-                intensity_positions,
+                all_intensities_lk,
                 fragility_provider,
                 loss_provider,
             )

@@ -17,6 +17,7 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import numpy as np
+import pandas as pd
 from scipy.spatial import cKDTree
 
 class IntensityProvider:
@@ -159,6 +160,72 @@ class IntensityProvider:
 
         return intensities, units
 
+    def get_values_at_multiple_positions(self, intensity_positions, intensity_threshold):
+        """
+        This method retrieves the hazard intensity values at all hazard positions specified in
+        the input 'intensity_positions', and determines, for each "building_id" in
+        'intensity_positions', whether the hazard intensity values exceed 'intensity_threshold'.
+        The output is a Pandas DataFrame with the hazard intensity values for all intensity
+        measure types and a boolean column "run". For any "building_id" (i.e., row of the
+        DataFrame), if "run" is False, it means that all hazard intensity values are lower than
+        'intensity_threshold'. If "run" is True, at least one hazard intensity value is larger
+        than 'intensity_threshold'.
+
+        Args:
+            intensity_positions (Pandas DataFrame):
+                DataFrame with index "building_id", indicating the ID of exposure polygons, and
+                one column "nearest_neighbour", with the position of the nearest neighbour site
+                of the hazard intensitiy fields.
+            intensity_threshold (float):
+                Threshold of hazard intensity, to be used so that if the intensity value at a
+                target exposure location is smaller than the threshold, no further damage is
+                assumed.
+
+        Returns:
+            all_intensities (Pandas DataFrame):
+                DataFrame with index "building_id", indicating the ID of exposure polygons, and
+                the following columns:
+                    - "nearest_neighbour" (int):
+                        The position of the nearest neighbour site (as in 'intensity_positions')
+                    - One column per intensity measure type, containing the hazard intensity
+                    values (float) associated with that intensity measure type.
+                    - "run" (bool):
+                        True if at least one of the hazard intensity values is larger than
+                        'intensity_threshold', False if all of them are smaller (for each row).
+        """
+
+        target_positions = intensity_positions["nearest_neighbour"]
+        unique_target_positions = target_positions.unique()
+
+        intensities = {}
+        units = {}
+
+        for target_pos in unique_target_positions:
+            intensities[target_pos], units[target_pos] = self.get_values_at_position(target_pos)
+
+        # The intensity measure types are the same for all points
+        intensities_keys = list(intensities.keys())
+        intensity_measure_types = intensities[intensities_keys[0]].keys()
+
+        # Initialise output DataFrame
+        all_intensities = intensity_positions.copy()
+        # In all_intensities: index=building_id, col="nearest_neighbour"
+
+        # Add a column for each intensitiy measure type, and an auxiliary boolean column to know
+        # if the intensity value exceeds the intensity threshold
+        for imt in intensity_measure_types:
+            all_intensities[imt] = [intensities[pos][imt] for pos in target_positions]
+            all_intensities["%s_run" % (imt)] = (all_intensities[imt] >= intensity_threshold)
+
+        # The building_id needs to be run (to calculate damage) if any of the intensity values
+        # exceeds the threshold (even if some other intensity values do not):
+        all_intensities["run"] = [False for i in range(all_intensities.shape[0])]
+
+        for imt in intensity_measure_types:
+            all_intensities["run"] = (all_intensities["run"] | all_intensities["%s_run" % (imt)])
+            all_intensities.drop(columns=["%s_run" % (imt)], inplace=True)  # delete aux columns
+
+        return all_intensities
 
     def identify_nearest_neighbours(self, target_locations, not_available=-999):
         """

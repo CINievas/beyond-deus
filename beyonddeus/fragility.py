@@ -228,30 +228,24 @@ class DamageState:
         self.intensity_unit = intensity_unit
         self.fragility_function = fragility_function
 
-    def get_probability_for_intensity(self, intensity, units):
+    def get_probability_for_intensity(self, intensity):
         """
         Returns the probability of occurrence for the given intensity.
 
-        The intensity and units are given as dicts, for example:
-        intensity = {
-            'PGA': 1.0,
-            'STDDEV_PGA': 7.0
-        }
-        units = {
-            'PGA': 'g',
-            'STDDEV_PGA': 'g'
-        }
+        The intensity is given as a dictionary or as a Pandas Series.
 
-        This method returns an exception if the unit for the
-        fragility function is not the expected one.
+        Example of 'intensity' input as a dictionary:
+            intensity = {
+                "PGA": 1.0,
+                "SA(0.3)": 7.0
+            }
+
+        Example of 'intensity' input as a Pandas Series:
+            intensity = pd.Series({"PGA": 150.0})
         """
 
         field = self.intensity_field
         value = intensity[field]
-        unit = units[field]
-
-        if unit != self.intensity_unit:
-            raise Exception("Not supported IM unit")
 
         return self.fragility_function(value)
 

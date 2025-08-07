@@ -42,5 +42,10 @@ written, if `profiling.py` is manually run.
   "hdf5" (i.e., earthquake ground motions as output by
   [shakyground2](https://git.gfz.de/shakemap/shakyground2)), "netcdf_tsu" (i.e., tsunami
   inundations as output by [TsunAWI](https://tsunami.awi.de/).
+  - `intensity_threshold`: Threshold of hazard intensity, to be used so that if the intensity
+  value at a target exposure location is smaller than the threshold, no further damage is
+  assumed (i.e., the current damage state remains unmodified and the detailed calculation is
+  avoided). WARNING: Setting this threshold is an implicit decision regarding the fragility of
+  the exposed assets, be careful!
 
 An example of a config.yml file can be found [here](../config_example.yml).
