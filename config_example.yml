@@ -13,3 +13,9 @@ parameters:
   building_schema_fragility: target_schema_name  # Name of the building classification schema of the output, i.e. of the fragility model (one string)
   intensity_file_type: intensity_file_type  # Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu
   intensity_threshold: theshold_value # Threshold of hazard intensity. If intensity value < threshold, no further damage assumed
+output_types:  # Write True/False next to each option, to export or not export the corresponding output type
+  full_updated_exposure:
+    csv: True
+    hdf5_per_realisation: False
+    hdf5_per_branch: False
+    hdf5_for_all: False

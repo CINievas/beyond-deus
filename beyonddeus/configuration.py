@@ -62,6 +62,17 @@ class Configuration:
                     Threshold of hazard intensity, to be used so that if the intensity value
                     at a target point is smaller than the threshold, no further damage is
                     assumed (and the detailed calculation is avoided).
+        self.output_types (dict):
+            Dictionary indicating the kind of outputs to export, by means of True/False. Options
+            are sets of nested keys:
+                "full_updated_exposure":
+                    "csv": The full updated exposure model as a CSV file.
+                    "hdf5_per_realisation": The full updated exposure model as one HDF5 file per
+                        realisation of each logic tree branch.
+                    "hdf5_per_branch": The full updated exposure model as one HDF5 file per
+                        logic tree branch.
+                    "hdf5_for_all": The full updated exposure model as one HDF5 file for all
+                        logic tree branches and realisations.
     """
 
     def __init__(self, filepath):
@@ -116,6 +127,27 @@ class Configuration:
         )
         self.parameters["intensity_threshold"] = self._assign_parameter(
             config["parameters"], "intensity_threshold"
+        )
+
+        self.output_types = {}
+        self.output_types["full_updated_exposure"] = {}
+        self.output_types["full_updated_exposure"]["csv"] = self._assign_parameter(
+            config["output_types"]["full_updated_exposure"], "csv"
+        )
+        self.output_types["full_updated_exposure"]["hdf5_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["full_updated_exposure"], "hdf5_per_realisation"
+            )
+        )
+        self.output_types["full_updated_exposure"]["hdf5_per_branch"] = (
+            self._assign_parameter(
+                config["output_types"]["full_updated_exposure"], "hdf5_per_branch"
+            )
+        )
+        self.output_types["full_updated_exposure"]["hdf5_for_all"] = (
+            self._assign_parameter(
+                config["output_types"]["full_updated_exposure"], "hdf5_for_all"
+            )
         )
 
     def _read_config_file(self, filepath):

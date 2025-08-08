@@ -16,15 +16,81 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
+import os
 import h5py
 import numpy as np
+
+
+class OutputGenerator:
+    def __init__(self, output_path, output_types, branch, realisation, updated_exposure):
+        """
+        Attrs:
+            self.output_path (str):
+                Path to directory where outputs will be written.
+            self.output_types (dict):
+                Dictionary indicating the kind of outputs to export, by means of True/False.
+                Options are sets of nested keys:
+                    "full_updated_exposure":
+                        "csv": The full updated exposure model as a CSV file.
+                        "hdf5_per_realisation": The full updated exposure model as one HDF5 file
+                            per realisation of each logic tree branch.
+                        "hdf5_per_branch": The full updated exposure model as one HDF5 file per
+                            logic tree branch.
+                        "hdf5_for_all": The full updated exposure model as one HDF5 file for all
+                            logic tree branches and realisations.
+            self.branch (str):
+                Name of the logic tree branch that 'updated_exposure' belongs to.
+            self.realisation (str):
+                Name of the hazard intensity realisation that 'updated_exposure' belongs to,
+                within the logic tree branch 'branch'.
+            self.updated_exposure (Pandas DataFrame)
+                Updated exposure model with damage and losses, as output by Beyond DEUS.
+        """
+        self.output_path = output_path
+        self.output_types = output_types
+        self.branch = branch
+        self.realisation = realisation
+        self.updated_exposure = updated_exposure
+
+    def export(self):
+        if self.output_types["full_updated_exposure"]["csv"]:
+            out_filename = "b_%s_r_%s_updated_exposure.csv" % (self.branch, self.realisation)
+            self.updated_exposure.to_csv(
+                os.path.join(self.output_path, out_filename), index=False
+            )
+
+        if self.output_types["full_updated_exposure"]["hdf5_per_realisation"]:
+            out_filename = "b_%s_r_%s_updated_exposure.hdf5" % (self.branch, self.realisation)
+            write_exposure_to_HDF5(
+                self.updated_exposure, os.path.join(self.output_path, out_filename)
+            )
+
+        if self.output_types["full_updated_exposure"]["hdf5_per_branch"]:
+            out_filename = "b_%s_updated_exposure.hdf5" % (self.branch)
+            write_exposure_to_HDF5(
+                self.updated_exposure,
+                os.path.join(self.output_path, out_filename),
+                dataset_name=self.realisation
+            )
+
+        if self.output_types["full_updated_exposure"]["hdf5_for_all"]:
+            out_filename = "updated_exposure_all.hdf5"
+            write_exposure_to_HDF5(
+                self.updated_exposure,
+                os.path.join(self.output_path, out_filename),
+                dataset_name="b_%s_r_%s" % (self.branch, self.realisation)
+            )
 
 
 def write_exposure_to_HDF5(exposure, filename, dataset_name="updated_exposure"):
     """
     Args:
-        exposure (Pandas DataFrame)
-        filename (str)
+        exposure (Pandas DataFrame):
+            Exposure Pandas DataFrame.
+        filename (str):
+            Full path to the HDF5 file to which 'exposure' will be written.
+        dataset_name (str):
+            Name to be used for the dataset within the HDF5 file. Default: "updated_exposure".
     """
     fle = h5py.File(filename, "a")
 

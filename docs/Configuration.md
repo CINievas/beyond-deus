@@ -47,5 +47,15 @@ written, if `profiling.py` is manually run.
   assumed (i.e., the current damage state remains unmodified and the detailed calculation is
   avoided). WARNING: Setting this threshold is an implicit decision regarding the fragility of
   the exposed assets, be careful!
+- `output_types`:  Write True/False next to each option, to export or not export the
+corresponding output type:
+  - `full_updated_exposure`:
+    - `csv`: The full updated exposure model is written to a CSV file.
+    - `hdf5_per_realisation`: The full updated exposure model is written to one HDF5 file per
+    realisation of each logic tree branch.
+    - `hdf5_per_branch`: The full updated exposure model is written to one HDF5 file per logic
+    tree branch.
+    - `hdf5_for_all`: The full updated exposure model is written to one HDF5 file for all logic
+    tree branches and realisations.
 
 An example of a config.yml file can be found [here](../config_example.yml).
