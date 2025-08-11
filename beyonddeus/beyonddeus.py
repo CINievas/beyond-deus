@@ -211,7 +211,8 @@ def main():
                 config.output_types,
                 branch,
                 str(realisation),
-                updated_exposure
+                updated_exposure,
+                exposure_geoms
             )
             outputgen.export()
 

@@ -19,10 +19,14 @@
 import os
 import h5py
 import numpy as np
+import pandas as pd
+import geopandas as gpd
 
 
 class OutputGenerator:
-    def __init__(self, output_path, output_types, branch, realisation, updated_exposure):
+    def __init__(
+        self, output_path, output_types, branch, realisation, updated_exposure, exposure_geoms
+    ):
         """
         Attrs:
             self.output_path (str):
@@ -38,6 +42,24 @@ class OutputGenerator:
                             logic tree branch.
                         "hdf5_for_all": The full updated exposure model as one HDF5 file for all
                             logic tree branches and realisations.
+                    "by_final_damage":
+                        "csv_per_realisation": Number of buildings, replacement cost and losses
+                            of the whole portfolio, reported per final damage state, due to each
+                            realisation of each logic tree branch.
+                    "by_initial_and_final_damage":
+                        "csv_per_realisation: Number of buildings, replacement cost and losses
+                            of the whole portfolio, reported per all combinations of initial and
+                            final damage states, due to each realisation of each logic tree
+                            branch.
+                    "by_building_id":
+                        "loss_csv_per_realisation": Losses per building_id of the exposed assets
+                            due to each realisation of each logic tree branch.
+                        "loss_gpkg_per_realisation": Same as "loss_csv_per_realisation", with the
+                            associated exposure geometries.
+                        "damage_csv_per_realisation": Number of buildings per final damage state
+                            due to each realisation of each logic tree branch.
+                        "damage_gpkg_per_realisation": Same as "damage_csv_per_realisation",
+                            with the associated exposure geometries.
             self.branch (str):
                 Name of the logic tree branch that 'updated_exposure' belongs to.
             self.realisation (str):
@@ -45,12 +67,16 @@ class OutputGenerator:
                 within the logic tree branch 'branch'.
             self.updated_exposure (Pandas DataFrame)
                 Updated exposure model with damage and losses, as output by Beyond DEUS.
+            self.exposure_geoms (GeoPandas GeoDataFrame):
+                GeoDataFrame with the geometries of the exposure model (one polygon per
+                'building_id' of self.updated_exposure).
         """
         self.output_path = output_path
         self.output_types = output_types
         self.branch = branch
         self.realisation = realisation
         self.updated_exposure = updated_exposure
+        self.exposure_geoms = exposure_geoms
 
     def export(self):
         if self.output_types["full_updated_exposure"]["csv"]:
@@ -79,6 +105,52 @@ class OutputGenerator:
                 self.updated_exposure,
                 os.path.join(self.output_path, out_filename),
                 dataset_name="b_%s_r_%s" % (self.branch, self.realisation)
+            )
+
+        if self.output_types["by_final_damage"]["csv_per_realisation"]:
+            out_filename = "b_%s_r_%s_by_final_damage.csv" % (self.branch, self.realisation)
+            write_output_by_final_damage(
+                self.updated_exposure,
+                os.path.join(self.output_path, out_filename)
+            )
+
+        if self.output_types["by_initial_and_final_damage"]["csv_per_realisation"]:
+            out_filename = (
+                "b_%s_r_%s_by_initial_and_final_damage.csv" % (self.branch, self.realisation)
+            )
+            write_output_by_initial_and_final_damage(
+                self.updated_exposure,
+                os.path.join(self.output_path, out_filename)
+            )
+
+        if (
+            self.output_types["by_building_id"]["loss_csv_per_realisation"]
+            or
+            self.output_types["by_building_id"]["loss_gpkg_per_realisation"]
+        ):
+            out_filename_we = "b_%s_r_%s_loss_by_building_id" % (self.branch, self.realisation)
+            write_loss_by_building_id(
+                self.updated_exposure,
+                self.exposure_geoms,
+                write_to_CSV=self.output_types["by_building_id"]["loss_csv_per_realisation"],
+                write_to_GPKG=self.output_types["by_building_id"]["loss_gpkg_per_realisation"],
+                outpath=self.output_path,
+                filename_without_extension=out_filename_we
+            )
+
+        if (
+            self.output_types["by_building_id"]["damage_csv_per_realisation"]
+            or
+            self.output_types["by_building_id"]["damage_gpkg_per_realisation"]
+        ):
+            out_filename_we = "b_%s_r_%s_damage_by_building_id" % (self.branch, self.realisation)
+            write_damage_by_building_id(
+                self.updated_exposure,
+                self.exposure_geoms,
+                write_to_CSV=self.output_types["by_building_id"]["damage_csv_per_realisation"],
+                write_to_GPKG=self.output_types["by_building_id"]["damage_gpkg_per_realisation"],
+                outpath=self.output_path,
+                filename_without_extension=out_filename_we
             )
 
 
@@ -130,3 +202,199 @@ def write_exposure_to_HDF5(exposure, filename, dataset_name="updated_exposure"):
     exposure_ctxt[:] = exposure_arr
 
     fle.close()
+
+
+def write_output_by_final_damage(exposure, filename):
+    """
+    This methods outputs number of buildings, total repleacement costs, total incremental losses
+    and total cumulative losses aggregated by final damage state, to a CSV file.
+
+    Args:
+        exposure (Pandas DataFrame):
+            Exposure Pandas DataFrame.
+        filename (str):
+            Full path to the CSV file to which results by final damage state will be written.
+    """
+    by_damage = exposure.groupby(
+        ["final_damage"]
+    ).agg(
+        {
+            "number": "sum",
+            "replacement_cost_tot": "sum",
+            "incremental_loss": "sum",
+            "cum_loss_value": "sum"
+        },
+    )
+
+    by_damage.to_csv(filename, index=True)
+
+
+def write_output_by_initial_and_final_damage(exposure, filename):
+    """
+    This methods outputs number of buildings, total repleacement costs, total incremental losses
+    and total cumulative losses aggregated by initial and final damage states, to a CSV file.
+
+    Args:
+        exposure (Pandas DataFrame):
+            Exposure Pandas DataFrame.
+        filename (str):
+            Full path to the CSV file to which results by initial and final damage states will
+            be written.
+    """
+    by_initial_and_final_damage = exposure.groupby(
+        ["initial_damage", "final_damage"]
+    ).agg(
+        {
+            "number": "sum",
+            "replacement_cost_tot": "sum",
+            "incremental_loss": "sum",
+            "cum_loss_value": "sum"
+        },
+    )
+
+    by_initial_and_final_damage.to_csv(filename, index=True)
+
+
+def write_loss_by_building_id(
+    exposure,
+    exposure_geoms,
+    write_to_CSV=False,
+    write_to_GPKG=False,
+    outpath=None,
+    filename_without_extension=None
+):
+    """
+    This methods outputs number of buildings, total repleacement costs, total incremental losses
+    and total cumulative losses, both in absolute value and as loss ratios, per 'building_id' of
+    the exposure model.
+
+    Args:
+        exposure (Pandas DataFrame):
+            Exposure Pandas DataFrame.
+        exposure_geoms (GeoPandas GeoDataFrame):
+            GeoDataFrame with the geometries of the exposure model (one polygon per 'building_id'
+            of 'exposure').
+        write_to_CSV (bool):
+            If True, the output will be written as a CSV to 'filename_without_extension'.csv.
+        write_to_GPKG (bool):
+            If True, the output, including the exposure geometries, will be written as a GPKG to
+            'filename_without_extension'.gpkg.
+        outpath (str):
+            Directory to which the results will be written.
+        filename_without_extension (str):
+            Name of the CSV and/or GPKG file to which results will be written, without the
+            corresponding file extension.
+    """
+
+    loss_by_bdg_id = exposure.groupby(
+        ["building_id"]
+    ).agg(
+        {
+            "number": "sum",
+            "replacement_cost_tot": "sum",
+            "incremental_loss": "sum",
+            "cum_loss_value": "sum"
+        }
+    )
+    loss_by_bdg_id["incremental_loss_ratio"] = (
+        loss_by_bdg_id["incremental_loss"] /
+        loss_by_bdg_id["replacement_cost_tot"]
+    )
+    loss_by_bdg_id["cum_loss_ratio"] = (
+        loss_by_bdg_id["cum_loss_value"] /
+        loss_by_bdg_id["replacement_cost_tot"]
+    )
+
+    if write_to_CSV:
+        out_filename = "%s.csv" % (filename_without_extension)
+        loss_by_bdg_id.to_csv(os.path.join(outpath, out_filename), index=True)
+
+    if write_to_GPKG:
+        loss_by_bdg_id_with_geoms_aux = pd.merge(
+            loss_by_bdg_id, exposure_geoms, on="building_id"
+        )
+        loss_by_bdg_id_with_geoms = gpd.GeoDataFrame(
+            loss_by_bdg_id_with_geoms_aux,
+            geometry=loss_by_bdg_id_with_geoms_aux["geometry"],
+            crs=exposure_geoms.crs
+        )
+        loss_by_bdg_id_with_geoms.set_index(
+            loss_by_bdg_id_with_geoms["building_id"], inplace=True
+        )
+        loss_by_bdg_id_with_geoms.drop(columns=["building_id"], inplace=True)
+
+        out_filename = "%s.gpkg" % (filename_without_extension)
+
+        loss_by_bdg_id_with_geoms.to_file(os.path.join(outpath, out_filename), driver="GPKG")
+
+
+def write_damage_by_building_id(
+    exposure,
+    exposure_geoms,
+    write_to_CSV=False,
+    write_to_GPKG=False,
+    outpath=None,
+    filename_without_extension=None
+):
+    """
+    This methods outputs number and proportion of buildings in each final damage state, per
+    'building_id' of the exposure model.
+
+    Args:
+        exposure (Pandas DataFrame):
+            Exposure Pandas DataFrame.
+        exposure_geoms (GeoPandas GeoDataFrame):
+            GeoDataFrame with the geometries of the exposure model (one polygon per 'building_id'
+            of 'exposure').
+        write_to_CSV (bool):
+            If True, the output will be written as a CSV to 'filename_without_extension'.csv.
+        write_to_GPKG (bool):
+            If True, the output, including the exposure geometries, will be written as a GPKG to
+            'filename_without_extension'.gpkg.
+        outpath (str):
+            Directory to which the results will be written.
+        filename_without_extension (str):
+            Name of the CSV and/or GPKG file to which results will be written, without the
+            corresponding file extension.
+    """
+
+    damage_by_bdg_id_aux = exposure.groupby(
+        ["building_id", "final_damage"]
+    ).agg({"number": "sum"})
+
+    damage_by_bdg_id = exposure.groupby(["building_id"]).agg({"number": "sum"})
+
+    unique_damage_levels = damage_by_bdg_id_aux.index.get_level_values("final_damage").unique()
+
+    for final_damage in unique_damage_levels:
+        damage_by_bdg_id["number_D%s" % (final_damage)] = [
+            damage_by_bdg_id_aux.loc[(bdg_id, final_damage), "number"]
+            for bdg_id in damage_by_bdg_id.index
+        ]
+
+    for final_damage in unique_damage_levels:
+        damage_by_bdg_id["proportion_D%s" % (final_damage)] = (
+            damage_by_bdg_id["number_D%s" % (final_damage)] / damage_by_bdg_id["number"]
+        )
+
+    if write_to_CSV:
+        out_filename = "%s.csv" % (filename_without_extension)
+        damage_by_bdg_id.to_csv(os.path.join(outpath, out_filename), index=True)
+
+    if write_to_GPKG:
+        damage_by_bdg_id_with_geoms_aux = pd.merge(
+            damage_by_bdg_id, exposure_geoms, on="building_id"
+        )
+        damage_by_bdg_id_with_geoms = gpd.GeoDataFrame(
+            damage_by_bdg_id_with_geoms_aux,
+            geometry=damage_by_bdg_id_with_geoms_aux["geometry"],
+            crs=exposure_geoms.crs
+        )
+        damage_by_bdg_id_with_geoms.set_index(
+            damage_by_bdg_id_with_geoms["building_id"], inplace=True
+        )
+        damage_by_bdg_id_with_geoms.drop(columns=["building_id"], inplace=True)
+
+        out_filename = "%s.gpkg" % (filename_without_extension)
+
+        damage_by_bdg_id_with_geoms.to_file(os.path.join(outpath, out_filename), driver="GPKG")

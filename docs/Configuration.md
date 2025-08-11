@@ -57,5 +57,22 @@ corresponding output type:
     tree branch.
     - `hdf5_for_all`: The full updated exposure model is written to one HDF5 file for all logic
     tree branches and realisations.
+  - `by_final_damage`:
+    - `csv_per_realisation`: A summary of number of buildings, replacement cost and losses of
+    the whole portfolio, reported per final damage state, due to each realisation of each logic
+    tree branch is written to a CSV file.
+  - `by_initial_and_final_damage`:
+    - `csv_per_realisation`: A summary of number of buildings, replacement cost and losses of
+    the whole portfolio, reported per all combinations of initial and final damage states, due
+    to each realisation of each logic tree branch is written to a CSV file.
+  - `by_building_id`:
+    - `loss_csv_per_realisation`: A summary of losses per building_id of the exposed assets due
+    to each realisation of each logic tree branch is written to a CSV file.
+    - `loss_gpkg_per_realisation`: The same summary as in `loss_csv_per_realisation` and the
+    associated exposure geometries are written to a GeoPackage file.
+    - `damage_csv_per_realisation`: A summary of number of buildings per final damage state due
+    to each realisation of each logic tree branch is written to a CSV file.
+    - `damage_gpkg_per_realisation`: The same summary as in `damage_csv_per_realisation` and the
+    associated exposure geometries are written to a GeoPackage file.
 
 An example of a config.yml file can be found [here](../config_example.yml).

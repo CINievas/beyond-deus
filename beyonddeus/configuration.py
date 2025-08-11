@@ -73,6 +73,23 @@ class Configuration:
                         logic tree branch.
                     "hdf5_for_all": The full updated exposure model as one HDF5 file for all
                         logic tree branches and realisations.
+                "by_final_damage":
+                    "csv_per_realisation": Number of buildings, replacement cost and losses of
+                        the whole portfolio, reported per final damage state, due to each
+                        realisation of each logic tree branch.
+                "by_initial_and_final_damage":
+                    "csv_per_realisation: Number of buildings, replacement cost and losses of
+                        the whole portfolio, reported per all combinations of initial and final
+                        damage states, due to each realisation of each logic tree branch.
+                "by_building_id":
+                    "loss_csv_per_realisation": Losses per building_id of the exposed assets due
+                        to each realisation of each logic tree branch.
+                    "loss_gpkg_per_realisation": Same as "loss_csv_per_realisation", with the
+                        associated exposure geometries.
+                    "damage_csv_per_realisation": Number of buildings per final damage state due
+                        to each realisation of each logic tree branch.
+                    "damage_gpkg_per_realisation": Same as "damage_csv_per_realisation", with
+                        the associated exposure geometries.
     """
 
     def __init__(self, filepath):
@@ -130,6 +147,7 @@ class Configuration:
         )
 
         self.output_types = {}
+
         self.output_types["full_updated_exposure"] = {}
         self.output_types["full_updated_exposure"]["csv"] = self._assign_parameter(
             config["output_types"]["full_updated_exposure"], "csv"
@@ -147,6 +165,40 @@ class Configuration:
         self.output_types["full_updated_exposure"]["hdf5_for_all"] = (
             self._assign_parameter(
                 config["output_types"]["full_updated_exposure"], "hdf5_for_all"
+            )
+        )
+
+        self.output_types["by_final_damage"] = {}
+        self.output_types["by_final_damage"]["csv_per_realisation"] = self._assign_parameter(
+            config["output_types"]["by_final_damage"], "csv_per_realisation"
+        )
+
+        self.output_types["by_initial_and_final_damage"] = {}
+        self.output_types["by_initial_and_final_damage"]["csv_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_initial_and_final_damage"], "csv_per_realisation"
+            )
+        )
+
+        self.output_types["by_building_id"] = {}
+        self.output_types["by_building_id"]["loss_csv_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"], "loss_csv_per_realisation"
+            )
+        )
+        self.output_types["by_building_id"]["loss_gpkg_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"], "loss_gpkg_per_realisation"
+            )
+        )
+        self.output_types["by_building_id"]["damage_csv_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"], "damage_csv_per_realisation"
+            )
+        )
+        self.output_types["by_building_id"]["damage_gpkg_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"], "damage_gpkg_per_realisation"
             )
         )
 
