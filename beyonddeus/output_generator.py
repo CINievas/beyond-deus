@@ -358,25 +358,7 @@ def write_damage_by_building_id(
             corresponding file extension.
     """
 
-    damage_by_bdg_id_aux = exposure.groupby(
-        ["building_id", "final_damage"]
-    ).agg({"number": "sum"})
-
-    damage_by_bdg_id = exposure.groupby(["building_id"]).agg({"number": "sum"})
-
-    unique_damage_levels = damage_by_bdg_id_aux.index.get_level_values("final_damage").unique()
-
-    for final_damage in unique_damage_levels:
-        damage_by_bdg_id["number_D%s" % (final_damage)] = [
-            damage_by_bdg_id_aux.loc[(bdg_id, final_damage), "number"]
-            for bdg_id in damage_by_bdg_id.index
-            if (bdg_id, final_damage) in damage_by_bdg_id_aux.index
-        ]
-
-    for final_damage in unique_damage_levels:
-        damage_by_bdg_id["proportion_D%s" % (final_damage)] = (
-            damage_by_bdg_id["number_D%s" % (final_damage)] / damage_by_bdg_id["number"]
-        )
+    damage_by_bdg_id = damage_by_building_id_as_columns(exposure)
 
     if write_to_CSV:
         out_filename = "%s.csv" % (filename_without_extension)
@@ -399,3 +381,53 @@ def write_damage_by_building_id(
         out_filename = "%s.gpkg" % (filename_without_extension)
 
         damage_by_bdg_id_with_geoms.to_file(os.path.join(outpath, out_filename), driver="GPKG")
+
+
+def damage_by_building_id_as_columns(exposure):
+    """
+    Args:
+        exposure (Pandas DataFrame):
+            Exposure Pandas DataFrame.
+
+    Returns:
+        damage_by_bdg_id (Pandas DataFrame):
+            DataFrame with index equal to 'building_id', and the following columns:
+                "number" (float):
+                    Total number of buildings of 'building_id'.
+                "number_DX" (float):
+                    Number of buildings of 'building_id' in damage state "X".
+                "proportion_DX" (float):
+                    Proportion of buildings of 'building_id' in damage state "X".
+    """
+    damage_by_bdg_id_aux = exposure.groupby(
+        ["building_id", "final_damage"]
+    ).agg({"number": "sum"})
+
+    unique_damage_levels = damage_by_bdg_id_aux.index.get_level_values("final_damage").unique()
+
+    # Initialise output
+    damage_by_bdg_id = exposure.groupby(["building_id"]).agg({"number": "sum"})
+    for final_damage in unique_damage_levels:
+        damage_by_bdg_id["number_D%s" % (final_damage)] = np.zeros(damage_by_bdg_id.shape[0])
+
+    for final_damage in unique_damage_levels:
+        # Filter rows associated with 'final_damage'
+        # (note not all combinations of (building_id, final_damage)
+        # exist in 'damage_by_bdg_id_aux'
+        just_final_damage_rows = damage_by_bdg_id_aux.loc[:, final_damage, :]
+
+        # 'idx' is boolean for each element of the index of 'damage_by_bdg_id', indicating
+        # whether that index exists in the index of 'just_final_damage_rows'
+        idx = damage_by_bdg_id.index.isin(just_final_damage_rows.index)
+
+        # For those rows whose index exist, add the corresponding buildings
+        damage_by_bdg_id.loc[idx, "number_D%s" % (final_damage)] += (
+            just_final_damage_rows.loc[:, "number"]
+        )
+
+    for final_damage in unique_damage_levels:
+        damage_by_bdg_id["proportion_D%s" % (final_damage)] = (
+            damage_by_bdg_id["number_D%s" % (final_damage)] / damage_by_bdg_id["number"]
+        )
+
+    return damage_by_bdg_id
