@@ -370,6 +370,7 @@ def write_damage_by_building_id(
         damage_by_bdg_id["number_D%s" % (final_damage)] = [
             damage_by_bdg_id_aux.loc[(bdg_id, final_damage), "number"]
             for bdg_id in damage_by_bdg_id.index
+            if (bdg_id, final_damage) in damage_by_bdg_id_aux.index
         ]
 
     for final_damage in unique_damage_levels:
