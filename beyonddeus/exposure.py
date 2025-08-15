@@ -27,6 +27,12 @@ def read_exposure(filename_csv, filename_geoms):
     """
     Function to read the exposure from the input files: one CSV and one GPKG file.
 
+    If the CSV file contains a "final_damage" column, then it is assumed that this is a
+    cumulative damage calculation and the contents of the "initial_damage" column are replaced
+    by those of "final_damage", and the "final_damage" column is discarded.
+
+    If the CSV file contains an "incremental_loss" column, it is discarded.
+
     Args:
         filename_csv (str):
             Path to the exposure CSV file, with one row per exposure asset (a number of
@@ -69,6 +75,15 @@ def read_exposure(filename_csv, filename_geoms):
     exposure_df["building_id"] = exposure_df["building_id"].astype(str)
     # Make sure "initial_damage" is an integer
     exposure_df["initial_damage"] = exposure_df["initial_damage"].astype(int)
+
+    if "final_damage" in exposure_df.columns:  # It means Beyond-DEUS has been run before
+        exposure_df["final_damage"] = exposure_df["final_damage"].astype(int)
+        # Make the final damage from a previous run the new initial damage
+        exposure_df["initial_damage"] = deepcopy(exposure_df["final_damage"])
+        del exposure_df["final_damage"]
+
+    if "incremental_loss" in exposure_df.columns:  # It means Beyond-DEUS has been run before
+        del exposure_df["incremental_loss"]
 
     # Read input GPKG
     exposure_geoms = gpd.read_file(filename_geoms)
@@ -602,6 +617,7 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
         by=["building_id", "id", "taxonomy", "initial_damage"], inplace=True
     )
     mapped_exposure.reset_index(inplace=True)
+    mapped_exposure.drop(columns=["index"], inplace=True)
 
     return mapped_exposure
 

@@ -220,7 +220,7 @@ class DamageState:
         self.taxonomy = taxonomy
         self.from_state = from_state
         self.to_state = to_state
-        self.intensity_field = intensity_field.upper()
+        self.intensity_field = intensity_field
         self.fragility_function = fragility_function
 
     def get_probability_for_intensity(self, intensity):
