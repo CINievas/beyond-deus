@@ -44,6 +44,9 @@ class Configuration:
                 "consequence":
                     Path to file with input economic consequence model (loss ratios per damage
                     state).
+                "usability":
+                    Path to file indicating if buildings in each damage state are usable or
+                    unusable.
         self.output_path (str):
             Path to directory where outputs will be written. It must be empty. If it does not
             exist, it will be created.
@@ -67,6 +70,8 @@ class Configuration:
             are sets of nested keys:
                 "full_updated_exposure":
                     "csv": The full updated exposure model as a CSV file.
+                    "csv_by_usability": Two CSV files, each containing the usable and unusable
+                        assets of the full updated exposure model.
                     "hdf5_per_realisation": The full updated exposure model as one HDF5 file per
                         realisation of each logic tree branch.
                     "hdf5_per_branch": The full updated exposure model as one HDF5 file per
@@ -123,6 +128,9 @@ class Configuration:
         self.input_paths["consequence"] = self._assign_parameter(
             config["input_paths"], "consequence"
         )
+        self.input_paths["usability"] = self._assign_parameter(
+            config["input_paths"], "usability"
+        )
 
         self.output_path = self._assign_parameter(
             config, "output_path"
@@ -151,6 +159,9 @@ class Configuration:
         self.output_types["full_updated_exposure"] = {}
         self.output_types["full_updated_exposure"]["csv"] = self._assign_parameter(
             config["output_types"]["full_updated_exposure"], "csv"
+        )
+        self.output_types["full_updated_exposure"]["csv_by_usability"] = self._assign_parameter(
+            config["output_types"]["full_updated_exposure"], "csv_by_usability"
         )
         self.output_types["full_updated_exposure"]["hdf5_per_realisation"] = (
             self._assign_parameter(

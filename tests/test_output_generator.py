@@ -18,7 +18,9 @@
 
 import os
 import pandas as pd
-from beyonddeus.output_generator import damage_by_building_id_as_columns
+from beyonddeus.output_generator import (
+    damage_by_building_id_as_columns, split_updated_exposure_by_usability
+)
 
 
 def test_damage_by_building_id_as_columns():
@@ -59,3 +61,35 @@ def test_damage_by_building_id_as_columns():
                 round(returned_damage_by_bdg_id.loc[bdg_id, col], 6) ==
                 round(expected_damage_by_bdg_id.loc[bdg_id, col], 6)
             )
+
+
+def test_split_updated_exposure_by_usability():
+
+    updated_exposure = pd.read_csv(
+        os.path.join(
+            os.path.dirname(__file__),
+            "data", "expected_updated_exposure_damage_losses_with_previous_loss.csv"
+        )
+    )
+
+    usability = pd.DataFrame(
+        {"usable": [True, True, False, False, False]},
+        index=[0, 1, 2, 3, 4],
+    )
+    usability.index.name = "damage_state"
+
+    returned_usable_assets, returned_unusable_assets = split_updated_exposure_by_usability(
+        updated_exposure, usability
+    )
+
+    assert returned_usable_assets.shape[0] == 8
+    assert returned_unusable_assets.shape[0] == 12
+
+    assert round(returned_usable_assets["number"].sum(), 6) == 7.998594
+    assert round(returned_unusable_assets["number"].sum(), 6) == 13.501406
+
+    assert len(returned_usable_assets["final_damage"].unique()) == 2
+    assert len(returned_unusable_assets["final_damage"].unique()) == 3
+
+    assert round(returned_usable_assets["cum_loss_value"].sum(), 6) == 146288.926466
+    assert round(returned_unusable_assets["cum_loss_value"].sum(), 6) == 2496644.214552

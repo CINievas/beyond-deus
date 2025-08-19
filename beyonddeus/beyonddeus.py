@@ -31,6 +31,7 @@ from beyonddeus.exposure import (
     read_exposure, map_exposure, update_exposure_transitions_and_losses
 )
 from beyonddeus.loss import LossProvider
+from beyonddeus.usability import Usability
 from beyonddeus.output_generator import OutputGenerator
 
 logger = logging.getLogger()
@@ -134,10 +135,26 @@ def main():
         schema_mapper,
     )
 
-    # Read economic consequence model and building replacement costs
+    # Read economic consequence model
     now = datetime.datetime.now()
     logger.info("%s: Reading input economic consequence model" % (format_time(now)))
     loss_provider = LossProvider.from_files(config.input_paths["consequence"])
+
+    # Read usability model
+    now = datetime.datetime.now()
+    logger.info("%s: Reading input usability model" % (format_time(now)))
+    usability_model = Usability(config.input_paths["usability"])
+
+    if (
+        (usability_model.data is None) and
+        (config.output_types["full_updated_exposure"]["csv_by_usability"])
+    ):
+        error_message = (
+            "The parameter 'csv_by_usability' in the config.yml file is True but "
+            "no usability model has been loaded. Have you indicated 'input_paths[usability]'?"
+        )
+        logger.critical(error_message)
+        raise OSError(error_message)
 
     # Retrieve location (nearest neighbour position) of hazard intensity measures at the
     # centroids indicated in the input exposure geometries
@@ -209,6 +226,7 @@ def main():
             outputgen = OutputGenerator(
                 config.output_path,
                 config.output_types,
+                usability_model.data,
                 branch,
                 str(realisation),
                 updated_exposure,

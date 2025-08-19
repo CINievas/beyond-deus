@@ -28,6 +28,9 @@ following parameters:
   these files are not needed, i.e. when the damage scales of the input exposure
   (`building_schema_exposure`) and fragility (`building_schema_fragility`) models are the same.
   - `consequence`: Path to `.json` file with the economic consequence model.
+  - `usability`: Path to `.csv` file indicating if buildings in each damage state are usable or
+  unusable. This information is used to split the output updated exposure into one usable and
+  one unusable file, if `csv_by_usability` is True (see below).
 - `output_path`: Path to the folder to which the outputs will be written. If it does not exist,
 it will be created. If it exists, it must be empty, otherwise the software will not run (to
 avoid overwritting results from previous runs).
@@ -51,6 +54,8 @@ written, if `profiling.py` is manually run.
 corresponding output type:
   - `full_updated_exposure`:
     - `csv`: The full updated exposure model is written to a CSV file.
+    - `csv_by_usability`: Two CSV files, each containing the usable and unusable assets (rows)
+    of the full updated exposure model, as per the `usability` input file.
     - `hdf5_per_realisation`: The full updated exposure model is written to one HDF5 file per
     realisation of each logic tree branch.
     - `hdf5_per_branch`: The full updated exposure model is written to one HDF5 file per logic

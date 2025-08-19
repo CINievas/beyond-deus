@@ -25,7 +25,14 @@ import geopandas as gpd
 
 class OutputGenerator:
     def __init__(
-        self, output_path, output_types, branch, realisation, updated_exposure, exposure_geoms
+        self,
+        output_path,
+        output_types,
+        usability,
+        branch,
+        realisation,
+        updated_exposure,
+        exposure_geoms
     ):
         """
         Attrs:
@@ -36,6 +43,8 @@ class OutputGenerator:
                 Options are sets of nested keys:
                     "full_updated_exposure":
                         "csv": The full updated exposure model as a CSV file.
+                        "csv_by_usability": Two CSV files, each containing the usable and
+                            unusable assets of the full updated exposure model.
                         "hdf5_per_realisation": The full updated exposure model as one HDF5 file
                             per realisation of each logic tree branch.
                         "hdf5_per_branch": The full updated exposure model as one HDF5 file per
@@ -60,6 +69,9 @@ class OutputGenerator:
                             due to each realisation of each logic tree branch.
                         "damage_gpkg_per_realisation": Same as "damage_csv_per_realisation",
                             with the associated exposure geometries.
+            self.usability (dict):
+                Dictionary with keys "usable" and "unusable", each containing a list of damage
+                states associated with each condition.
             self.branch (str):
                 Name of the logic tree branch that 'updated_exposure' belongs to.
             self.realisation (str):
@@ -73,6 +85,7 @@ class OutputGenerator:
         """
         self.output_path = output_path
         self.output_types = output_types
+        self.usability = usability
         self.branch = branch
         self.realisation = realisation
         self.updated_exposure = updated_exposure
@@ -82,6 +95,25 @@ class OutputGenerator:
         if self.output_types["full_updated_exposure"]["csv"]:
             out_filename = "b_%s_r_%s_updated_exposure.csv" % (self.branch, self.realisation)
             self.updated_exposure.to_csv(
+                os.path.join(self.output_path, out_filename), index=False
+            )
+
+        if self.output_types["full_updated_exposure"]["csv_by_usability"]:
+            usable_assets, unusable_assets = split_updated_exposure_by_usability(
+                self.updated_exposure, self.usability
+            )
+
+            out_filename = (
+                "b_%s_r_%s_updated_exposure_usable.csv" % (self.branch, self.realisation)
+            )
+            usable_assets.to_csv(
+                os.path.join(self.output_path, out_filename), index=False
+            )
+
+            out_filename = (
+                "b_%s_r_%s_updated_exposure_unusable.csv" % (self.branch, self.realisation)
+            )
+            unusable_assets.to_csv(
                 os.path.join(self.output_path, out_filename), index=False
             )
 
@@ -431,3 +463,15 @@ def damage_by_building_id_as_columns(exposure):
         )
 
     return damage_by_bdg_id
+
+
+def split_updated_exposure_by_usability(exposure, usability):
+
+    usable_bool = pd.Series([
+        usability.loc[final_damage, "usable"] for final_damage in exposure["final_damage"]
+    ])
+
+    usable_assets = exposure.loc[usable_bool, :].copy()
+    unusable_assets = exposure.loc[~usable_bool, :].copy()
+
+    return usable_assets, unusable_assets
