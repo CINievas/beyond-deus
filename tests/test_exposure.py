@@ -61,6 +61,7 @@ def test_read_exposure():
 
     assert round(initial_exposure["number"].sum(), 5) == 21.5
     assert round(initial_exposure["replacement_cost_tot"].sum(), 5) == 12.5E6
+    assert round(initial_exposure["ppl_census"].sum(), 5) == 123.0
     assert round(initial_exposure["cum_loss_value"].sum(), 5) == 0.0
 
     # Test case in which GPKG does not contain polygons for all building_id of CSV
@@ -109,7 +110,9 @@ def test_map_exposure():
     )
 
     string_cols = ["building_id", "taxonomy", "id"]
-    numeric_cols = ["number", "initial_damage", "replacement_cost_tot", "cum_loss_value"]
+    numeric_cols = [
+        "number", "initial_damage", "replacement_cost_tot", "ppl_census", "cum_loss_value"
+    ]
 
     for row in expected_exposure.index:
         for col in string_cols:
@@ -249,7 +252,7 @@ def test_get_updated_exposure_and_transitions():
         assert col in returned_updated_exposure
 
     cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
-    cols_floats = ["number", "replacement_cost_tot"]
+    cols_floats = ["number", "replacement_cost_tot", "ppl_census"]
 
     for row in expected_updated_exposure.index:
         for col in cols_str_or_int:
@@ -539,7 +542,9 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
-    cols_floats = ["number", "replacement_cost_tot", "incremental_loss", "cum_loss_value"]
+    cols_floats = [
+        "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
+    ]
 
     for row in expected_updated_exposure_and_losses.index:
         for col in cols_str_or_int:
@@ -638,7 +643,9 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
-    cols_floats = ["number", "replacement_cost_tot", "incremental_loss", "cum_loss_value"]
+    cols_floats = [
+        "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
+    ]
 
     for row in expected_updated_exposure_and_losses.index:
         for col in cols_str_or_int:
@@ -741,7 +748,9 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
-    cols_floats = ["number", "replacement_cost_tot", "incremental_loss", "cum_loss_value"]
+    cols_floats = [
+        "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
+    ]
 
     for row in expected_updated_exposure_and_losses.index:
         for col in cols_str_or_int:
@@ -844,7 +853,9 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
-    cols_floats = ["number", "replacement_cost_tot", "incremental_loss", "cum_loss_value"]
+    cols_floats = [
+        "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
+    ]
 
     for row in expected_updated_exposure_and_losses.index:
         for col in cols_str_or_int:

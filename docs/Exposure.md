@@ -17,6 +17,9 @@ the current calculation.
 - `number` (float): Number of buildings in the asset. It does not need to be an integer.
 - `replacement_cost_tot` (float): Total replacement cost of all the buildings in the asset. The
 replacement cost per building is equal to `replacement_cost_tot/number`.
+- `ppl_census` (float): Total number of people who normally occupy all the buildings in the
+asset, independent of the time of the day or other factors. The number of people per building is
+equal to "ppl_census"/"number".
 - `cum_loss_value` (float): Economic loss associated with the asset from a previously-run
 calculation (i.e., a hazardous event that occurred before).
 

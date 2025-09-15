@@ -52,14 +52,14 @@ class OutputGenerator:
                         "hdf5_for_all": The full updated exposure model as one HDF5 file for all
                             logic tree branches and realisations.
                     "by_final_damage":
-                        "csv_per_realisation": Number of buildings, replacement cost and losses
-                            of the whole portfolio, reported per final damage state, due to each
-                            realisation of each logic tree branch.
+                        "csv_per_realisation": Number of buildings, replacement cost, census
+                            occupants and losses of the whole portfolio, reported per final
+                            damage state, due to each realisation of each logic tree branch.
                     "by_initial_and_final_damage":
-                        "csv_per_realisation: Number of buildings, replacement cost and losses
-                            of the whole portfolio, reported per all combinations of initial and
-                            final damage states, due to each realisation of each logic tree
-                            branch.
+                        "csv_per_realisation: Number of buildings, replacement cost, census
+                            occupants and losses of the whole portfolio, reported per all
+                            combinations of initial and final damage states, due to each
+                            realisation of each logic tree branch.
                     "by_building_id":
                         "loss_csv_per_realisation": Losses per building_id of the exposed assets
                             due to each realisation of each logic tree branch.
@@ -238,8 +238,9 @@ def write_exposure_to_HDF5(exposure, filename, dataset_name="updated_exposure"):
 
 def write_output_by_final_damage(exposure, filename):
     """
-    This methods outputs number of buildings, total repleacement costs, total incremental losses
-    and total cumulative losses aggregated by final damage state, to a CSV file.
+    This methods outputs number of buildings, total repleacement costs, total number of census
+    occupants, total incremental losses and total cumulative losses aggregated by final damage
+    state, to a CSV file.
 
     Args:
         exposure (Pandas DataFrame):
@@ -253,6 +254,7 @@ def write_output_by_final_damage(exposure, filename):
         {
             "number": "sum",
             "replacement_cost_tot": "sum",
+            "ppl_census": "sum",
             "incremental_loss": "sum",
             "cum_loss_value": "sum"
         },
@@ -263,8 +265,9 @@ def write_output_by_final_damage(exposure, filename):
 
 def write_output_by_initial_and_final_damage(exposure, filename):
     """
-    This methods outputs number of buildings, total repleacement costs, total incremental losses
-    and total cumulative losses aggregated by initial and final damage states, to a CSV file.
+    This methods outputs number of buildings, total repleacement costs, total number of census
+    occupants, total incremental losses and total cumulative losses aggregated by initial and
+    final damage states, to a CSV file.
 
     Args:
         exposure (Pandas DataFrame):
@@ -279,6 +282,7 @@ def write_output_by_initial_and_final_damage(exposure, filename):
         {
             "number": "sum",
             "replacement_cost_tot": "sum",
+            "ppl_census": "sum",
             "incremental_loss": "sum",
             "cum_loss_value": "sum"
         },
@@ -296,9 +300,9 @@ def write_loss_by_building_id(
     filename_without_extension=None
 ):
     """
-    This methods outputs number of buildings, total repleacement costs, total incremental losses
-    and total cumulative losses, both in absolute value and as loss ratios, per 'building_id' of
-    the exposure model.
+    This methods outputs number of buildings, total repleacement costs, total number of census
+    occupants, total incremental losses and total cumulative losses, both in absolute value and
+    as loss ratios, per 'building_id' of the exposure model.
 
     Args:
         exposure (Pandas DataFrame):
@@ -324,6 +328,7 @@ def write_loss_by_building_id(
         {
             "number": "sum",
             "replacement_cost_tot": "sum",
+            "ppl_census": "sum",
             "incremental_loss": "sum",
             "cum_loss_value": "sum"
         }

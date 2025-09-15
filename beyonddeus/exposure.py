@@ -53,6 +53,10 @@ def read_exposure(filename_csv, filename_geoms):
                 "replacement_cost_tot" (float):
                     Total replacement cost of all the buildings in the asset. The replacement
                     cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
@@ -151,6 +155,10 @@ def update_exposure_transitions_and_losses(
                 "replacement_cost_tot" (float):
                     Total replacement cost of all the buildings in the asset. The replacement
                     cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
@@ -198,6 +206,10 @@ def update_exposure_transitions_and_losses(
                 "replacement_cost_tot" (float):
                     Total replacement cost of all the buildings in the asset. The replacement
                     cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
                 "incremental_loss" (float):
                     Economic loss associated with the asset calculated in the current run of
                     this function.
@@ -253,6 +265,10 @@ class Updater:
                 "replacement_cost_tot" (float):
                     Total replacement cost of all the buildings in the asset. The replacement
                     cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
@@ -313,6 +329,10 @@ class Updater:
                 "replacement_cost_tot" (float):
                     Total replacement cost of all the buildings in the asset. The replacement
                     cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
@@ -340,6 +360,10 @@ class Updater:
                     "replacement_cost_tot" (float):
                         Total replacement cost of all the buildings in the asset. The replacement
                         cost per building is equal to "replacement_cost_tot"/"number".
+                    "ppl_census" (float):
+                        Total number of people who normally occupy all the buildings in the asset,
+                        independent of the time of the day or other factors. The number of people
+                        per building is equal to "ppl_census"/"number".
                     "incremental_loss" (float):
                         Economic loss associated with the asset calculated in the current run of
                         this function.
@@ -430,6 +454,10 @@ class Updater:
                     "replacement_cost_tot" (float):
                         Total replacement cost of all the buildings in the asset. The replacement
                         cost per building is equal to "replacement_cost_tot"/"number".
+                    "ppl_census" (float):
+                        Total number of people who normally occupy all the buildings in the asset,
+                        independent of the time of the day or other factors. The number of people
+                        per building is equal to "ppl_census"/"number".
                     "incremental_loss" (float):
                         Economic loss associated with the asset calculated in the current run of
                         this function.
@@ -488,6 +516,10 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
                 "replacement_cost_tot" (float):
                     Total replacement cost of all the buildings in the asset. The replacement
                     cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
@@ -558,6 +590,7 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
     all_mapped_sub_exposure["initial_damage"] = []
     all_mapped_sub_exposure["number"] = []
     all_mapped_sub_exposure["replacement_cost_tot"] = []
+    all_mapped_sub_exposure["ppl_census"] = []
     all_mapped_sub_exposure["cum_loss_value"] = []
 
     # Go one by one each unique combination of "taxonomy" and "initial_damage"
@@ -579,6 +612,10 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
 
         new_costs = np.outer(
             sub_exposure["replacement_cost_tot"].to_numpy(), mapping["proportions"]
+        ).flatten()
+
+        new_ppl_census = np.outer(
+            sub_exposure["ppl_census"].to_numpy(), mapping["proportions"]
         ).flatten()
 
         # Split exising cum_loss_value proportionally to "proportions"
@@ -608,6 +645,7 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
         all_mapped_sub_exposure["initial_damage"].extend(new_dmg_states)
         all_mapped_sub_exposure["number"].extend(new_number)
         all_mapped_sub_exposure["replacement_cost_tot"].extend(new_costs)
+        all_mapped_sub_exposure["ppl_census"].extend(new_ppl_census)
         all_mapped_sub_exposure["cum_loss_value"].extend(new_cum_loss_values)
 
     mapped_exposure = pd.DataFrame(all_mapped_sub_exposure)
@@ -655,6 +693,10 @@ def get_updated_exposure_and_transitions(
                 "replacement_cost_tot" (float):
                     Total replacement cost of all the buildings in the asset. The replacement
                     cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
@@ -692,6 +734,7 @@ def get_updated_exposure_and_transitions(
     aux_result_expo["final_damage"] = []
     aux_result_expo["number"] = []
     aux_result_expo["replacement_cost_tot"] = []
+    aux_result_expo["ppl_census"] = []
     aux_result_expo["cum_loss_value"] = []
 
     for row in exposure.index:
@@ -699,6 +742,7 @@ def get_updated_exposure_and_transitions(
         old_damage_state = exposure.loc[row, "initial_damage"]
         taxonomy = exposure.loc[row, "taxonomy"]
         replacement_cost = exposure.loc[row, "replacement_cost_tot"]
+        ppl_census = exposure.loc[row, "ppl_census"]
         cum_loss_value = exposure.loc[row, "cum_loss_value"]
         asset_id = exposure.loc[row, "id"]
         building_id = exposure.loc[row, "building_id"]
@@ -746,6 +790,7 @@ def get_updated_exposure_and_transitions(
         aux_result_expo["final_damage"].extend(final_damage_states)
         aux_result_expo["number"].extend(list(n_bdgs * poos))
         aux_result_expo["replacement_cost_tot"].extend(list(replacement_cost * poos))
+        aux_result_expo["ppl_census"].extend(list(ppl_census * poos))
         aux_result_expo["cum_loss_value"].extend(list(cum_loss_value * poos))
 
     result_expo = pd.DataFrame(aux_result_expo)
@@ -801,6 +846,10 @@ def compute_loss(updated_exposure, loss_provider, schema):
                 "replacement_cost_tot" (float):
                     Total replacement cost of all the buildings in the asset. The replacement
                     cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
