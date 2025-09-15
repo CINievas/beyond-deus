@@ -231,10 +231,19 @@ def test_get_updated_exposure_and_transitions():
        ),
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
+    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
+    # "incremental_loss" column, so need to address this:
+    expected_updated_exposure.rename(
+        columns={"initial_damage": "final_damage"}, inplace=True
+    )
+    expected_updated_exposure["initial_damage"] = np.zeros(
+        expected_updated_exposure.shape[0], dtype=int
+    )
+
     expected_updated_exposure = expected_updated_exposure[
         expected_updated_exposure.building_id == "1230"
     ].copy()
-    expected_updated_exposure = expected_updated_exposure.drop(columns=["incremental_loss"])
+    expected_updated_exposure = expected_updated_exposure.drop(columns=["incremental_loss_trick"])
 
     for col in expected_updated_exposure.columns:
         assert col in returned_updated_exposure
@@ -341,6 +350,11 @@ def test_compute_loss():
        ),
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
+    # 'read_exposure' would eliminate the incremental_loss" column, so need to address this:
+    expected_updated_exposure_and_losses.rename(
+        columns={"incremental_loss_trick": "incremental_loss"}, inplace=True
+    )
+
     expected_updated_exposure_and_losses = expected_updated_exposure_and_losses[
         expected_updated_exposure_and_losses.building_id == "1230"
     ].copy()
@@ -420,6 +434,11 @@ def test_compute_loss():
        ),
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
+    # 'read_exposure' would eliminate the incremental_loss" column, so need to address this:
+    expected_updated_exposure_and_losses.rename(
+        columns={"incremental_loss_trick": "incremental_loss"}, inplace=True
+    )
+
     expected_updated_exposure_and_losses = expected_updated_exposure_and_losses[
         expected_updated_exposure_and_losses.building_id == "1230"
     ].copy()
@@ -504,6 +523,17 @@ def test_update_exposure_transitions_and_losses():
        ),
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
+    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
+    # "incremental_loss" column, so need to address this:
+    expected_updated_exposure_and_losses.rename(
+        columns={
+            "initial_damage": "final_damage",
+            "incremental_loss_trick": "incremental_loss"
+        }, inplace=True
+    )
+    expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
+        expected_updated_exposure_and_losses.shape[0], dtype=int
+    )
 
     for col in expected_updated_exposure_and_losses.columns:
         assert col in returned_updated_exposure_and_losses
@@ -540,7 +570,6 @@ def test_update_exposure_transitions_and_losses():
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
 
-    assert "incremental_loss" in initial_exposure.columns
     assert "cum_loss_value" in initial_exposure.columns
 
     # Read fragility input
@@ -593,6 +622,17 @@ def test_update_exposure_transitions_and_losses():
        ),
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
+    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
+    # "incremental_loss" column, so need to address this:
+    expected_updated_exposure_and_losses.rename(
+        columns={
+            "initial_damage": "final_damage",
+            "incremental_loss_trick": "incremental_loss"
+        }, inplace=True
+    )
+    expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
+        expected_updated_exposure_and_losses.shape[0], dtype=int
+    )
 
     for col in expected_updated_exposure_and_losses.columns:
         assert col in returned_updated_exposure_and_losses
@@ -631,7 +671,6 @@ def test_update_exposure_transitions_and_losses():
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
 
-    assert "incremental_loss" in initial_exposure.columns
     assert "cum_loss_value" in initial_exposure.columns
 
     # Read fragility input
@@ -686,6 +725,17 @@ def test_update_exposure_transitions_and_losses():
        ),
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
+    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
+    # "incremental_loss" column, so need to address this:
+    expected_updated_exposure_and_losses.rename(
+        columns={
+            "initial_damage": "final_damage",
+            "incremental_loss_trick": "incremental_loss"
+        }, inplace=True
+    )
+    expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
+        expected_updated_exposure_and_losses.shape[0], dtype=int
+    )
 
     for col in expected_updated_exposure_and_losses.columns:
         assert col in returned_updated_exposure_and_losses
@@ -724,7 +774,6 @@ def test_update_exposure_transitions_and_losses():
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
     )
 
-    assert "incremental_loss" in initial_exposure.columns
     assert "cum_loss_value" in initial_exposure.columns
 
     # Read fragility input
@@ -778,6 +827,17 @@ def test_update_exposure_transitions_and_losses():
            "expected_updated_exposure_damage_losses_with_previous_loss_intensity_threshold.csv"
        ),
        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
+    # "incremental_loss" column, so need to address this:
+    expected_updated_exposure_and_losses.rename(
+        columns={
+            "initial_damage": "final_damage",
+            "incremental_loss_trick": "incremental_loss"
+        }, inplace=True
+    )
+    expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
+        expected_updated_exposure_and_losses.shape[0], dtype=int
     )
 
     for col in expected_updated_exposure_and_losses.columns:

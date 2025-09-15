@@ -1,4 +1,4 @@
-building_id,taxonomy,initial_damage,final_damage,number,replacement_cost_tot,id,incremental_loss,cum_loss_value
+building_id,taxonomy,initial_damage,final_damage,number,replacement_cost_tot,id,incremental_loss_trick,cum_loss_value
 1230,source_1,0,4,0.000000056467,0.0564700,res_1,0.0553407,0.0564700
 1230,source_1,0,3,0.000000125016,0.1250200,res_1,0.0750100,0.0775103
 1230,source_1,0,2,0.000000890002,0.8900000,res_1,0.1335000,0.1513000
