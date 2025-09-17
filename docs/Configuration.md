@@ -52,6 +52,10 @@ written, if `profiling.py` is manually run.
   the exposed assets, be careful!
 - `output_types`:  Write True/False next to each option, to export or not export the
 corresponding output type:
+  - `mapped_exposure`:
+    - `csv`: The input exposure model, mapped onto the target building and damage schemas (i.e.,
+    conversion of building classes and damage states due to compatibility across schemas, not
+    the action of the input hazard), is written to a CSV file.
   - `full_updated_exposure`:
     - `csv`: The full updated exposure model is written to a CSV file.
     - `csv_by_usability`: Two CSV files, each containing the usable and unusable assets (rows)

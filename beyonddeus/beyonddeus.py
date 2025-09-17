@@ -135,6 +135,20 @@ def main():
         schema_mapper,
     )
 
+    if (
+        config.output_types["mapped_exposure"]["csv"] and (
+            config.parameters["building_schema_exposure"] !=
+            config.parameters["building_schema_fragility"])
+    ):
+        now = datetime.datetime.now()
+        logger.info(
+            "%s: Exporting input initial exposure model mapped onto target schema"
+            % (format_time(now))
+        )
+        mapped_exposure.to_csv(
+            os.path.join(config.output_path, "mapped_exposure.csv"), index=False
+        )
+
     # Read economic consequence model
     now = datetime.datetime.now()
     logger.info("%s: Reading input economic consequence model" % (format_time(now)))

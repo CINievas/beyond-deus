@@ -68,6 +68,11 @@ class Configuration:
         self.output_types (dict):
             Dictionary indicating the kind of outputs to export, by means of True/False. Options
             are sets of nested keys:
+                "mapped_exposure":
+                    "csv": The input exposure model, mapped onto the target building and damage
+                    schemas (i.e., conversion of building classes and damage states due to
+                    compatibility across schemas, not the action of the input hazard), is
+                    written to a CSV file.
                 "full_updated_exposure":
                     "csv": The full updated exposure model as a CSV file.
                     "csv_by_usability": Two CSV files, each containing the usable and unusable
@@ -155,6 +160,11 @@ class Configuration:
         )
 
         self.output_types = {}
+
+        self.output_types["mapped_exposure"] = {}
+        self.output_types["mapped_exposure"]["csv"] = self._assign_parameter(
+            config["output_types"]["mapped_exposure"], "csv"
+        )
 
         self.output_types["full_updated_exposure"] = {}
         self.output_types["full_updated_exposure"]["csv"] = self._assign_parameter(

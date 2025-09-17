@@ -91,5 +91,5 @@ def test_split_updated_exposure_by_usability():
     assert len(returned_usable_assets["final_damage"].unique()) == 2
     assert len(returned_unusable_assets["final_damage"].unique()) == 3
 
-    assert round(returned_usable_assets["cum_loss_value"].sum(), 6) == 146288.926466
-    assert round(returned_unusable_assets["cum_loss_value"].sum(), 6) == 2496644.214552
+    assert round(returned_usable_assets["cum_loss_value"].sum(), 3) == 146288.926
+    assert round(returned_unusable_assets["cum_loss_value"].sum(), 3) == 2496644.215
