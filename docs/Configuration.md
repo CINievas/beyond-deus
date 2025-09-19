@@ -3,6 +3,8 @@
 The software automatically searches for the `config.yml` file. This file should contain the
 following parameters:
 
+- `hazard_prefix`: A short string to be used as a prefix in the naming of output files.
+  Suggested prefixes: EQ for earthquake, TSU for tsunami, HW for heatwave, FL for flood.
 - `input_paths`:
   - `intensity`: This can be:
     - A path to a directory that contains several hazard intensity input files. All files in
@@ -13,9 +15,11 @@ following parameters:
     - A path to one earthquake HDF5 file, which may contain intensity fields for more than one
     logic tree branch and more than one realisations per branch.
   - `fragility`: Path to fragility `.json` file.
-  - `exposure_csv`: Path to exposure `.csv` file with one row per exposure asset (a number of
-  buildings of a particular building class, in a particular damage state, at a particular
-  location). See details [here](Exposure.md).
+  - `exposure_csv`: Path to directory that contains the exposure `.csv` file(s) with one row per
+  exposure asset (a number of buildings of a particular building class, in a particular damage
+  state, at a particular location). See details [here](Exposure.md). All files in this directory
+  will be read by the software and each of them will be used in combination with each
+  realisation of intensity of each branch to calculate resulting damage and losses.
   - `exposure_gpkg`: Path to exposure `.gpkg` file with exposure polygons and their centroids.
   There needs to be one polygon for each `building_id` in the exposure `.csv` file. See details
   [here](Exposure.md).

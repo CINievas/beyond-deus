@@ -27,6 +27,8 @@ class Configuration:
     """This class handles the configuration parameters.
 
     Attributes:
+        self.hazard_prefix (str):
+            Short string to be used as a prefix in the naming of output files.
         self.input_paths (dict):
             Dictionary with full paths to input files. Keys:
                 "intensity":
@@ -34,7 +36,7 @@ class Configuration:
                 "fragility":
                     Path to fragility input file.
                 "exposure_csv":
-                    Path to exposure CSV input file.
+                    Path to the directory containing the exposure CSV input file(s).
                 "exposure_gpkg":
                     Path to exposure GeoPackage input file.
                 "conversion_taxonomy":
@@ -122,6 +124,10 @@ class Configuration:
         """
 
         config = self._read_config_file(filepath)
+
+        self.hazard_prefix = self._assign_parameter(
+            config, "hazard_prefix"
+        )
 
         self.input_paths = {}
         self.input_paths["intensity"] = self._assign_parameter(

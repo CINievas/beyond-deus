@@ -27,6 +27,8 @@ from copy import deepcopy
 class OutputGenerator:
     def __init__(
         self,
+        hazard_prefix,
+        initial_exposure_name,
         output_path,
         output_types,
         usability,
@@ -37,6 +39,11 @@ class OutputGenerator:
     ):
         """
         Attrs:
+            self.hazard_prefix (str):
+                String to be used as a prefix in the naming of the output files.
+            self.initial_exposure_name (str):
+                Name of the input exposure model used to generate 'updated_exposure' (to be used
+                in the naming of the output files).
             self.output_path (str):
                 Path to directory where outputs will be written.
             self.output_types (dict):
@@ -84,6 +91,8 @@ class OutputGenerator:
                 GeoDataFrame with the geometries of the exposure model (one polygon per
                 'building_id' of self.updated_exposure).
         """
+        self.hazard_prefix = hazard_prefix
+        self.initial_exposure_name = initial_exposure_name
         self.output_path = output_path
         self.output_types = output_types
         self.usability = usability
@@ -94,9 +103,12 @@ class OutputGenerator:
 
     def export(self):
         if self.output_types["full_updated_exposure"]["csv"]:
-            out_filename = "b_%s_r_%s_updated_exposure.csv" % (self.branch, self.realisation)
+            out_filename = "%s_b_%s_r_%s_%s_updated_exposure.csv" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+            )
             self.updated_exposure.to_csv(
-                os.path.join(self.output_path, out_filename), index=False
+                os.path.join(self.output_path, "updated_exposure_csv", out_filename),
+                index=False
             )
 
         if self.output_types["full_updated_exposure"]["csv_by_usability"]:
@@ -105,43 +117,55 @@ class OutputGenerator:
             )
 
             out_filename = (
-                "b_%s_r_%s_updated_exposure_usable.csv" % (self.branch, self.realisation)
+                "%s_b_%s_r_%s_%s_updated_exposure_usable.csv" % (
+                    self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+                )
             )
             usable_assets.to_csv(
-                os.path.join(self.output_path, out_filename), index=False
+                os.path.join(self.output_path,"updated_exposure_usable_csv", out_filename),
+                index=False
             )
 
             out_filename = (
-                "b_%s_r_%s_updated_exposure_unusable.csv" % (self.branch, self.realisation)
+                "%s_b_%s_r_%s_%s_updated_exposure_unusable.csv" % (
+                    self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+                )
             )
             unusable_assets.to_csv(
-                os.path.join(self.output_path, out_filename), index=False
+                os.path.join(self.output_path, "updated_exposure_unusable_csv", out_filename),
+                index=False
             )
 
         if self.output_types["full_updated_exposure"]["hdf5_per_realisation"]:
-            out_filename = "b_%s_r_%s_updated_exposure.hdf5" % (self.branch, self.realisation)
+            out_filename = "%s_b_%s_r_%s_%s_updated_exposure.hdf5" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+            )
             write_exposure_to_HDF5(
                 self.updated_exposure, os.path.join(self.output_path, out_filename)
             )
 
         if self.output_types["full_updated_exposure"]["hdf5_per_branch"]:
-            out_filename = "b_%s_updated_exposure.hdf5" % (self.branch)
+            out_filename = "%s_b_%s_updated_exposure.hdf5" % (self.hazard_prefix, self.branch)
             write_exposure_to_HDF5(
                 self.updated_exposure,
                 os.path.join(self.output_path, out_filename),
-                dataset_name=self.realisation
+                dataset_name="r_%s_%s" % (self.realisation, self.initial_exposure_name)
             )
 
         if self.output_types["full_updated_exposure"]["hdf5_for_all"]:
-            out_filename = "updated_exposure_all.hdf5"
+            out_filename = "%s_updated_exposure_all.hdf5" % (self.hazard_prefix)
             write_exposure_to_HDF5(
                 self.updated_exposure,
                 os.path.join(self.output_path, out_filename),
-                dataset_name="b_%s_r_%s" % (self.branch, self.realisation)
+                dataset_name="%s_b_%s_r_%s_%s" % (
+                    self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+                )
             )
 
         if self.output_types["by_final_damage"]["csv_per_realisation"]:
-            out_filename = "b_%s_r_%s_by_final_damage.csv" % (self.branch, self.realisation)
+            out_filename = "%s_b_%s_r_%s_%s_by_final_damage.csv" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+            )
             write_output_by_final_damage(
                 self.updated_exposure,
                 os.path.join(self.output_path, out_filename)
@@ -149,7 +173,9 @@ class OutputGenerator:
 
         if self.output_types["by_initial_and_final_damage"]["csv_per_realisation"]:
             out_filename = (
-                "b_%s_r_%s_by_initial_and_final_damage.csv" % (self.branch, self.realisation)
+                "%s_b_%s_r_%s_%s_by_initial_and_final_damage.csv" % (
+                    self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+                )
             )
             write_output_by_initial_and_final_damage(
                 self.updated_exposure,
@@ -161,7 +187,9 @@ class OutputGenerator:
             or
             self.output_types["by_building_id"]["loss_gpkg_per_realisation"]
         ):
-            out_filename_we = "b_%s_r_%s_loss_by_building_id" % (self.branch, self.realisation)
+            out_filename_we = "%s_b_%s_r_%s_%s_loss_by_building_id" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+            )
             write_loss_by_building_id(
                 self.updated_exposure,
                 self.exposure_geoms,
@@ -177,8 +205,8 @@ class OutputGenerator:
             or
             self.output_types["by_building_id"]["only_transitioned_loss_gpkg_per_realisation"]
         ):
-            out_filename_we = "b_%s_r_%s_loss_by_building_id_only_transitioned" % (
-                self.branch, self.realisation
+            out_filename_we = "%s_b_%s_r_%s_%s_loss_by_building_id_only_transitioned" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
             )
             write_loss_by_building_id(
                 self.updated_exposure,
@@ -201,7 +229,9 @@ class OutputGenerator:
             or
             self.output_types["by_building_id"]["damage_gpkg_per_realisation"]
         ):
-            out_filename_we = "b_%s_r_%s_damage_by_building_id" % (self.branch, self.realisation)
+            out_filename_we = "%s_b_%s_r_%s_%s_damage_by_building_id" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+            )
             damage_by_bdg_id = write_damage_by_building_id(
                 self.updated_exposure,
                 self.exposure_geoms,
@@ -218,8 +248,8 @@ class OutputGenerator:
             or
             self.output_types["by_building_id"]["only_transitioned_damage_gpkg_per_realisation"]
         ):
-            out_filename_we = "b_%s_r_%s_damage_by_building_id_only_transitioned" % (
-                self.branch, self.realisation
+            out_filename_we = "%s_b_%s_r_%s_%s_damage_by_building_id_only_transitioned" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
             )
             _ = write_damage_by_building_id(
                 self.updated_exposure,

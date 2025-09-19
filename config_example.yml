@@ -1,7 +1,8 @@
+hazard_prefix: HAZ  # Prefix to be used in the naming of output files
 input_paths:
   intensity: path_to_intensity_input_files  # If a directory with XML files, all files will be processed; otherwise path to one HDF5 file
   fragility: path_to_fragility_file  # One fragility json file
-  exposure_csv: path_to_exposure_csv_file  # One exposure csv file
+  exposure_csv: path_to_exposure_csv_files  # One directory with all exposure csv files
   exposure_gpkg: path_to_exposure_gpkg_file  # One exposure gpkg file with exposure polygons and their centroids
   conversion_taxonomy: path_to_directory_with_taxonomy_conversion_files # All files in this directory will be used
   conversion_damage_states: path_to_directory_with_damage_states_conversion_files  # All files in this directory will be used

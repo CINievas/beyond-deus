@@ -28,16 +28,16 @@ from beyonddeus.fragility import Fragility, DamageState
 from beyonddeus.shakemap import Shakemaps
 from beyonddeus.loss import LossProvider
 from beyonddeus.exposure import (
-    read_exposure, map_exposure, get_sorted_damage_states, get_updated_exposure_and_transitions,
-    compute_loss, update_exposure_transitions_and_losses
+    read_exposure_csv, read_exposure_geoms, check_all_building_ids_in_geoms, map_exposure,
+    get_sorted_damage_states, get_updated_exposure_and_transitions, compute_loss,
+    update_exposure_transitions_and_losses
 )
 
 
-def test_read_exposure():
+def test_read_exposure_csv():
 
-    initial_exposure, exposure_geometries = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    initial_exposure = read_exposure_csv(
+        os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
     )
 
     assert initial_exposure.shape[0] == 4  # rows
@@ -64,12 +64,30 @@ def test_read_exposure():
     assert round(initial_exposure["ppl_census"].sum(), 5) == 123.0
     assert round(initial_exposure["cum_loss_value"].sum(), 5) == 0.0
 
+
+def test_read_exposure_geoms():
+
+    exposure_geometries = read_exposure_geoms(
+        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    )
+
+    assert exposure_geometries.shape[0] == 2
+    assert type(exposure_geometries.loc[0, "building_id"]) is str
+
+
+def test_check_all_building_ids_in_geoms():
+
+    # Test case in which GPKG does not contain polygons for all building_id of CSV
+    initial_exposure = read_exposure_csv(
+        os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
+    )
+    exposure_geometries = read_exposure_geoms(
+        os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test_wrong.gpkg")
+    )
+
     # Test case in which GPKG does not contain polygons for all building_id of CSV
     with pytest.raises(OSError) as excinfo:
-        initial_exposure, exposure_geometries = read_exposure(
-            os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
-            os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test_wrong.gpkg")
-        )
+        check_all_building_ids_in_geoms(initial_exposure, exposure_geometries)
 
     assert "OSError" in str(excinfo.type)
 
@@ -91,14 +109,12 @@ def test_map_exposure():
     assert result_expo_returned == expo
 
     # Test case in which conversion is actually done
-    old_exposure, _ = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    old_exposure = read_exposure_csv(
+        os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
     )
 
-    expected_exposure, _ = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "expected_mapped_exposure.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    expected_exposure = read_exposure_csv(
+       os.path.join(os.path.dirname(__file__), "data", "expected_mapped_exposure.csv")
     )
     expected_exposure.sort_values(
         by=["building_id", "id", "taxonomy", "initial_damage"], inplace=True
@@ -191,9 +207,8 @@ def test_get_updated_exposure_and_transitions():
     # TEST 1
 
     # Read test exposure file
-    initial_exposure, exposure_geometries = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    initial_exposure = read_exposure_csv(
+        os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
     )
 
     # Focus on the first exposure polygon of the file
@@ -227,15 +242,14 @@ def test_get_updated_exposure_and_transitions():
     )
 
     # Read expected results
-    expected_updated_exposure, _ = read_exposure(
+    expected_updated_exposure = read_exposure_csv(
        os.path.join(
            os.path.dirname(__file__), "data",
            "expected_updated_exposure_damage_losses_no_previous_loss.csv"
-       ),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+       )
     )
-    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
-    # "incremental_loss" column, so need to address this:
+    # 'read_exposure_csv' will rename "final_damage" as "initial_damage", and would eliminate
+    # the "incremental_loss" column, so need to address this:
     expected_updated_exposure.rename(
         columns={
             "initial_damage": "final_damage", "transition_trick": "transition"
@@ -300,9 +314,8 @@ def test_compute_loss():
     # TEST 1: NO PRE-EXISTING CUMULATIVE LOSSES
 
     # Read test exposure file
-    initial_exposure, exposure_geometries = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    initial_exposure = read_exposure_csv(
+        os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
     )
 
     # Focus on the first exposure polygon of the file
@@ -348,14 +361,13 @@ def test_compute_loss():
     )
 
     # Read expected results
-    expected_updated_exposure_and_losses, _ = read_exposure(
+    expected_updated_exposure_and_losses = read_exposure_csv(
        os.path.join(
            os.path.dirname(__file__), "data",
            "expected_updated_exposure_damage_losses_no_previous_loss.csv"
-       ),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+       )
     )
-    # 'read_exposure' would eliminate the incremental_loss" column, so need to address this:
+    # 'read_exposure_csv' would eliminate the incremental_loss" column, so need to address this:
     expected_updated_exposure_and_losses.rename(
         columns={
             "incremental_loss_trick": "incremental_loss", "transition_trick": "transition"
@@ -386,9 +398,8 @@ def test_compute_loss():
     # INCLUDING ASSETS FOR WHICH ADJUSTMENT IS NEEDED TO AVOID CUMULATIVE LOSS>REPLACEMENT COST
 
     # Read test exposure file
-    initial_exposure, exposure_geometries = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    initial_exposure = read_exposure_csv(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv")
     )
 
     # Focus on the first exposure polygon of the file
@@ -434,14 +445,13 @@ def test_compute_loss():
     )
 
     # Read expected results
-    expected_updated_exposure_and_losses, _ = read_exposure(
+    expected_updated_exposure_and_losses = read_exposure_csv(
        os.path.join(
            os.path.dirname(__file__), "data",
            "expected_updated_exposure_damage_losses_with_previous_loss.csv"
-       ),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+       )
     )
-    # 'read_exposure' would eliminate the incremental_loss" column, so need to address this:
+    # 'read_exposure_csv' would eliminate the incremental_loss" column, so need to address this:
     expected_updated_exposure_and_losses.rename(
         columns={"incremental_loss_trick": "incremental_loss"}, inplace=True
     )
@@ -475,9 +485,8 @@ def test_update_exposure_transitions_and_losses():
     # (no existing "cum_loss_value" column)
 
     # Read test exposure file
-    initial_exposure, exposure_geometries = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    initial_exposure = read_exposure_csv(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
     )
 
     # Read fragility input
@@ -523,15 +532,14 @@ def test_update_exposure_transitions_and_losses():
     )
 
     # Read expected results
-    expected_updated_exposure_and_losses, _ = read_exposure(
+    expected_updated_exposure_and_losses = read_exposure_csv(
        os.path.join(
            os.path.dirname(__file__), "data",
            "expected_updated_exposure_damage_losses_no_previous_loss.csv"
-       ),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+       )
     )
-    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
-    # "incremental_loss" column, so need to address this:
+    # 'read_exposure_csv' will rename "final_damage" as "initial_damage", and would eliminate
+    # the "incremental_loss" column, so need to address this:
     expected_updated_exposure_and_losses.rename(
         columns={
             "initial_damage": "final_damage",
@@ -577,9 +585,8 @@ def test_update_exposure_transitions_and_losses():
     # "cum_loss_value" column). It also includes a "loss_value" that should be ignored.
 
     # Read test exposure file
-    initial_exposure, exposure_geometries = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    initial_exposure = read_exposure_csv(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv")
     )
 
     assert "cum_loss_value" in initial_exposure.columns
@@ -627,15 +634,14 @@ def test_update_exposure_transitions_and_losses():
     )
 
     # Read expected results
-    expected_updated_exposure_and_losses, _ = read_exposure(
+    expected_updated_exposure_and_losses = read_exposure_csv(
        os.path.join(
            os.path.dirname(__file__), "data",
            "expected_updated_exposure_damage_losses_with_previous_loss.csv"
-       ),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+       )
     )
-    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
-    # "incremental_loss" column, so need to address this:
+    # 'read_exposure_csv' will rename "final_damage" as "initial_damage", and would eliminate
+    # the "incremental_loss" column, so need to address this:
     expected_updated_exposure_and_losses.rename(
         columns={
             "initial_damage": "final_damage",
@@ -683,9 +689,8 @@ def test_update_exposure_transitions_and_losses():
     # "cum_loss_value" column). It also includes a "loss_value" that should be ignored.
 
     # Read test exposure file
-    initial_exposure, exposure_geometries = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    initial_exposure = read_exposure_csv(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv")
     )
 
     assert "cum_loss_value" in initial_exposure.columns
@@ -735,15 +740,14 @@ def test_update_exposure_transitions_and_losses():
     )
 
     # Read expected results
-    expected_updated_exposure_and_losses, _ = read_exposure(
+    expected_updated_exposure_and_losses = read_exposure_csv(
        os.path.join(
            os.path.dirname(__file__), "data",
            "expected_updated_exposure_damage_losses_with_previous_loss_intensity_threshold.csv"
-       ),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+       )
     )
-    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
-    # "incremental_loss" column, so need to address this:
+    # 'read_exposure_csv' will rename "final_damage" as "initial_damage", and would eliminate
+    # the "incremental_loss" column, so need to address this:
     expected_updated_exposure_and_losses.rename(
         columns={
             "initial_damage": "final_damage",
@@ -791,9 +795,8 @@ def test_update_exposure_transitions_and_losses():
     # "cum_loss_value" column). It also includes a "loss_value" that should be ignored.
 
     # Read test exposure file
-    initial_exposure, exposure_geometries = read_exposure(
-       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv"),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+    initial_exposure = read_exposure_csv(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test_with_previous_loss.csv")
     )
 
     assert "cum_loss_value" in initial_exposure.columns
@@ -843,15 +846,14 @@ def test_update_exposure_transitions_and_losses():
     )
 
     # Read expected results
-    expected_updated_exposure_and_losses, _ = read_exposure(
+    expected_updated_exposure_and_losses = read_exposure_csv(
        os.path.join(
            os.path.dirname(__file__), "data",
            "expected_updated_exposure_damage_losses_with_previous_loss_intensity_threshold.csv"
-       ),
-       os.path.join(os.path.dirname(__file__), "data", "exposure_polygons_test.gpkg")
+       )
     )
-    # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
-    # "incremental_loss" column, so need to address this:
+    # 'read_exposure_csv' will rename "final_damage" as "initial_damage", and would eliminate
+    # the "incremental_loss" column, so need to address this:
     expected_updated_exposure_and_losses.rename(
         columns={
             "initial_damage": "final_damage",

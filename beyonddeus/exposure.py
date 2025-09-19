@@ -16,22 +16,58 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
-import ctypes
+import os
 import pandas as pd
 import geopandas as gpd
 import numpy as np
 from copy import deepcopy
 
 
-def read_exposure(filename_csv, filename_geoms):
+def retrieve_exposure_input_names(directory_csv):
     """
-    Function to read the exposure from the input files: one CSV and one GPKG file.
+    Function to retrieve the names of all CSV files located in 'directory_csv', without the
+    extension.
+    """
+    exposure_names = os.listdir(directory_csv)
+
+    for i in range(len(exposure_names)):
+        exposure_names[i] = exposure_names[i].split(".csv")[0]
+
+    return exposure_names
+
+
+def read_exposure_geoms(filename_geoms):
+    """
+    Function to read the exposure geometries from the GPKG input file.
+
+    Args:
+       filename_geoms (str):
+            Path to the exposure GPKG file, which must contain one polygon per 'building_id' of
+            all of the exposure CSV files.
+
+    Returns:
+        exposure_geoms (GeoPandas GeoDataFrame):
+            GeoPandas GeoDataFrame with the contents of 'filename_geoms'.
+    """
+    # Read input GPKG
+    exposure_geoms = gpd.read_file(filename_geoms)
+    # Make sure "building_id" are strings
+    exposure_geoms["building_id"] = exposure_geoms["building_id"].astype(str)
+
+    return exposure_geoms
+
+
+def read_exposure_csv(filename_csv):
+    """
+    Function to read the exposure CSV file.
 
     If the CSV file contains a "final_damage" column, then it is assumed that this is a
     cumulative damage calculation and the contents of the "initial_damage" column are replaced
     by those of "final_damage", and the "final_damage" column is discarded.
 
     If the CSV file contains an "incremental_loss" column, it is discarded.
+
+    If the CSV file contains an "transition" column, it is discarded.
 
     Args:
         filename_csv (str):
@@ -60,18 +96,11 @@ def read_exposure(filename_csv, filename_geoms):
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
-        filename_geoms (str):
-            Path to the exposure GPKG file, which must contain one polygon per 'building_id' of
-            the exposure CSV file.
 
     Returns:
         exposure_df (Pandas DataFrame):
             Pandas DataFrame with the contents of 'filename_csv' (see columns above).
-        exposure_geoms (GeoPandas GeoDataFrame):
-            GeoPandas GeoDataFrame with the contents of 'filename_geoms' (one polygon per
-            'building_id' of the exposure CSV file).
     """
-
     # Read input CSV
     exposure_df = pd.read_csv(filename_csv)
     # Make sure "id" and "building_id" are strings
@@ -91,11 +120,18 @@ def read_exposure(filename_csv, filename_geoms):
     if "transition" in exposure_df.columns:  # It means Beyond-DEUS has been run before
         del exposure_df["transition"]
 
-    # Read input GPKG
-    exposure_geoms = gpd.read_file(filename_geoms)
-    # Make sure "building_id" are strings
-    exposure_geoms["building_id"] = exposure_geoms["building_id"].astype(str)
+    return exposure_df
 
+
+def check_all_building_ids_in_geoms(exposure_df, exposure_geoms):
+    """
+    Function to check that all "building_id"s from 'exposure_df' have a geometry in
+    'exposure_geoms'. It raises an OSError if this is not the case.
+
+    Args:
+        exposure_df (Pandas DataFrame): As output by 'read_exposure_csv'.
+        exposure_geoms (GeoPandas GeoDataFrame): As output by 'read_exposure_geoms'.
+    """
     # Check all "building_id"s from exposure_df have a geometry in exposure_geoms
     unique_bdg_ids = exposure_df["building_id"].unique()
     geom_bdg_ids = exposure_geoms["building_id"].to_numpy()
@@ -113,7 +149,7 @@ def read_exposure(filename_csv, filename_geoms):
         )
         raise OSError(error_message)
 
-    return exposure_df, exposure_geoms
+    return
 
 
 def update_exposure_transitions_and_losses(

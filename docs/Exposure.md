@@ -1,6 +1,11 @@
 # Handling of Exposure Models
 
-Exposure models are input as a combination of one `.csv` file and one GeoPackage (`.gpkg`) file.
+Exposure models are input as a combination of one GeoPackage (`.gpkg`) file and one or more
+`.csv` files.
+
+All files in the directory `exposure_csv` (of `config.yml`) are read by the software and each of
+them is used in combination with each realisation of intensity of each branch to calculate
+the resulting damage and losses.
 
 Each row of the `.csv` file is referred to as an "asset". An "asset" is herein defined as a
 number of buildings of a particular building class, in a particular damage state, at a

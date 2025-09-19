@@ -28,7 +28,9 @@ from beyonddeus.intensity_reader import read_intensity_files
 from beyonddeus.fragility import Fragility
 from beyonddeus.schemamapping import SchemaMapper
 from beyonddeus.exposure import (
-    read_exposure, map_exposure, update_exposure_transitions_and_losses
+    retrieve_exposure_input_names, read_exposure_geoms, read_exposure_csv,
+    check_all_building_ids_in_geoms, map_exposure,
+    update_exposure_transitions_and_losses
 )
 from beyonddeus.loss import LossProvider
 from beyonddeus.usability import Usability
@@ -63,6 +65,12 @@ def main():
         )
         logger.critical(error_message)
         raise OSError(error_message)
+
+    # Create sub-directories to store updated exposure models
+    os.mkdir(os.path.join(config.output_path, "updated_exposure_csv"))
+    os.mkdir(os.path.join(config.output_path, "updated_exposure_usable_csv"))
+    os.mkdir(os.path.join(config.output_path, "updated_exposure_unusable_csv"))
+    os.mkdir(os.path.join(config.output_path, "mapped_exposure_csv"))
 
     # Read intensity files
     now = datetime.datetime.now()
@@ -115,39 +123,16 @@ def main():
             config.input_paths["conversion_damage_states"]
         )
 
-    # Read exposure
-    now = datetime.datetime.now()
-    logger.info("%s: Reading input initial exposure model" % (format_time(now)))
-    initial_exposure_df, exposure_geoms = read_exposure(
-        config.input_paths["exposure_csv"], config.input_paths["exposure_gpkg"]
-    )
-
-    # Map exposure from source to target schemas
+    # Read exposure input names and geometries
     now = datetime.datetime.now()
     logger.info(
-        "%s: Mapping input initial exposure model onto target schema"
-        % (format_time(now))
+        "%s: Retrieving name(s) of input initial exposure model(s)" % (format_time(now))
     )
-    mapped_exposure = map_exposure(
-        initial_exposure_df,
-        config.parameters["building_schema_exposure"],
-        config.parameters["building_schema_fragility"],
-        schema_mapper,
-    )
+    exposure_input_names = retrieve_exposure_input_names(config.input_paths["exposure_csv"])
 
-    if (
-        config.output_types["mapped_exposure"]["csv"] and (
-            config.parameters["building_schema_exposure"] !=
-            config.parameters["building_schema_fragility"])
-    ):
-        now = datetime.datetime.now()
-        logger.info(
-            "%s: Exporting input initial exposure model mapped onto target schema"
-            % (format_time(now))
-        )
-        mapped_exposure.to_csv(
-            os.path.join(config.output_path, "mapped_exposure.csv"), index=False
-        )
+    now = datetime.datetime.now()
+    logger.info("%s: Reading exposure geometries" % (format_time(now)))
+    exposure_geoms = read_exposure_geoms(config.input_paths["exposure_gpkg"])
 
     # Read economic consequence model
     now = datetime.datetime.now()
@@ -192,61 +177,123 @@ def main():
     # Calculate damage and economic losses
     now = datetime.datetime.now()
     logger.info(
-        "%s: Calculating damage and economic losses for each realisation of intensity"
+        "%s: Calculating damage and economic losses for "
+        "each realisation of intensity and input exposure model"
         % (format_time(now))
     )
 
     number_branches = len(intensity_provider.keys())
 
-    for l, branch in enumerate(intensity_provider.keys()):
+    for p, initial_exposure_name_raw in enumerate(exposure_input_names):
+        initial_exposure_name = initial_exposure_name_raw.split("_updated")[0]
+
+        # Read exposure CSV
         now = datetime.datetime.now()
         logger.info(
-            "   %s: Working on logic tree branch '%s' (%s of %s)"
-            % (format_time(now), branch, l+1, number_branches)
+            "   %s: Reading input initial exposure model '%s'"
+            % (format_time(now), initial_exposure_name_raw)
+        )
+        initial_exposure_df = read_exposure_csv(
+            os.path.join(
+                config.input_paths["exposure_csv"], "%s.csv" % (initial_exposure_name_raw)
+            )
         )
 
-        number_intensity_reals = len(intensity_provider[branch].keys())
+        # Make sure all building_ids have geometries
+        now = datetime.datetime.now()
+        logger.info(
+            "   %s: Checking all building_ids have associated geometries"
+            % (format_time(now))
+        )
+        check_all_building_ids_in_geoms(initial_exposure_df, exposure_geoms)
 
-        for k, realisation in enumerate(intensity_provider[branch]):
+        # Map exposure from source to target schemas
+        now = datetime.datetime.now()
+        logger.info(
+            "   %s: Mapping input initial exposure model onto target schema"
+            % (format_time(now))
+        )
+        mapped_exposure = map_exposure(
+            initial_exposure_df,
+            config.parameters["building_schema_exposure"],
+            config.parameters["building_schema_fragility"],
+            schema_mapper,
+        )
+
+        if (
+            config.output_types["mapped_exposure"]["csv"] and (
+                config.parameters["building_schema_exposure"] !=
+                config.parameters["building_schema_fragility"])
+        ):
             now = datetime.datetime.now()
             logger.info(
-                "      %s: Working on intensity realisation %s of %s"
-                % (format_time(now), k+1, number_intensity_reals)
+                "   %s: Exporting input initial exposure model mapped onto target schema"
+                % (format_time(now))
+            )
+            mapped_exposure.to_csv(
+                os.path.join(
+                    config.output_path,
+                    "mapped_exposure_csv",
+                    "%s_%s_mapped_exposure.csv" % (config.hazard_prefix, initial_exposure_name)
+                ),
+                index=False
             )
 
-            all_intensities_lk = intensity_provider[branch][k].get_values_at_multiple_positions(
-                intensity_positions, config.parameters["intensity_threshold"]
-            )
+        for l, branch in enumerate(intensity_provider.keys()):
+            now = datetime.datetime.now()
             logger.info(
-                "                           %s out of %s building_id "
-                "assumed with no further damage (intensity < threshold)"
-                % (
-                    all_intensities_lk.shape[0] - all_intensities_lk["run"].sum(),
-                    all_intensities_lk.shape[0]
+                "      %s: Working on logic tree branch '%s' (%s of %s)"
+                % (format_time(now), branch, l+1, number_branches)
+            )
+
+            number_intensity_reals = len(intensity_provider[branch].keys())
+
+            for k, realisation in enumerate(intensity_provider[branch]):
+                now = datetime.datetime.now()
+                logger.info(
+                    "         %s: Working on intensity realisation %s of %s"
+                    % (format_time(now), k+1, number_intensity_reals)
                 )
-            )
 
-            updated_exposure = update_exposure_transitions_and_losses(
-                mapped_exposure,
-                all_intensities_lk,
-                config.parameters["intensity_threshold"],
-                fragility_provider,
-                loss_provider,
-            )
+                all_intensities_lk = (
+                    intensity_provider[branch][k].get_values_at_multiple_positions(
+                        intensity_positions, config.parameters["intensity_threshold"]
+                    )
+                )
+                logger.info(
+                    "                              %s out of %s building_id "
+                    "assumed with no further damage (intensity < threshold)"
+                    % (
+                        all_intensities_lk.shape[0] - all_intensities_lk["run"].sum(),
+                        all_intensities_lk.shape[0]
+                    )
+                )
 
-            now = datetime.datetime.now()
-            logger.info("      %s: Exporting results" % (format_time(now)))
+                updated_exposure = update_exposure_transitions_and_losses(
+                    mapped_exposure,
+                    all_intensities_lk,
+                    config.parameters["intensity_threshold"],
+                    fragility_provider,
+                    loss_provider,
+                )
 
-            outputgen = OutputGenerator(
-                config.output_path,
-                config.output_types,
-                usability_model.data,
-                branch,
-                str(realisation),
-                updated_exposure,
-                exposure_geoms
-            )
-            outputgen.export()
+                now = datetime.datetime.now()
+                logger.info(
+                    "                              %s: Exporting results" % (format_time(now))
+                )
+
+                outputgen = OutputGenerator(
+                    config.hazard_prefix,
+                    initial_exposure_name,
+                    config.output_path,
+                    config.output_types,
+                    usability_model.data,
+                    branch,
+                    str(realisation),
+                    updated_exposure,
+                    exposure_geoms
+                )
+                outputgen.export()
 
     now = datetime.datetime.now()
     logger.info(
