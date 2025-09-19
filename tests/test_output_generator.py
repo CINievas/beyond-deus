@@ -19,7 +19,8 @@
 import os
 import pandas as pd
 from beyonddeus.output_generator import (
-    damage_by_building_id_as_columns, split_updated_exposure_by_usability
+    damage_by_building_id_as_columns, split_updated_exposure_by_usability,
+    filter_damage_by_bdg_id_only_transitioned
 )
 
 
@@ -59,6 +60,50 @@ def test_damage_by_building_id_as_columns():
         for col in expected_damage_by_bdg_id.columns:
             assert (
                 round(returned_damage_by_bdg_id.loc[bdg_id, col], 6) ==
+                round(expected_damage_by_bdg_id.loc[bdg_id, col], 6)
+            )
+
+
+def test_filter_damage_by_bdg_id_only_transitioned():
+
+    updated_exposure = pd.read_csv(
+        os.path.join(
+            os.path.dirname(__file__),
+            "data", "exposure_for_damage_by_building_id_as_columns.csv"
+        )
+    )
+
+    returned_damage_by_bdg_id = damage_by_building_id_as_columns(updated_exposure)
+
+    filtered_damage_by_bdg_id = filter_damage_by_bdg_id_only_transitioned(
+        updated_exposure, returned_damage_by_bdg_id
+    )
+
+    expected_damage_by_bdg_id = pd.DataFrame(
+        {
+            "number": [126.0],
+            "number_D0": [10.0],
+            "number_D1": [32.0],
+            "number_D2": [34.0],
+            "number_D3": [36.0],
+            "number_D4": [14.0],
+            "proportion_D0": [0.079365],
+            "proportion_D1": [0.253968],
+            "proportion_D2": [0.269841],
+            "proportion_D3": [0.285714],
+            "proportion_D4": [0.111111],
+        },
+        index=["B1"]
+    )
+    expected_damage_by_bdg_id.index.name = "building_id"
+
+    assert filtered_damage_by_bdg_id.shape[0] == expected_damage_by_bdg_id.shape[0]
+    assert filtered_damage_by_bdg_id.shape[1] == expected_damage_by_bdg_id.shape[1]
+
+    for bdg_id in expected_damage_by_bdg_id.index:
+        for col in expected_damage_by_bdg_id.columns:
+            assert (
+                round(filtered_damage_by_bdg_id.loc[bdg_id, col], 6) ==
                 round(expected_damage_by_bdg_id.loc[bdg_id, col], 6)
             )
 

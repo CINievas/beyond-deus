@@ -237,7 +237,9 @@ def test_get_updated_exposure_and_transitions():
     # 'read_exposure' will rename "final_damage" as "initial_damage", and would eliminate the
     # "incremental_loss" column, so need to address this:
     expected_updated_exposure.rename(
-        columns={"initial_damage": "final_damage"}, inplace=True
+        columns={
+            "initial_damage": "final_damage", "transition_trick": "transition"
+        }, inplace=True
     )
     expected_updated_exposure["initial_damage"] = np.zeros(
         expected_updated_exposure.shape[0], dtype=int
@@ -355,7 +357,9 @@ def test_compute_loss():
     )
     # 'read_exposure' would eliminate the incremental_loss" column, so need to address this:
     expected_updated_exposure_and_losses.rename(
-        columns={"incremental_loss_trick": "incremental_loss"}, inplace=True
+        columns={
+            "incremental_loss_trick": "incremental_loss", "transition_trick": "transition"
+        }, inplace=True
     )
 
     expected_updated_exposure_and_losses = expected_updated_exposure_and_losses[
@@ -531,7 +535,8 @@ def test_update_exposure_transitions_and_losses():
     expected_updated_exposure_and_losses.rename(
         columns={
             "initial_damage": "final_damage",
-            "incremental_loss_trick": "incremental_loss"
+            "incremental_loss_trick": "incremental_loss",
+            "transition_trick": "transition"
         }, inplace=True
     )
     expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
@@ -541,13 +546,15 @@ def test_update_exposure_transitions_and_losses():
     for col in expected_updated_exposure_and_losses.columns:
         assert col in returned_updated_exposure_and_losses
 
-    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_str_or_int_or_bool = [
+        "id", "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+    ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
     ]
 
     for row in expected_updated_exposure_and_losses.index:
-        for col in cols_str_or_int:
+        for col in cols_str_or_int_or_bool:
             assert (
                 returned_updated_exposure_and_losses.loc[row, col] ==
                 expected_updated_exposure_and_losses.loc[row, col]
@@ -632,7 +639,8 @@ def test_update_exposure_transitions_and_losses():
     expected_updated_exposure_and_losses.rename(
         columns={
             "initial_damage": "final_damage",
-            "incremental_loss_trick": "incremental_loss"
+            "incremental_loss_trick": "incremental_loss",
+            "transition_trick": "transition"
         }, inplace=True
     )
     expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
@@ -642,13 +650,15 @@ def test_update_exposure_transitions_and_losses():
     for col in expected_updated_exposure_and_losses.columns:
         assert col in returned_updated_exposure_and_losses
 
-    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_str_or_int_or_bool = [
+        "id", "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+    ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
     ]
 
     for row in expected_updated_exposure_and_losses.index:
-        for col in cols_str_or_int:
+        for col in cols_str_or_int_or_bool:
             assert (
                 returned_updated_exposure_and_losses.loc[row, col] ==
                 expected_updated_exposure_and_losses.loc[row, col]
@@ -737,7 +747,8 @@ def test_update_exposure_transitions_and_losses():
     expected_updated_exposure_and_losses.rename(
         columns={
             "initial_damage": "final_damage",
-            "incremental_loss_trick": "incremental_loss"
+            "incremental_loss_trick": "incremental_loss",
+            "transition_trick": "transition"
         }, inplace=True
     )
     expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
@@ -747,13 +758,15 @@ def test_update_exposure_transitions_and_losses():
     for col in expected_updated_exposure_and_losses.columns:
         assert col in returned_updated_exposure_and_losses
 
-    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_str_or_int_or_bool = [
+        "id", "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+    ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
     ]
 
     for row in expected_updated_exposure_and_losses.index:
-        for col in cols_str_or_int:
+        for col in cols_str_or_int_or_bool:
             assert (
                 returned_updated_exposure_and_losses.loc[row, col] ==
                 expected_updated_exposure_and_losses.loc[row, col]
@@ -842,7 +855,8 @@ def test_update_exposure_transitions_and_losses():
     expected_updated_exposure_and_losses.rename(
         columns={
             "initial_damage": "final_damage",
-            "incremental_loss_trick": "incremental_loss"
+            "incremental_loss_trick": "incremental_loss",
+            "transition_trick": "transition"
         }, inplace=True
     )
     expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
@@ -852,13 +866,15 @@ def test_update_exposure_transitions_and_losses():
     for col in expected_updated_exposure_and_losses.columns:
         assert col in returned_updated_exposure_and_losses
 
-    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_str_or_int_or_bool = [
+        "id", "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+    ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
     ]
 
     for row in expected_updated_exposure_and_losses.index:
-        for col in cols_str_or_int:
+        for col in cols_str_or_int_or_bool:
             assert (
                 returned_updated_exposure_and_losses.loc[row, col] ==
                 expected_updated_exposure_and_losses.loc[row, col]

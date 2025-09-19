@@ -88,6 +88,8 @@ def read_exposure(filename_csv, filename_geoms):
 
     if "incremental_loss" in exposure_df.columns:  # It means Beyond-DEUS has been run before
         del exposure_df["incremental_loss"]
+    if "transition" in exposure_df.columns:  # It means Beyond-DEUS has been run before
+        del exposure_df["transition"]
 
     # Read input GPKG
     exposure_geoms = gpd.read_file(filename_geoms)
@@ -217,6 +219,8 @@ def update_exposure_transitions_and_losses(
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before) plus the incremental loss
                     calculated in this function (by calling 'compute_loss').
+                "transition" (bool):
+                    True if the asset has changed damage state, False if it has not.
     """
     updater = Updater(
         fragility_provider,
@@ -371,6 +375,8 @@ class Updater:
                         Economic loss associated with the asset from a previously-run calculation
                         (i.e., a hazardous event that occurred before) plus the incremental loss
                         calculated in this function (by calling 'compute_loss').
+                    "transition" (bool):
+                        True if the asset has changed damage state, False if it has not.
         """
         # If exposure_df is empty return None (otherwise "apply" would return an empty
         # GeoDataFrame with the columns of the input.
@@ -390,12 +396,13 @@ class Updater:
         exposure_df_not_run["incremental_loss"] = [
             0.0 for i in range(exposure_df_not_run.shape[0])
         ]
+        exposure_df_not_run["transition"] = [False for i in range(exposure_df_not_run.shape[0])]
 
         # Go one by one each of the exposure polygons (i.e., "building_id") of 'exposure_df_run'
-
         all_updated_exposure_bdg_id = []
+        bdg_ids_to_run = exposure_df_run["building_id"].unique()
 
-        for bdg_id in self.hazard_intensities.index:
+        for bdg_id in bdg_ids_to_run:
             # Retrieve assets of this building_id
             exposure_bdg_id = exposure_df_run[exposure_df_run.building_id == bdg_id]
             # Calculate new damage, incremental and cumulative losses
@@ -412,6 +419,9 @@ class Updater:
         updated_exposure_df = pd.concat((updated_exposure_df, exposure_df_not_run))
         updated_exposure_df.reset_index(inplace=True)
         updated_exposure_df.drop(columns=["index"], inplace=True)
+
+        # if one of the two DFs concatenated is empty, "transition" is no longer boolean
+        updated_exposure_df["transition"] = updated_exposure_df["transition"].astype(bool)
 
         return updated_exposure_df
 
@@ -465,6 +475,8 @@ class Updater:
                         Economic loss associated with the asset from a previously-run calculation
                         (i.e., a hazardous event that occurred before) plus the incremental loss
                         calculated in this function (by calling 'compute_loss').
+                    "transition" (bool):
+                        True if the asset has changed damage state, False if it has not.
         """
 
         # Calculate new damage states (transitions) and update the exposure model
@@ -718,12 +730,15 @@ def get_updated_exposure_and_transitions(
             post-event damage states. Additional columns with respecto to 'exposure'):
                 "final_damage" (int):
                     Final damage state of the asset, as an integer.
+                "transition" (bool):
+                    True if the asset has changed damage state, False if it has not.
     """
 
     # Do not perform any operations if there are no buildings
     if exposure["number"].sum() < 1E-10:  # <1E-10 taken as zero
         result_expo = deepcopy(exposure)
         result_expo["final_damage"] = exposure["initial_damage"]
+        result_expo["transition"] = [False for i in range(result_expo.shape[0])]
         return result_expo
 
     aux_result_expo = {}
@@ -797,6 +812,9 @@ def get_updated_exposure_and_transitions(
 
     result_expo["initial_damage"] = result_expo["initial_damage"].astype(int)
     result_expo["final_damage"] = result_expo["final_damage"].astype(int)
+
+    result_expo["transition"] = (result_expo["initial_damage"] != result_expo["final_damage"])
+
     result_expo.reset_index(inplace=True)
     result_expo = result_expo.drop(columns=["index"])
 
@@ -853,6 +871,8 @@ def compute_loss(updated_exposure, loss_provider, schema):
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
+                "transition" (bool):
+                    True if the asset has changed damage state, False if it has not.
         loss_provider (LossProvider):
             Instance of LossProvider to access the economic consequence model (loss ratios per
             damage state) and building replacement costs.
@@ -868,12 +888,8 @@ def compute_loss(updated_exposure, loss_provider, schema):
     """
 
     # Split the input into rows that transition and rows that do not
-    transitions = updated_exposure[
-        updated_exposure.initial_damage != updated_exposure.final_damage
-    ].copy()
-    nontransitions = updated_exposure[
-        updated_exposure.initial_damage == updated_exposure.final_damage
-    ].copy()
+    transitions = updated_exposure[updated_exposure.transition].copy()
+    nontransitions = updated_exposure[~ updated_exposure.transition].copy()
     nontransitions["incremental_loss"] = np.zeros(nontransitions.shape[0])
     nontransitions["cum_loss_value"] = (
         nontransitions["cum_loss_value"] + nontransitions["incremental_loss"]

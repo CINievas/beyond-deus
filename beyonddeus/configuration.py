@@ -96,10 +96,22 @@ class Configuration:
                         to each realisation of each logic tree branch.
                     "loss_gpkg_per_realisation": Same as "loss_csv_per_realisation", with the
                         associated exposure geometries.
+                    "only_transitioned_loss_csv_per_realisation": Same as
+                        'loss_csv_per_realisation', but keeping only the building_ids for which
+                        at least one of the assets transitions damage state.
+                    "only_transitioned_loss_gpkg_per_realisation": Same as
+                        'loss_gpkg_per_realisation', but keeping only the building_ids for which
+                        at least one of the assets transitions damage state.
                     "damage_csv_per_realisation": Number of buildings per final damage state due
                         to each realisation of each logic tree branch.
                     "damage_gpkg_per_realisation": Same as "damage_csv_per_realisation", with
                         the associated exposure geometries.
+                    "only_transitioned_damage_csv_per_realisation": Same as
+                        'damage_csv_per_realisation', but keeping only the building_ids for
+                        which at least one of the assets transitions damage state.
+                    "only_transitioned_damage_gpkg_per_realisation": Same as
+                        'damage_gpkg_per_realisation', but keeping only the building_ids for
+                        which at least one of the assets transitions damage state.
     """
 
     def __init__(self, filepath):
@@ -212,6 +224,18 @@ class Configuration:
                 config["output_types"]["by_building_id"], "loss_gpkg_per_realisation"
             )
         )
+        self.output_types["by_building_id"]["only_transitioned_loss_csv_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"],
+                "only_transitioned_loss_csv_per_realisation"
+            )
+        )
+        self.output_types["by_building_id"]["only_transitioned_loss_gpkg_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"],
+                "only_transitioned_loss_gpkg_per_realisation"
+            )
+        )
         self.output_types["by_building_id"]["damage_csv_per_realisation"] = (
             self._assign_parameter(
                 config["output_types"]["by_building_id"], "damage_csv_per_realisation"
@@ -222,6 +246,19 @@ class Configuration:
                 config["output_types"]["by_building_id"], "damage_gpkg_per_realisation"
             )
         )
+        self.output_types["by_building_id"]["only_transitioned_damage_csv_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"],
+                "only_transitioned_damage_csv_per_realisation"
+            )
+        )
+        self.output_types["by_building_id"]["only_transitioned_damage_gpkg_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"],
+                "only_transitioned_damage_gpkg_per_realisation"
+            )
+        )
+
 
     def _read_config_file(self, filepath):
         """This function attempts to open the configuration file. If not found, it logs a

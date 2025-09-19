@@ -21,6 +21,7 @@ import h5py
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from copy import deepcopy
 
 
 class OutputGenerator:
@@ -166,23 +167,72 @@ class OutputGenerator:
                 self.exposure_geoms,
                 write_to_CSV=self.output_types["by_building_id"]["loss_csv_per_realisation"],
                 write_to_GPKG=self.output_types["by_building_id"]["loss_gpkg_per_realisation"],
+                filter_only_transitioned=False,
                 outpath=self.output_path,
                 filename_without_extension=out_filename_we
             )
 
+        if (
+            self.output_types["by_building_id"]["only_transitioned_loss_csv_per_realisation"]
+            or
+            self.output_types["by_building_id"]["only_transitioned_loss_gpkg_per_realisation"]
+        ):
+            out_filename_we = "b_%s_r_%s_loss_by_building_id_only_transitioned" % (
+                self.branch, self.realisation
+            )
+            write_loss_by_building_id(
+                self.updated_exposure,
+                self.exposure_geoms,
+                write_to_CSV=self.output_types["by_building_id"][
+                    "only_transitioned_loss_csv_per_realisation"
+                ],
+                write_to_GPKG=self.output_types["by_building_id"][
+                    "only_transitioned_loss_gpkg_per_realisation"
+                ],
+                filter_only_transitioned=True,
+                outpath=self.output_path,
+                filename_without_extension=out_filename_we
+            )
+
+        # To avoid calculating it twice if "only_transitioned..." also True
+        damage_by_bdg_id = None
         if (
             self.output_types["by_building_id"]["damage_csv_per_realisation"]
             or
             self.output_types["by_building_id"]["damage_gpkg_per_realisation"]
         ):
             out_filename_we = "b_%s_r_%s_damage_by_building_id" % (self.branch, self.realisation)
-            write_damage_by_building_id(
+            damage_by_bdg_id = write_damage_by_building_id(
                 self.updated_exposure,
                 self.exposure_geoms,
                 write_to_CSV=self.output_types["by_building_id"]["damage_csv_per_realisation"],
                 write_to_GPKG=self.output_types["by_building_id"]["damage_gpkg_per_realisation"],
+                filter_only_transitioned=False,
                 outpath=self.output_path,
-                filename_without_extension=out_filename_we
+                filename_without_extension=out_filename_we,
+                previously_calculated_damage_by_bdg_id=None
+            )
+
+        if (
+            self.output_types["by_building_id"]["only_transitioned_damage_csv_per_realisation"]
+            or
+            self.output_types["by_building_id"]["only_transitioned_damage_gpkg_per_realisation"]
+        ):
+            out_filename_we = "b_%s_r_%s_damage_by_building_id_only_transitioned" % (
+                self.branch, self.realisation
+            )
+            _ = write_damage_by_building_id(
+                self.updated_exposure,
+                self.exposure_geoms,
+                write_to_CSV=self.output_types["by_building_id"][
+                    "only_transitioned_damage_csv_per_realisation"],
+                write_to_GPKG=self.output_types["by_building_id"][
+                    "only_transitioned_damage_gpkg_per_realisation"
+                ],
+                filter_only_transitioned=True,
+                outpath=self.output_path,
+                filename_without_extension=out_filename_we,
+                previously_calculated_damage_by_bdg_id=damage_by_bdg_id # from the if-else above
             )
 
 
@@ -296,6 +346,7 @@ def write_loss_by_building_id(
     exposure_geoms,
     write_to_CSV=False,
     write_to_GPKG=False,
+    filter_only_transitioned=False,
     outpath=None,
     filename_without_extension=None
 ):
@@ -315,6 +366,9 @@ def write_loss_by_building_id(
         write_to_GPKG (bool):
             If True, the output, including the exposure geometries, will be written as a GPKG to
             'filename_without_extension'.gpkg.
+        filter_only_transitioned (bool):
+            If True, only output building_ids for which at least one of their associated assets
+            transitions to a worse damage state.
         outpath (str):
             Directory to which the results will be written.
         filename_without_extension (str):
@@ -322,17 +376,35 @@ def write_loss_by_building_id(
             corresponding file extension.
     """
 
-    loss_by_bdg_id = exposure.groupby(
-        ["building_id"]
-    ).agg(
-        {
-            "number": "sum",
-            "replacement_cost_tot": "sum",
-            "ppl_census": "sum",
-            "incremental_loss": "sum",
-            "cum_loss_value": "sum"
-        }
-    )
+    if not filter_only_transitioned:
+        loss_by_bdg_id = exposure.groupby(
+            ["building_id"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum",
+                "incremental_loss": "sum",
+                "cum_loss_value": "sum"
+            }
+        )
+    else:
+        loss_by_bdg_id = exposure.groupby(
+            ["building_id"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum",
+                "incremental_loss": "sum",
+                "cum_loss_value": "sum",
+                # "transition"=True if at least one row of 'building_id' has transitioned damage
+                "transition": lambda x: x.any()
+            }
+        )
+        loss_by_bdg_id = loss_by_bdg_id[loss_by_bdg_id.transition]
+        del loss_by_bdg_id["transition"]
+
     loss_by_bdg_id["incremental_loss_ratio"] = (
         loss_by_bdg_id["incremental_loss"] /
         loss_by_bdg_id["replacement_cost_tot"]
@@ -370,8 +442,10 @@ def write_damage_by_building_id(
     exposure_geoms,
     write_to_CSV=False,
     write_to_GPKG=False,
+    filter_only_transitioned=False,
     outpath=None,
-    filename_without_extension=None
+    filename_without_extension=None,
+    previously_calculated_damage_by_bdg_id=None
 ):
     """
     This methods outputs number and proportion of buildings in each final damage state, per
@@ -388,14 +462,36 @@ def write_damage_by_building_id(
         write_to_GPKG (bool):
             If True, the output, including the exposure geometries, will be written as a GPKG to
             'filename_without_extension'.gpkg.
+        filter_only_transitioned (bool):
+            If True, only output building_ids for which at least one of their associated assets
+            transitions to a worse damage state.
         outpath (str):
             Directory to which the results will be written.
         filename_without_extension (str):
             Name of the CSV and/or GPKG file to which results will be written, without the
             corresponding file extension.
+        previously_calculated_damage_by_bdg_id (Pandas DataFrame):
+            If not None, this is taken as the output to export. If None, it is calculated herein
+            by means of the 'damage_by_building_id_as_columns' method.
+
+    Returns:
+        damage_by_bdg_id (Pandas DataFrame):
+            DataFrame with index equal to 'building_id', and the following columns:
+                "number" (float):
+                    Total number of buildings of 'building_id'.
+                "number_DX" (float):
+                    Number of buildings of 'building_id' in damage state "X".
+                "proportion_DX" (float):
+                    Proportion of buildings of 'building_id' in damage state "X".
     """
 
-    damage_by_bdg_id = damage_by_building_id_as_columns(exposure)
+    if previously_calculated_damage_by_bdg_id is None:
+        damage_by_bdg_id = damage_by_building_id_as_columns(exposure)
+    else:
+        damage_by_bdg_id = deepcopy(previously_calculated_damage_by_bdg_id)
+
+    if filter_only_transitioned:
+        damage_by_bdg_id = filter_damage_by_bdg_id_only_transitioned(exposure, damage_by_bdg_id)
 
     if write_to_CSV:
         out_filename = "%s.csv" % (filename_without_extension)
@@ -418,6 +514,8 @@ def write_damage_by_building_id(
         out_filename = "%s.gpkg" % (filename_without_extension)
 
         damage_by_bdg_id_with_geoms.to_file(os.path.join(outpath, out_filename), driver="GPKG")
+
+    return damage_by_bdg_id
 
 
 def damage_by_building_id_as_columns(exposure):
@@ -444,6 +542,7 @@ def damage_by_building_id_as_columns(exposure):
 
     # Initialise output
     damage_by_bdg_id = exposure.groupby(["building_id"]).agg({"number": "sum"})
+
     for final_damage in unique_damage_levels:
         damage_by_bdg_id["number_D%s" % (final_damage)] = np.zeros(damage_by_bdg_id.shape[0])
 
@@ -466,6 +565,40 @@ def damage_by_building_id_as_columns(exposure):
         damage_by_bdg_id["proportion_D%s" % (final_damage)] = (
             damage_by_bdg_id["number_D%s" % (final_damage)] / damage_by_bdg_id["number"]
         )
+
+    return damage_by_bdg_id
+
+
+def filter_damage_by_bdg_id_only_transitioned(exposure, damage_by_bdg_id):
+    """
+    This method keeps in 'damage_by_bdg_id' only the building_ids for which at least one asset
+    transitions damage state. The latter condition is determined from the input 'exposure'.
+
+    Args:
+        exposure (Pandas DataFrame):
+            Exposure Pandas DataFrame.
+        damage_by_bdg_id (Pandas DataFrame, output of 'damage_by_building_id_as_columns'):
+            DataFrame with index equal to 'building_id', and the following columns:
+                "number" (float):
+                    Total number of buildings of 'building_id'.
+                "number_DX" (float):
+                    Number of buildings of 'building_id' in damage state "X".
+                "proportion_DX" (float):
+                    Proportion of buildings of 'building_id' in damage state "X".
+
+    Returns:
+        damage_by_bdg_id (Pandas DataFrame):
+            The same as the input, but only with rows of 'building_id' for which at least one
+            asset transitions damage state.
+    """
+
+    # "transition"=True if at least one row of 'building_id' has transitioned damage
+    transitioned_by_bdg_id = exposure.groupby(["building_id"]).agg(
+        {"transition": lambda x: x.any()}
+    )
+    damage_by_bdg_id = damage_by_bdg_id.join(transitioned_by_bdg_id) # index=building_id in both
+    damage_by_bdg_id = damage_by_bdg_id[damage_by_bdg_id.transition]
+    del damage_by_bdg_id["transition"]
 
     return damage_by_bdg_id
 

@@ -79,9 +79,18 @@ corresponding output type:
     to each realisation of each logic tree branch is written to a CSV file.
     - `loss_gpkg_per_realisation`: The same summary as in `loss_csv_per_realisation` and the
     associated exposure geometries are written to a GeoPackage file.
+    - `only_transitioned_loss_csv_per_realisation`: Same as `loss_csv_per_realisation`, but
+    keeping only the building_ids for which at least one of the assets transitions damage state.
+    - `only_transitioned_loss_gpkg_per_realisation`: Same as `loss_gpkg_per_realisation`, but
+    keeping only the building_ids for which at least one of the assets transitions damage state.
     - `damage_csv_per_realisation`: A summary of number of buildings per final damage state due
     to each realisation of each logic tree branch is written to a CSV file.
     - `damage_gpkg_per_realisation`: The same summary as in `damage_csv_per_realisation` and the
     associated exposure geometries are written to a GeoPackage file.
+    - `only_transitioned_damage_csv_per_realisation`: Same as `damage_csv_per_realisation`, but
+    keeping only the building_ids for which at least one of the assets transitions damage state.
+    - `only_transitioned_damage_gpkg_per_realisation`: Same as `damage_gpkg_per_realisation`,
+    but keeping only the building_ids for which at least one of the assets transitions damage
+    state.
 
 An example of a config.yml file can be found [here](../config_example.yml).
