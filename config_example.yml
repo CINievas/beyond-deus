@@ -10,6 +10,8 @@ input_paths:
   usability: path_to_usability_file  # One csv file indicating if buildings in each damage state are usable/unusable
 output_path: path_to_output_folder  # Folder to which the outputs will be written, must be empty
 output_path_profiling: path_to_profiling_output_fikder  # Folder to which the outputs of profiling.py will be written
+mode: parallelisation_mode  # Supported: by_input_exposure, by_intensity_realisation
+cpus: 1  # Number of processors to use in the parallelisation
 parameters:
   building_schema_exposure: source_schema_name  #  Name of the building classification schema of the input exposure (one string)
   building_schema_fragility: target_schema_name  # Name of the building classification schema of the output, i.e. of the fragility model (one string)
@@ -22,8 +24,6 @@ output_types:  # Write True/False next to each option, to export or not export t
     csv: True
     csv_by_usability: True
     hdf5_per_realisation: False
-    hdf5_per_branch: False
-    hdf5_for_all: False
   by_final_damage:
     csv_per_realisation: True
   by_initial_and_final_damage:

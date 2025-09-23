@@ -37,10 +37,6 @@ The kind of outputs exported is controlled by the following parameters (True/Fal
   of the full updated exposure model, as per the `usability` input file.
   - `hdf5_per_realisation`: The full updated exposure model is written to one HDF5 file per
   realisation of each logic tree branch.
-  - `hdf5_per_branch`: The full updated exposure model is written to one HDF5 file per logic
-  tree branch.
-  - `hdf5_for_all`: The full updated exposure model is written to one HDF5 file for all logic
-  tree branches and realisations.
 - `by_final_damage`:
   - `csv_per_realisation`: A summary of number of buildings, replacement cost and losses of
   the whole portfolio, reported per final damage state, due to each realisation of each logic

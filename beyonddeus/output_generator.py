@@ -55,10 +55,6 @@ class OutputGenerator:
                             unusable assets of the full updated exposure model.
                         "hdf5_per_realisation": The full updated exposure model as one HDF5 file
                             per realisation of each logic tree branch.
-                        "hdf5_per_branch": The full updated exposure model as one HDF5 file per
-                            logic tree branch.
-                        "hdf5_for_all": The full updated exposure model as one HDF5 file for all
-                            logic tree branches and realisations.
                     "by_final_damage":
                         "csv_per_realisation": Number of buildings, replacement cost, census
                             occupants and losses of the whole portfolio, reported per final
@@ -142,24 +138,6 @@ class OutputGenerator:
             )
             write_exposure_to_HDF5(
                 self.updated_exposure, os.path.join(self.output_path, out_filename)
-            )
-
-        if self.output_types["full_updated_exposure"]["hdf5_per_branch"]:
-            out_filename = "%s_b_%s_updated_exposure.hdf5" % (self.hazard_prefix, self.branch)
-            write_exposure_to_HDF5(
-                self.updated_exposure,
-                os.path.join(self.output_path, out_filename),
-                dataset_name="r_%s_%s" % (self.realisation, self.initial_exposure_name)
-            )
-
-        if self.output_types["full_updated_exposure"]["hdf5_for_all"]:
-            out_filename = "%s_updated_exposure_all.hdf5" % (self.hazard_prefix)
-            write_exposure_to_HDF5(
-                self.updated_exposure,
-                os.path.join(self.output_path, out_filename),
-                dataset_name="%s_b_%s_r_%s_%s" % (
-                    self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
-                )
             )
 
         if self.output_types["by_final_damage"]["csv_per_realisation"]:

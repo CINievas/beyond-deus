@@ -60,14 +60,12 @@ def read_intensity_files(intensity_path, intensity_file_type):
     """
 
     if intensity_file_type.lower() == "hdf5":
-        logger.info("   Reading HDF5 format")
 
         intensity_provider = EQ_HDF_fields(intensity_path).to_intensity_provider()
 
         return intensity_provider
 
     if intensity_file_type.lower() == "xml":
-        logger.info("   Reading XML format")
 
         filenames, sub_dirs = get_list_of_contents(intensity_path)
 
@@ -76,7 +74,7 @@ def read_intensity_files(intensity_path, intensity_file_type):
         if len(sub_dirs) > 0 :
             # There are logic tree branches
             logger.info(
-                "      %s branches of a logic tree found" % (len(sub_dirs))
+                "  %s branches of a logic tree found" % (len(sub_dirs))
             )
 
             for branch in sub_dirs:
@@ -86,7 +84,7 @@ def read_intensity_files(intensity_path, intensity_file_type):
                 number_intensity_reals = len(branch_filenames)
 
                 logger.info(
-                    "          Branch '%s': %s file(s) found"
+                    "    Branch '%s': %s file(s) found"
                     % (branch, number_intensity_reals)
                 )
 
@@ -98,7 +96,7 @@ def read_intensity_files(intensity_path, intensity_file_type):
         if len(filenames) > 0:
             # Only one logic tree branch
             logger.info(
-                "      Only one logic tree branch found, with %s file(s)" % (len(filenames))
+                "  Only one logic tree branch found, with %s file(s)" % (len(filenames))
             )
             intensity_provider["unique"] = {}
 
@@ -110,7 +108,6 @@ def read_intensity_files(intensity_path, intensity_file_type):
         return intensity_provider
 
     if intensity_file_type.lower() == "netcdf_tsu":
-        logger.info("   Reading TsunAWI NetCDF format")
 
         filenames, sub_dirs = get_list_of_contents(intensity_path)
 

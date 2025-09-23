@@ -54,6 +54,13 @@ class Configuration:
             exist, it will be created.
         self.output_path_profiling (str):
             Path to directory where outputs of profiling.py will be written, if manually run.
+        self.mode (str):
+            Parallelisation mode. Currently supported options are "by_input_exposure" (each CPU
+            will process all hazard intensity branches and realisations for one individual input
+            exposure model) and "by_intensity_realisation" (each CPU will process one especific
+            combination of a realisation of hazard intensity and input exposure model).
+        self.cpus (int):
+            Number of processors to be used in the parallelisation of the calculations.
         self.parameters (dict):
             Dictionary with parameters for the calculations. Keys:
                 "building_schema_exposure":
@@ -81,10 +88,6 @@ class Configuration:
                         assets of the full updated exposure model.
                     "hdf5_per_realisation": The full updated exposure model as one HDF5 file per
                         realisation of each logic tree branch.
-                    "hdf5_per_branch": The full updated exposure model as one HDF5 file per
-                        logic tree branch.
-                    "hdf5_for_all": The full updated exposure model as one HDF5 file for all
-                        logic tree branches and realisations.
                 "by_final_damage":
                     "csv_per_realisation": Number of buildings, replacement cost and losses of
                         the whole portfolio, reported per final damage state, due to each
@@ -163,6 +166,14 @@ class Configuration:
             config, "output_path_profiling"
         )
 
+        self.mode = self._assign_parameter(
+            config, "mode"
+        )
+
+        self.cpus = self._assign_parameter(
+            config, "cpus"
+        )
+
         self.parameters = {}
         self.parameters["building_schema_exposure"] = self._assign_parameter(
             config["parameters"], "building_schema_exposure"
@@ -194,16 +205,6 @@ class Configuration:
         self.output_types["full_updated_exposure"]["hdf5_per_realisation"] = (
             self._assign_parameter(
                 config["output_types"]["full_updated_exposure"], "hdf5_per_realisation"
-            )
-        )
-        self.output_types["full_updated_exposure"]["hdf5_per_branch"] = (
-            self._assign_parameter(
-                config["output_types"]["full_updated_exposure"], "hdf5_per_branch"
-            )
-        )
-        self.output_types["full_updated_exposure"]["hdf5_for_all"] = (
-            self._assign_parameter(
-                config["output_types"]["full_updated_exposure"], "hdf5_for_all"
             )
         )
 

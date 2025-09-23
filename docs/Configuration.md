@@ -40,6 +40,11 @@ it will be created. If it exists, it must be empty, otherwise the software will 
 avoid overwritting results from previous runs).
 - `output_path_profiling`: Path to the folder to which the outputs of `profiling.py` will be
 written, if `profiling.py` is manually run.
+- `mode`: Parallelisation mode. Currently supported options are "by_input_exposure" (each CPU
+will process all hazard intensity branches and realisations for one individual input exposure
+model) and "by_intensity_realisation" (each CPU will process one especific combination of a
+realisation of hazard intensity and input exposure model).
+- `cpus`: Number of processors to be used in the parallelisation of the calculations.
 - `parameters`:
   - `building_schema_exposure`: Name of the building classification schema of the input exposure
   (one string).
@@ -66,10 +71,6 @@ corresponding output type:
     of the full updated exposure model, as per the `usability` input file.
     - `hdf5_per_realisation`: The full updated exposure model is written to one HDF5 file per
     realisation of each logic tree branch.
-    - `hdf5_per_branch`: The full updated exposure model is written to one HDF5 file per logic
-    tree branch.
-    - `hdf5_for_all`: The full updated exposure model is written to one HDF5 file for all logic
-    tree branches and realisations.
   - `by_final_damage`:
     - `csv_per_realisation`: A summary of number of buildings, replacement cost and losses of
     the whole portfolio, reported per final damage state, due to each realisation of each logic
