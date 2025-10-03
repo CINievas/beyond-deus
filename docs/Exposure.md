@@ -12,7 +12,6 @@ number of buildings of a particular building class, in a particular damage state
 particular location. Each asset is characterised by the following parameters, which are the
 columns of the `.csv` file:
 
-- `id` (str): Unique ID of the asset.
 - `building_id` (str): ID of the exposure polygon that the asset belongs to. One exposure polygon
 (i.e., a geographic area) can contain several assets (i.e., buildings of different building
 classes in different damage states).

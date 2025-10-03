@@ -61,6 +61,8 @@ def read_exposure_csv(filename_csv):
     """
     Function to read the exposure CSV file.
 
+    If the CSV file contains an "id" column, it is discarded.
+
     If the CSV file contains a "final_damage" column, then it is assumed that this is a
     cumulative damage calculation and the contents of the "initial_damage" column are replaced
     by those of "final_damage", and the "final_damage" column is discarded.
@@ -69,13 +71,15 @@ def read_exposure_csv(filename_csv):
 
     If the CSV file contains an "transition" column, it is discarded.
 
+    If the CSV file contains several rows with the same combination of
+    ["building_id", "taxonomy", "initial_damage"], those rows are grouped together (with summed
+    values of "number", "replacement_cost_tot", "ppl_census" and "cum_loss_value").
+
     Args:
         filename_csv (str):
             Path to the exposure CSV file, with one row per exposure asset (a number of
             buildings of a particular building class, in a particular damage state, at a
             particular location) and the following columns:
-                "id" (str):
-                    Unique ID of the asset.
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets. All the "building_id"s
@@ -103,11 +107,13 @@ def read_exposure_csv(filename_csv):
     """
     # Read input CSV
     exposure_df = pd.read_csv(filename_csv)
-    # Make sure "id" and "building_id" are strings
-    exposure_df["id"] = exposure_df["id"].astype(str)
+    # Make sure "building_id" are strings
     exposure_df["building_id"] = exposure_df["building_id"].astype(str)
     # Make sure "initial_damage" is an integer
     exposure_df["initial_damage"] = exposure_df["initial_damage"].astype(int)
+
+    if "id" in exposure_df.columns:
+        del exposure_df["id"]
 
     if "final_damage" in exposure_df.columns:  # It means Beyond-DEUS has been run before
         exposure_df["final_damage"] = exposure_df["final_damage"].astype(int)
@@ -119,6 +125,23 @@ def read_exposure_csv(filename_csv):
         del exposure_df["incremental_loss"]
     if "transition" in exposure_df.columns:  # It means Beyond-DEUS has been run before
         del exposure_df["transition"]
+
+    # Group combinations of ["building_id", "taxonomy", "initial_damage"], if duplicates exist
+    # (index doesn't matter because 'unique_combis' is only used to check if duplicates exist)
+    unique_combis = exposure_df[["building_id", "taxonomy", "initial_damage"]].drop_duplicates()
+
+    if unique_combis.shape[0] < exposure_df.shape[0]:
+        exposure_df = exposure_df.groupby(
+            ["building_id", "taxonomy", "initial_damage"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum",
+                "cum_loss_value": "sum",
+            }
+        )
+        exposure_df.reset_index(inplace=True)
 
     return exposure_df
 
@@ -178,8 +201,6 @@ def update_exposure_transitions_and_losses(
             DataFrame with one row per exposure asset (a number of buildings of a particular
             building class, in a particular damage state, at a particular location) and the
             following columns:
-                "id" (str):
-                    Unique ID of the asset.
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets. All the "building_id"s
@@ -228,8 +249,6 @@ def update_exposure_transitions_and_losses(
             the input 'exposure_df', as each row of 'exposure_df' may remain in the same
             damage state or transition to a new one, and each of these possible paths
             becomes a new exposed asset. It contains the following columns:
-                "id" (str):
-                    Unique ID of the asset.
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets.
@@ -290,8 +309,6 @@ class Updater:
             DataFrame with one row per exposure asset (a number of buildings of a particular
             building class, in a particular damage state, at a particular location) and the
             following columns:
-                "id" (str):
-                    Unique ID of the asset.
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets. All the "building_id"s
@@ -355,8 +372,6 @@ class Updater:
             DataFrame with one row per exposure asset (a number of buildings of a particular
             building class, in a particular damage state, at a particular location) and the
             following columns:
-                "id" (str):
-                    Unique ID of the asset.
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets.
@@ -384,8 +399,6 @@ class Updater:
                 the input 'exposure_df', as each row of 'exposure_df' may remain in the same
                 damage state or transition to a new one, and each of these possible paths
                 becomes a new exposed asset. It contains the following columns:
-                    "id" (str):
-                        Unique ID of the asset.
                     "building_id" (str):
                         ID of the exposure polygon that the asset belongs to. One exposure polygon
                         (i.e., a geographic area) can contain several assets.
@@ -484,8 +497,6 @@ class Updater:
                 the input 'exposure', as each row of 'exposure' may remain in the same damage
                 state or transition to a new one, and each of these possible paths becomes a new
                 exposed asset. It contains the following columns:
-                    "id" (str):
-                        Unique ID of the asset.
                     "building_id" (str):
                         ID of the exposure polygon that the asset belongs to. One exposure polygon
                         (i.e., a geographic area) can contain several assets.
@@ -550,8 +561,6 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
             DataFrame with one row per exposure asset (a number of buildings of a particular
             building class, in a particular damage state, at a particular location) and the
             following columns:
-                "id" (str):
-                    Unique ID of the asset.
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets.
@@ -586,24 +595,23 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
             DataFrame with the same structure as 'old_exposure', and with each combination of
             taxonomy and damage state of 'old_exposure' converted from the 'source_schema' to
             the 'target_schema'. Its rows are ordered as per the contents of the following
-            columns (in order of consideration for sorting): "building_id", "id", "taxonomy",
-            and "initial_damage". The "id" and "building_id" of 'old_exposure' are kept.
+            columns (in order of consideration for sorting): "building_id", "taxonomy" and
+            "initial_damage". The "building_id"s of 'old_exposure' are kept.
     """
 
     if source_schema == target_schema:
         return old_exposure
 
     # Identify unique combinations of "taxonomy" and "initial_damage"
-    unique_dmgd_bdg_classes = old_exposure.groupby(
-        ["taxonomy", "initial_damage"]
-    ).agg({"id": "first"})
-    unique_dmgd_bdg_classes.drop(columns=["id"], inplace=True)
+    unique_dmgd_bdg_classes = old_exposure[["taxonomy", "initial_damage"]].drop_duplicates(
+        ignore_index=True
+    )
 
     # Do the mapping for those unique combinations of "taxonomy" and "initial_damage"
     all_mappings = []
-    for i in range(unique_dmgd_bdg_classes.shape[0]):
-        old_taxonomy = unique_dmgd_bdg_classes.index[i][0]
-        old_dmg_state = unique_dmgd_bdg_classes.index[i][1]
+    for i in unique_dmgd_bdg_classes.index:
+        old_taxonomy = unique_dmgd_bdg_classes.loc[i, "taxonomy"]
+        old_dmg_state = unique_dmgd_bdg_classes.loc[i, "initial_damage"]
 
         mapping_results = schema_mapper._map_schema_1(
             source_taxonomy=old_taxonomy,
@@ -632,7 +640,6 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
     unique_dmgd_bdg_classes["mapping"] = all_mappings
 
     all_mapped_sub_exposure = {}
-    all_mapped_sub_exposure["id"] = []
     all_mapped_sub_exposure["building_id"] = []
     all_mapped_sub_exposure["taxonomy"] = []
     all_mapped_sub_exposure["initial_damage"] = []
@@ -642,9 +649,10 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
     all_mapped_sub_exposure["cum_loss_value"] = []
 
     # Go one by one each unique combination of "taxonomy" and "initial_damage"
-    for index_tuple in unique_dmgd_bdg_classes.index:
-        old_taxonomy, old_dmg_state = index_tuple
-        mapping = unique_dmgd_bdg_classes.loc[index_tuple, "mapping"]
+    for i in unique_dmgd_bdg_classes.index:
+        old_taxonomy = unique_dmgd_bdg_classes.loc[i, "taxonomy"]
+        old_dmg_state = unique_dmgd_bdg_classes.loc[i, "initial_damage"]
+        mapping = unique_dmgd_bdg_classes.loc[i, "mapping"]
 
         # Retrieve rows of "old_exposure" with this combination ("taxonomy" & "initial_damage")
         sub_exposure = old_exposure[
@@ -679,15 +687,10 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
             np.ones(sub_exposure.shape[0], dtype=int), mapping["damage_state"]
         ).flatten()
 
-        new_id = np.outer(
-            sub_exposure["id"], np.ones(len(mapping["proportions"]), dtype=int)
-        ).flatten()
-
         new_building_id = np.outer(
             sub_exposure["building_id"], np.ones(len(mapping["proportions"]), dtype=int)
         ).flatten()
 
-        all_mapped_sub_exposure["id"].extend(new_id)
         all_mapped_sub_exposure["building_id"].extend(new_building_id)
         all_mapped_sub_exposure["taxonomy"].extend(new_taxonomies)
         all_mapped_sub_exposure["initial_damage"].extend(new_dmg_states)
@@ -698,12 +701,20 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
 
     mapped_exposure = pd.DataFrame(all_mapped_sub_exposure)
 
-    # Order the rows
-    mapped_exposure.sort_values(
-        by=["building_id", "id", "taxonomy", "initial_damage"], inplace=True
+    # Group combinations of ["building_id", "taxonomy", "initial_damage"]
+    # There might be several rows repeating a combination due to them stemming from different
+    # assets of the input 'old_exposure'
+    mapped_exposure = mapped_exposure.groupby(
+        ["building_id", "taxonomy", "initial_damage"]
+    ).agg(
+        {
+            "number": "sum",
+            "replacement_cost_tot": "sum",
+            "ppl_census": "sum",
+            "cum_loss_value": "sum",
+        }
     )
     mapped_exposure.reset_index(inplace=True)
-    mapped_exposure.drop(columns=["index"], inplace=True)
 
     return mapped_exposure
 
@@ -727,8 +738,6 @@ def get_updated_exposure_and_transitions(
             DataFrame with one row per exposure asset of one exposure polygon, which is defined
             by a "building_id" and whose hazard will be retrieved at 'intensity_position', and
             the following columns:
-                "id" (str):
-                    Unique ID of the asset.
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets.
@@ -778,7 +787,6 @@ def get_updated_exposure_and_transitions(
         return result_expo
 
     aux_result_expo = {}
-    aux_result_expo["id"] = []
     aux_result_expo["building_id"] = []
     aux_result_expo["taxonomy"] = []
     aux_result_expo["initial_damage"] = []
@@ -795,7 +803,6 @@ def get_updated_exposure_and_transitions(
         replacement_cost = exposure.loc[row, "replacement_cost_tot"]
         ppl_census = exposure.loc[row, "ppl_census"]
         cum_loss_value = exposure.loc[row, "cum_loss_value"]
-        asset_id = exposure.loc[row, "id"]
         building_id = exposure.loc[row, "building_id"]
 
         # Retrieve damage states that are worse than 'old_damage_state'
@@ -834,7 +841,6 @@ def get_updated_exposure_and_transitions(
         poos[0] = poes[0]  # first element is the worst damage state, for which PoE=PoO
         poos[1:] = np.flip(np.flip(poes)[:-1] - np.flip(poes)[1:])
 
-        aux_result_expo["id"].extend([asset_id for i in range(poos.shape[0])])
         aux_result_expo["building_id"].extend([building_id for i in range(poos.shape[0])])
         aux_result_expo["taxonomy"].extend([taxonomy for i in range(poos.shape[0])])
         aux_result_expo["initial_damage"].extend([old_damage_state for i in range(poos.shape[0])])
@@ -849,10 +855,25 @@ def get_updated_exposure_and_transitions(
     result_expo["initial_damage"] = result_expo["initial_damage"].astype(int)
     result_expo["final_damage"] = result_expo["final_damage"].astype(int)
 
-    result_expo["transition"] = (result_expo["initial_damage"] != result_expo["final_damage"])
+    # Group duplicate combinations, if duplicates exist
+    criteria_cols = ["building_id", "taxonomy", "initial_damage", "final_damage"]
+    unique_combis = result_expo[criteria_cols].drop_duplicates()  # index doesn't matter
 
-    result_expo.reset_index(inplace=True)
-    result_expo = result_expo.drop(columns=["index"])
+    if unique_combis.shape[0] < result_expo.shape[0]:
+        result_expo = result_expo.groupby(criteria_cols).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum",
+                "cum_loss_value": "sum",
+            }
+        )
+        result_expo.reset_index(inplace=True)
+    else:
+        result_expo.reset_index(inplace=True)
+        result_expo = result_expo.drop(columns=["index"])
+
+    result_expo["transition"] = (result_expo["initial_damage"] != result_expo["final_damage"])
 
     return result_expo
 
@@ -884,8 +905,6 @@ def compute_loss(updated_exposure, loss_provider, schema):
     Args:
         updated_exposure (Pandas DataFrame):
             DataFrame with one row per exposure asset and the following columns:
-                "id" (str):
-                    Unique ID of the asset.
                 "building_id" (str):
                     ID of the exposure polygon that the asset belongs to. One exposure polygon
                     (i.e., a geographic area) can contain several assets.

@@ -265,7 +265,7 @@ def write_exposure_to_HDF5(exposure, filename, dataset_name="updated_exposure"):
     arr_data = {}
 
     for col in exposure:
-        if col in ["id", "building_id", "taxonomy"]:
+        if col in ["building_id", "taxonomy"]:
             # String columns need special care!
             str_length = exposure[col].str.len().max()
             arr_col = exposure[col].to_numpy().astype((np.bytes_, str_length))

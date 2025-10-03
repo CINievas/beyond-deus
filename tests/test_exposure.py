@@ -36,6 +36,7 @@ from beyonddeus.exposure import (
 
 def test_read_exposure_csv():
 
+    # TEST 1, BASIC:
     initial_exposure = read_exposure_csv(
         os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
     )
@@ -48,6 +49,29 @@ def test_read_exposure_csv():
             "taxonomy": ["source_1", "source_2", "source_1", "source_2"]
         }
     )
+
+    for row in expected_exposure_part.index:
+        assert (
+            initial_exposure.loc[row, "building_id"] ==
+            expected_exposure_part.loc[row, "building_id"]
+        )
+        assert (
+            initial_exposure.loc[row, "taxonomy"] ==
+            expected_exposure_part.loc[row, "taxonomy"]
+        )
+
+    assert round(initial_exposure["number"].sum(), 5) == 21.5
+    assert round(initial_exposure["replacement_cost_tot"].sum(), 5) == 12.5E6
+    assert round(initial_exposure["ppl_census"].sum(), 5) == 123.0
+    assert round(initial_exposure["cum_loss_value"].sum(), 5) == 0.0
+
+    # TEST 2, make sure repeated combinations of ["building_id", "taxonomy", "initial_damage"]
+    # are grouped together
+    initial_exposure = read_exposure_csv(
+        os.path.join(os.path.dirname(__file__), "data", "exposure_test_repeated_combis.csv")
+    )
+
+    assert initial_exposure.shape[0] == 4  # rows
 
     for row in expected_exposure_part.index:
         assert (
@@ -112,12 +136,11 @@ def test_map_exposure():
     old_exposure = read_exposure_csv(
         os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
     )
-
     expected_exposure = read_exposure_csv(
        os.path.join(os.path.dirname(__file__), "data", "expected_mapped_exposure.csv")
     )
     expected_exposure.sort_values(
-        by=["building_id", "id", "taxonomy", "initial_damage"], inplace=True
+        by=["building_id", "taxonomy", "initial_damage"], inplace=True
     )
     expected_exposure.reset_index(inplace=True)
 
@@ -125,7 +148,7 @@ def test_map_exposure():
         old_exposure, "source_schema_name", "target_schema_name", schema_mapper
     )
 
-    string_cols = ["building_id", "taxonomy", "id"]
+    string_cols = ["building_id", "taxonomy"]
     numeric_cols = [
         "number", "initial_damage", "replacement_cost_tot", "ppl_census", "cum_loss_value"
     ]
@@ -267,7 +290,7 @@ def test_get_updated_exposure_and_transitions():
     for col in expected_updated_exposure.columns:
         assert col in returned_updated_exposure
 
-    cols_str_or_int = ["id", "building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_str_or_int = ["building_id", "taxonomy", "initial_damage", "final_damage"]
     cols_floats = ["number", "replacement_cost_tot", "ppl_census"]
 
     for row in expected_updated_exposure.index:
@@ -307,6 +330,81 @@ def test_get_updated_exposure_and_transitions():
             returned_updated_exposure_trivial.loc[row, "final_damage"]
             == old_exposure.loc[row, "initial_damage"]
         )
+
+    # TEST 3: CASE IN WHICH THE OUTPUT HAS REPEATED ROWS THAT NEED TO BE GROUPED
+    # (It uses data already loaded for TEST 1)
+    # Create a new input expose from two rows of 'returned_updated_exposure'
+    new_exposure_without_duplicates = returned_updated_exposure.loc[0:1, :].copy()
+    del new_exposure_without_duplicates["initial_damage"]
+    new_exposure_without_duplicates.rename(
+        columns={"final_damage": "initial_damage"},
+        inplace=True
+    )
+
+    # Now take 'new_exposure_without_duplicates' and concatenate it twice, dividing the number
+    # of buildings, costs, people by 2, so that the total number remains the same (i.e., like
+    # splitting each row of 'new_exposure_without_duplicates' into two, so as to create
+    # duplicate combinations that the method needs to group together
+    new_exposure_with_duplicates = pd.concat((
+        new_exposure_without_duplicates, new_exposure_without_duplicates
+    ))
+    new_exposure_with_duplicates.reset_index(inplace=True)
+    for col in ["number", "replacement_cost_tot", "ppl_census", "cum_loss_value"]:
+        new_exposure_with_duplicates[col] = new_exposure_with_duplicates[col] / 2.0
+
+    # Updated exposure for 'returned_without_duplicates'
+    returned_without_duplicates = get_updated_exposure_and_transitions(
+        new_exposure_without_duplicates,
+        all_intensities.loc["1230", :],
+        intensity_threshold,
+        fragility_provider
+    )
+    returned_without_duplicates.sort_values(
+        by=["building_id", "taxonomy", "initial_damage", "final_damage"], inplace=True
+    )  # sort so that it is possible to compare
+    returned_without_duplicates.reset_index(inplace=True)
+
+    # Updated exposure for 'returned_with_duplicates'
+    returned_with_duplicates = get_updated_exposure_and_transitions(
+        new_exposure_with_duplicates,
+        all_intensities.loc["1230", :],
+        intensity_threshold,
+        fragility_provider
+    )
+    returned_with_duplicates.sort_values(
+        by=["building_id", "taxonomy", "initial_damage", "final_damage"], inplace=True
+    )  # sort so that it is possible to compare
+    returned_with_duplicates.reset_index(inplace=True)
+
+    # After the sorting and re-setting of the indices, the two returned DFs need to be the same
+    # (because the input exposure was esentially the same, just split into more or less rows)
+    assert returned_without_duplicates.shape[0] == returned_with_duplicates.shape[0]
+    assert returned_without_duplicates.shape[1] == returned_with_duplicates.shape[1]
+
+    for col in expected_updated_exposure.columns:
+        assert col in returned_without_duplicates
+        assert col in returned_with_duplicates
+
+    cols_str_or_int = ["building_id", "taxonomy", "initial_damage", "final_damage"]
+    cols_floats = ["number", "replacement_cost_tot", "ppl_census"]
+
+    for row in returned_without_duplicates.index:
+        for col in cols_str_or_int:
+            assert (
+                returned_with_duplicates.loc[row, col] ==
+                returned_without_duplicates.loc[row, col]
+            )
+        for col in cols_floats:
+            if col == "number":
+                assert (
+                    round(returned_with_duplicates.loc[row, col], 10) ==
+                    round(returned_without_duplicates.loc[row, col], 10)
+                )
+            else:
+                assert (
+                    round(returned_with_duplicates.loc[row, col], 5) ==
+                    round(returned_without_duplicates.loc[row, col], 5)
+                )
 
 
 def test_compute_loss():
@@ -555,7 +653,7 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int_or_bool = [
-        "id", "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+        "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
     ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
@@ -657,7 +755,7 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int_or_bool = [
-        "id", "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+        "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
     ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
@@ -763,7 +861,7 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int_or_bool = [
-        "id", "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+        "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
     ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
@@ -869,7 +967,7 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int_or_bool = [
-        "id", "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+        "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
     ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
