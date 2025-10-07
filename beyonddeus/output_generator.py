@@ -49,6 +49,14 @@ class OutputGenerator:
             self.output_types (dict):
                 Dictionary indicating the kind of outputs to export, by means of True/False.
                 Options are sets of nested keys:
+                    "compress_exposure_csvs":
+                        Boolean. If True, the CSVs containing updated exposures will be
+                        compressed into zstd format.
+                    "mapped_exposure":
+                        "csv": The input exposure model, mapped onto the target building and
+                        damage schemas (i.e., conversion of building classes and damage states
+                        due to compatibility across schemas, not the action of the input
+                        hazard), is written to a CSV file.
                     "full_updated_exposure":
                         "csv": The full updated exposure model as a CSV file.
                         "csv_by_usability": Two CSV files, each containing the usable and
@@ -69,10 +77,22 @@ class OutputGenerator:
                             due to each realisation of each logic tree branch.
                         "loss_gpkg_per_realisation": Same as "loss_csv_per_realisation", with the
                             associated exposure geometries.
+                    "only_transitioned_loss_csv_per_realisation": Same as
+                        'loss_csv_per_realisation', but keeping only the building_ids for which
+                        at least one of the assets transitions damage state.
+                    "only_transitioned_loss_gpkg_per_realisation": Same as
+                        'loss_gpkg_per_realisation', but keeping only the building_ids for which
+                        at least one of the assets transitions damage state.
                         "damage_csv_per_realisation": Number of buildings per final damage state
                             due to each realisation of each logic tree branch.
                         "damage_gpkg_per_realisation": Same as "damage_csv_per_realisation",
                             with the associated exposure geometries.
+                    "only_transitioned_damage_csv_per_realisation": Same as
+                        'damage_csv_per_realisation', but keeping only the building_ids for
+                        which at least one of the assets transitions damage state.
+                    "only_transitioned_damage_gpkg_per_realisation": Same as
+                        'damage_gpkg_per_realisation', but keeping only the building_ids for
+                        which at least one of the assets transitions damage state.
             self.usability (dict):
                 Dictionary with keys "usable" and "unusable", each containing a list of damage
                 states associated with each condition.
@@ -99,13 +119,27 @@ class OutputGenerator:
 
     def export(self):
         if self.output_types["full_updated_exposure"]["csv"]:
-            out_filename = "%s_b_%s_r_%s_%s_updated_exposure.csv" % (
+            out_filename = "%s_b_%s_r_%s_%s_updated_exposure" % (
                 self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
             )
-            self.updated_exposure.to_csv(
-                os.path.join(self.output_path, "updated_exposure_csv", out_filename),
-                index=False
-            )
+
+            if self.output_types["compress_exposure_csvs"]:
+                self.updated_exposure.to_csv(
+                    os.path.join(
+                        self.output_path, "updated_exposure_csv",
+                        "%s.zstd" % (out_filename)
+                    ),
+                    compression="zstd",
+                    index=False
+                )
+            else:
+                self.updated_exposure.to_csv(
+                    os.path.join(
+                        self.output_path, "updated_exposure_csv",
+                        "%s.csv" % (out_filename)
+                    ),
+                    index=False
+                )
 
         if self.output_types["full_updated_exposure"]["csv_by_usability"]:
             usable_assets, unusable_assets = split_updated_exposure_by_usability(
@@ -113,24 +147,52 @@ class OutputGenerator:
             )
 
             out_filename = (
-                "%s_b_%s_r_%s_%s_updated_exposure_usable.csv" % (
+                "%s_b_%s_r_%s_%s_updated_exposure_usable" % (
                     self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
                 )
-            )
-            usable_assets.to_csv(
-                os.path.join(self.output_path,"updated_exposure_usable_csv", out_filename),
-                index=False
             )
 
+            if self.output_types["compress_exposure_csvs"]:
+                usable_assets.to_csv(
+                    os.path.join(
+                        self.output_path,"updated_exposure_usable_csv",
+                        "%s.zstd" % (out_filename)
+                    ),
+                    compression="zstd",
+                    index=False
+                )
+            else:
+                usable_assets.to_csv(
+                    os.path.join(
+                        self.output_path,"updated_exposure_usable_csv",
+                        "%s.csv" % (out_filename)
+                    ),
+                    index=False
+                )
+
             out_filename = (
-                "%s_b_%s_r_%s_%s_updated_exposure_unusable.csv" % (
+                "%s_b_%s_r_%s_%s_updated_exposure_unusable" % (
                     self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
                 )
             )
-            unusable_assets.to_csv(
-                os.path.join(self.output_path, "updated_exposure_unusable_csv", out_filename),
-                index=False
-            )
+
+            if self.output_types["compress_exposure_csvs"]:
+                unusable_assets.to_csv(
+                    os.path.join(
+                        self.output_path, "updated_exposure_unusable_csv",
+                        "%s.zstd" % (out_filename)
+                    ),
+                    compression="zstd",
+                    index=False
+                )
+            else:
+                unusable_assets.to_csv(
+                    os.path.join(
+                        self.output_path, "updated_exposure_unusable_csv",
+                        "%s.csv" % (out_filename)
+                    ),
+                    index=False
+                )
 
         if self.output_types["full_updated_exposure"]["hdf5_per_realisation"]:
             out_filename = "%s_b_%s_r_%s_%s_updated_exposure.hdf5" % (

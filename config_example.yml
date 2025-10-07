@@ -18,6 +18,7 @@ parameters:
   intensity_file_type: intensity_file_type  # Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu
   intensity_threshold: theshold_value # Threshold of hazard intensity. If intensity value < threshold, no further damage assumed
 output_types:  # Write True/False next to each option, to export or not export the corresponding output type
+  compress_exposure_csvs: True  # If True, the updated exposure CSVs will be compressed into zstd format
   mapped_exposure:
     csv: True
   full_updated_exposure:

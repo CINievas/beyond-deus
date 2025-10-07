@@ -27,6 +27,10 @@ using the updated exposure from `HAZ_A`, branch `BBB`, realisation `RRR`.
 The kind of outputs exported is controlled by the following parameters (True/False) set in the
 `config.yml` file under `output_types`:
 
+- `compress_exposure_csvs`:
+  If True, the CSVs containing updated/mapped/(un)usable exposures will be compressed into
+  `.zstd` format (which can also be read as input exposure in a subsequent run). If False, they
+  will be exported as simple CSVs.
 - `mapped_exposure`:
   - `csv`: The input exposure model, mapped onto the target building and damage schemas (i.e.,
   conversion of building classes and damage states due to compatibility across schemas, not

@@ -229,16 +229,18 @@ def read_check_and_map_exposure(
     """
     # Attach exposure context
     base_logger = logging.getLogger(__name__)
-    logger = logging.LoggerAdapter(base_logger, {"exposure": initial_exposure_name_raw})
+    logger = logging.LoggerAdapter(
+        base_logger, {"exposure": initial_exposure_name_raw.split(".")[0]}
+    )
 
     # Read exposure CSV
     initial_exposure_df = read_exposure_csv(
         os.path.join(
-            configuration.input_paths["exposure_csv"], "%s.csv" % (initial_exposure_name_raw)
+            configuration.input_paths["exposure_csv"], initial_exposure_name_raw
         )
     )
 
-    initial_exposure_name = initial_exposure_name_raw.split("_updated")[0]
+    initial_exposure_name = initial_exposure_name_raw.split(".")[0].split("_updated")[0]
 
     # Make sure all building_ids have geometries
     logger.info("Checking all building_ids have associated geometries")
@@ -260,15 +262,27 @@ def read_check_and_map_exposure(
     ):
         logger.info("Exporting input initial exposure model mapped onto target schema")
 
-        mapped_exposure.to_csv(
-            os.path.join(
-                configuration.output_path,
-                "mapped_exposure_csv",
-                "%s_%s_mapped_exposure.csv"
-                % (configuration.hazard_prefix, initial_exposure_name)
-            ),
-            index=False
-        )
+        if configuration.output_types["compress_exposure_csvs"]:
+            mapped_exposure.to_csv(
+                os.path.join(
+                    configuration.output_path,
+                    "mapped_exposure_csv",
+                    "%s_%s_mapped_exposure.zstd"
+                    % (configuration.hazard_prefix, initial_exposure_name)
+                ),
+                compression="zstd",
+                index=False
+            )
+        else:
+            mapped_exposure.to_csv(
+                os.path.join(
+                    configuration.output_path,
+                    "mapped_exposure_csv",
+                    "%s_%s_mapped_exposure.csv"
+                    % (configuration.hazard_prefix, initial_exposure_name)
+                ),
+                index=False
+            )
 
     return mapped_exposure, initial_exposure_name
 
@@ -289,7 +303,9 @@ def process_by_exposure(all_intensity_values, initial_exposure_name_raw):
 
     # Attach exposure context
     base_logger = logging.getLogger(__name__)
-    logger = logging.LoggerAdapter(base_logger, {"exposure": initial_exposure_name_raw})
+    logger = logging.LoggerAdapter(
+        base_logger, {"exposure": initial_exposure_name_raw.split(".")[0]}
+    )
     logger.info("START processing")
 
     logger.info("Loading exposure model")
@@ -311,7 +327,7 @@ def process_by_exposure(all_intensity_values, initial_exposure_name_raw):
             # Logger
             ctx = {"branch": branch, "realisation": realisation}
             step_logger = logging.LoggerAdapter(
-                base_logger, {"exposure": initial_exposure_name_raw, **ctx}
+                base_logger, {"exposure": initial_exposure_name_raw.split(".")[0], **ctx}
             )
             step_logger.info(
                 "Calculating damage and losses, branch %s/%s, realisation %s/%s"
@@ -384,14 +400,14 @@ def process_by_intensity_realisation(task: tuple):
     # Attach exposure, branch and realisation context
     base_logger = logging.getLogger(__name__)
     logger = logging.LoggerAdapter(base_logger, {
-        "exposure": initial_exposure_name_raw,
+        "exposure": initial_exposure_name_raw.split(".")[0],
         "branch": branch,
         "realisation": realisation
     })
 
     logger.info("START processing")
 
-    initial_exposure_name = initial_exposure_name_raw.split("_updated")[0]
+    initial_exposure_name = initial_exposure_name_raw.split(".")[0].split("_updated")[0]
 
     all_intensities = intensity_provider_branch_real.get_values_at_multiple_positions(
         intensity_positions,

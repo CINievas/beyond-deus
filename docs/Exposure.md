@@ -1,7 +1,7 @@
 # Handling of Exposure Models
 
 Exposure models are input as a combination of one GeoPackage (`.gpkg`) file and one or more
-`.csv` files.
+`.csv` files. CSV files can be compressed and read as `.zstd` files.
 
 All files in the directory `exposure_csv` (of `config.yml`) are read by the software and each of
 them is used in combination with each realisation of intensity of each branch to calculate

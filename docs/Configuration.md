@@ -15,11 +15,11 @@ following parameters:
     - A path to one earthquake HDF5 file, which may contain intensity fields for more than one
     logic tree branch and more than one realisations per branch.
   - `fragility`: Path to fragility `.json` file.
-  - `exposure_csv`: Path to directory that contains the exposure `.csv` file(s) with one row per
-  exposure asset (a number of buildings of a particular building class, in a particular damage
-  state, at a particular location). See details [here](Exposure.md). All files in this directory
-  will be read by the software and each of them will be used in combination with each
-  realisation of intensity of each branch to calculate resulting damage and losses.
+  - `exposure_csv`: Path to directory that contains the exposure `.csv` and/or `.zstd` file(s)
+  with one row per exposure asset (a number of buildings of a particular building class, in a
+  particular damage state, at a particular location). See details [here](Exposure.md). All files
+  in this directory will be read by the software and each of them will be used in combination
+  with each realisation of intensity of each branch to calculate resulting damage and losses.
   - `exposure_gpkg`: Path to exposure `.gpkg` file with exposure polygons and their centroids.
   There needs to be one polygon for each `building_id` in the exposure `.csv` file. See details
   [here](Exposure.md).
@@ -61,6 +61,9 @@ realisation of hazard intensity and input exposure model).
   the exposed assets, be careful!
 - `output_types`:  Write True/False next to each option, to export or not export the
 corresponding output type:
+  - `compress_exposure_csvs`:
+    If True, the CSVs containing updated/mapped/(un)usable exposures will be compressed into
+    `.zstd` format (which can also be read as input exposure in a subsequent run).
   - `mapped_exposure`:
     - `csv`: The input exposure model, mapped onto the target building and damage schemas (i.e.,
     conversion of building classes and damage states due to compatibility across schemas, not

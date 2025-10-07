@@ -25,13 +25,10 @@ from copy import deepcopy
 
 def retrieve_exposure_input_names(directory_csv):
     """
-    Function to retrieve the names of all CSV files located in 'directory_csv', without the
-    extension.
+    Function to retrieve the names of all CSV or ZSTD files located in 'directory_csv',
+    including their extension.
     """
     exposure_names = os.listdir(directory_csv)
-
-    for i in range(len(exposure_names)):
-        exposure_names[i] = exposure_names[i].split(".csv")[0]
 
     return exposure_names
 
@@ -59,7 +56,7 @@ def read_exposure_geoms(filename_geoms):
 
 def read_exposure_csv(filename_csv):
     """
-    Function to read the exposure CSV file.
+    Function to read the exposure CSV file, as CSV in itself or pre-compressed into ZSTD.
 
     If the CSV file contains an "id" column, it is discarded.
 
@@ -77,7 +74,7 @@ def read_exposure_csv(filename_csv):
 
     Args:
         filename_csv (str):
-            Path to the exposure CSV file, with one row per exposure asset (a number of
+            Path to the exposure CSV/ZSTD file, with one row per exposure asset (a number of
             buildings of a particular building class, in a particular damage state, at a
             particular location) and the following columns:
                 "building_id" (str):
@@ -105,8 +102,20 @@ def read_exposure_csv(filename_csv):
         exposure_df (Pandas DataFrame):
             Pandas DataFrame with the contents of 'filename_csv' (see columns above).
     """
-    # Read input CSV
-    exposure_df = pd.read_csv(filename_csv)
+    # Determine extension of 'filename_csv':
+    filename_extension = filename_csv.split(".")[-1]
+
+    # Read input CSV/ZSTD
+    if filename_extension.lower()=="csv":
+        exposure_df = pd.read_csv(filename_csv)
+    elif filename_extension.lower()=="zstd":
+        exposure_df = pd.read_csv(filename_csv, compression="zstd")
+    else:
+        error_message = (
+            "Input exposure file extension not recognised. Supported formats: .csv, .zstd"
+        )
+        raise OSError(error_message)
+
     # Make sure "building_id" are strings
     exposure_df["building_id"] = exposure_df["building_id"].astype(str)
     # Make sure "initial_damage" is an integer

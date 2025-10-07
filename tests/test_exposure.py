@@ -30,7 +30,7 @@ from beyonddeus.loss import LossProvider
 from beyonddeus.exposure import (
     read_exposure_csv, read_exposure_geoms, check_all_building_ids_in_geoms, map_exposure,
     get_sorted_damage_states, get_updated_exposure_and_transitions, compute_loss,
-    update_exposure_transitions_and_losses
+    update_exposure_transitions_and_losses, retrieve_exposure_input_names
 )
 
 
@@ -88,6 +88,37 @@ def test_read_exposure_csv():
     assert round(initial_exposure["ppl_census"].sum(), 5) == 123.0
     assert round(initial_exposure["cum_loss_value"].sum(), 5) == 0.0
 
+    # TEST 3, same as TEST 1, but reading from a compressed ZSTD instead of CSV
+    initial_exposure = read_exposure_csv(
+        os.path.join(
+            os.path.dirname(__file__), "data", "exposure_csvs", "exposure_test_01.zstd"
+        )
+    )
+
+    assert initial_exposure.shape[0] == 4  # rows
+
+    expected_exposure_part = pd.DataFrame(
+        {
+            "building_id": ["1230", "1230", "1231", "1231"],
+            "taxonomy": ["source_1", "source_2", "source_1", "source_2"]
+        }
+    )
+
+    for row in expected_exposure_part.index:
+        assert (
+            initial_exposure.loc[row, "building_id"] ==
+            expected_exposure_part.loc[row, "building_id"]
+        )
+        assert (
+            initial_exposure.loc[row, "taxonomy"] ==
+            expected_exposure_part.loc[row, "taxonomy"]
+        )
+
+    assert round(initial_exposure["number"].sum(), 5) == 21.5
+    assert round(initial_exposure["replacement_cost_tot"].sum(), 5) == 12.5E6
+    assert round(initial_exposure["ppl_census"].sum(), 5) == 123.0
+    assert round(initial_exposure["cum_loss_value"].sum(), 5) == 0.0
+
 
 def test_read_exposure_geoms():
 
@@ -97,6 +128,20 @@ def test_read_exposure_geoms():
 
     assert exposure_geometries.shape[0] == 2
     assert type(exposure_geometries.loc[0, "building_id"]) is str
+
+
+def test_retrieve_exposure_input_names():
+
+    returned_input_names = retrieve_exposure_input_names(
+         os.path.join(os.path.dirname(__file__), "data", "exposure_csvs")
+    )
+
+    expected_input_names = ["exposure_test_01.zstd", "exposure_test_02.zstd"]
+
+    assert len(returned_input_names) == len(expected_input_names)
+
+    for filename in expected_input_names:
+        assert filename in returned_input_names
 
 
 def test_check_all_building_ids_in_geoms():
