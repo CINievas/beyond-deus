@@ -23,7 +23,8 @@ output_types:  # Write True/False next to each option, to export or not export t
     csv: True
   full_updated_exposure:
     csv: True
-    csv_by_usability: True
+    csv_usable: True
+    csv_unusable: True
     hdf5_per_realisation: False
   by_final_damage:
     csv_per_realisation: True

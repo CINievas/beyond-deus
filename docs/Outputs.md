@@ -37,8 +37,10 @@ The kind of outputs exported is controlled by the following parameters (True/Fal
   the action of the input hazard), is written to a CSV file.
 - `full_updated_exposure`:
   - `csv`: The full updated exposure model is written to a CSV file.
-  - `csv_by_usability`: Two CSV files, each containing the usable and unusable assets (rows)
-  of the full updated exposure model, as per the `usability` input file.
+  - `csv_usable`: One CSV file containing the usable assets (rows) of the full updated exposure
+  model, as per the `usability` input file.
+  - `csv_unusable`: One CSV file containing the unusable assets (rows) of the full updated
+  exposure model, as per the `usability` input file.
   - `hdf5_per_realisation`: The full updated exposure model is written to one HDF5 file per
   realisation of each logic tree branch.
 - `by_final_damage`:

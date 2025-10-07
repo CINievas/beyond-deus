@@ -125,11 +125,15 @@ def init_worker_for_by_exposure(log_queue):
 
     if (
         (_usability_model.data is None) and
-        (_config.output_types["full_updated_exposure"]["csv_by_usability"])
+        (
+            _config.output_types["full_updated_exposure"]["csv_usable"] or
+            _config.output_types["full_updated_exposure"]["csv_unusable"]
+        )
     ):
         error_message = (
-            "The parameter 'csv_by_usability' in the config.yml file is True but "
-            "no usability model has been loaded. Have you indicated 'input_paths[usability]'?"
+            "The parameter(s) 'csv_usable' and/or 'csv_unusable' in the config.yml file is/are "
+            "True but no usability model has been loaded. "
+            "Have you indicated 'input_paths[usability]'?"
         )
         logging.getLogger(__name__).critical(error_message)
         raise OSError(error_message)
@@ -196,11 +200,15 @@ def init_worker_for_by_itensity_realisation(log_queue):
 
     if (
         (_usability_model.data is None) and
-        (_config.output_types["full_updated_exposure"]["csv_by_usability"])
+        (
+            _config.output_types["full_updated_exposure"]["csv_usable"] or
+            _config.output_types["full_updated_exposure"]["csv_unusable"]
+        )
     ):
         error_message = (
-            "The parameter 'csv_by_usability' in the config.yml file is True but "
-            "no usability model has been loaded. Have you indicated 'input_paths[usability]'?"
+            "The parameter(s) 'csv_usable' and/or 'csv_unusable' in the config.yml file is/are "
+            "True but no usability model has been loaded. "
+            "Have you indicated 'input_paths[usability]'?"
         )
         logging.getLogger(__name__).critical(error_message)
         raise OSError(error_message)

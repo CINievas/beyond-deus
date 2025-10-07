@@ -59,8 +59,10 @@ class OutputGenerator:
                         hazard), is written to a CSV file.
                     "full_updated_exposure":
                         "csv": The full updated exposure model as a CSV file.
-                        "csv_by_usability": Two CSV files, each containing the usable and
-                            unusable assets of the full updated exposure model.
+                        "csv_usable": One CSV file containing the usable assets of the full
+                            updated exposure model.
+                        "csv_unusable": One CSV file containing the unusable assets of the full
+                            updated exposure model.
                         "hdf5_per_realisation": The full updated exposure model as one HDF5 file
                             per realisation of each logic tree branch.
                     "by_final_damage":
@@ -141,11 +143,15 @@ class OutputGenerator:
                     index=False
                 )
 
-        if self.output_types["full_updated_exposure"]["csv_by_usability"]:
+        if (
+            self.output_types["full_updated_exposure"]["csv_usable"] or
+            self.output_types["full_updated_exposure"]["csv_unusable"]
+        ):
             usable_assets, unusable_assets = split_updated_exposure_by_usability(
                 self.updated_exposure, self.usability
             )
 
+        if self.output_types["full_updated_exposure"]["csv_usable"]:
             out_filename = (
                 "%s_b_%s_r_%s_%s_updated_exposure_usable" % (
                     self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
@@ -170,6 +176,7 @@ class OutputGenerator:
                     index=False
                 )
 
+        if self.output_types["full_updated_exposure"]["csv_unusable"]:
             out_filename = (
                 "%s_b_%s_r_%s_%s_updated_exposure_unusable" % (
                     self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name

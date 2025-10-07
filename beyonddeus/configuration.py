@@ -87,8 +87,10 @@ class Configuration:
                     written to a CSV file.
                 "full_updated_exposure":
                     "csv": The full updated exposure model as a CSV file.
-                    "csv_by_usability": Two CSV files, each containing the usable and unusable
-                        assets of the full updated exposure model.
+                    "csv_usable": One CSV file containing the usable assets of the full updated
+                        exposure model.
+                    "csv_unusable": One CSV file containing the unusable assets of the full
+                        updated exposure model.
                     "hdf5_per_realisation": The full updated exposure model as one HDF5 file per
                         realisation of each logic tree branch.
                 "by_final_damage":
@@ -206,8 +208,11 @@ class Configuration:
         self.output_types["full_updated_exposure"]["csv"] = self._assign_parameter(
             config["output_types"]["full_updated_exposure"], "csv"
         )
-        self.output_types["full_updated_exposure"]["csv_by_usability"] = self._assign_parameter(
-            config["output_types"]["full_updated_exposure"], "csv_by_usability"
+        self.output_types["full_updated_exposure"]["csv_usable"] = self._assign_parameter(
+            config["output_types"]["full_updated_exposure"], "csv_usable"
+        )
+        self.output_types["full_updated_exposure"]["csv_unusable"] = self._assign_parameter(
+            config["output_types"]["full_updated_exposure"], "csv_unusable"
         )
         self.output_types["full_updated_exposure"]["hdf5_per_realisation"] = (
             self._assign_parameter(
