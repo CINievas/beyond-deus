@@ -95,6 +95,12 @@ class OutputGenerator:
                     "only_transitioned_damage_gpkg_per_realisation": Same as
                         'damage_gpkg_per_realisation', but keeping only the building_ids for
                         which at least one of the assets transitions damage state.
+                    "damage_with_people_csv_per_realisation": Same as
+                        'damage_csv_per_realisation', plus columns with number of census people
+                        per damage state.
+                    "damage_with_people_gpkg_per_realisation": Same as
+                        'damage_gpkg_per_realisation', plus columns with number of census people
+                        per damage state.
             self.usability (dict):
                 Dictionary with keys "usable" and "unusable", each containing a list of damage
                 states associated with each condition.
@@ -269,8 +275,38 @@ class OutputGenerator:
                 filename_without_extension=out_filename_we
             )
 
-        # To avoid calculating it twice if "only_transitioned..." also True
+        # To avoid calculating 'damage_by_bdg_id' twice
         damage_by_bdg_id = None
+        if (
+            self.output_types["by_building_id"]["damage_with_people_csv_per_realisation"]
+            or
+            self.output_types["by_building_id"]["damage_with_people_gpkg_per_realisation"]
+        ):
+            out_filename_we = "%s_b_%s_r_%s_%s_damage_with_people_by_building_id" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+            )
+            damage_by_bdg_id = write_damage_by_building_id(
+                self.updated_exposure,
+                self.exposure_geoms,
+                write_to_CSV=self.output_types["by_building_id"][
+                    "damage_with_people_csv_per_realisation"
+                ],
+                write_to_GPKG=self.output_types["by_building_id"][
+                    "damage_with_people_gpkg_per_realisation"
+                ],
+                filter_only_transitioned=False,
+                include_people=True,
+                outpath=self.output_path,
+                filename_without_extension=out_filename_we,
+                previously_calculated_damage_by_bdg_id=None
+            )
+
+        # If 'damage_by_bdg_id' already exists, it contains people, so remove them
+        if damage_by_bdg_id is not None:
+            damage_by_bdg_id = damage_by_bdg_id.drop(
+                columns=damage_by_bdg_id.filter(regex="^ppl_census_").columns
+            )
+
         if (
             self.output_types["by_building_id"]["damage_csv_per_realisation"]
             or
@@ -285,10 +321,11 @@ class OutputGenerator:
                 write_to_CSV=self.output_types["by_building_id"]["damage_csv_per_realisation"],
                 write_to_GPKG=self.output_types["by_building_id"]["damage_gpkg_per_realisation"],
                 filter_only_transitioned=False,
+                include_people=False,
                 outpath=self.output_path,
                 filename_without_extension=out_filename_we,
-                previously_calculated_damage_by_bdg_id=None
-            )
+                previously_calculated_damage_by_bdg_id=damage_by_bdg_id # from above
+            ) # if 'damage_by_bdg_id' exists, it will return the same
 
         if (
             self.output_types["by_building_id"]["only_transitioned_damage_csv_per_realisation"]
@@ -307,9 +344,10 @@ class OutputGenerator:
                     "only_transitioned_damage_gpkg_per_realisation"
                 ],
                 filter_only_transitioned=True,
+                include_people=False,
                 outpath=self.output_path,
                 filename_without_extension=out_filename_we,
-                previously_calculated_damage_by_bdg_id=damage_by_bdg_id # from the if-else above
+                previously_calculated_damage_by_bdg_id=damage_by_bdg_id # from above
             )
 
 
@@ -520,6 +558,7 @@ def write_damage_by_building_id(
     write_to_CSV=False,
     write_to_GPKG=False,
     filter_only_transitioned=False,
+    include_people=False,
     outpath=None,
     filename_without_extension=None,
     previously_calculated_damage_by_bdg_id=None
@@ -542,6 +581,9 @@ def write_damage_by_building_id(
         filter_only_transitioned (bool):
             If True, only output building_ids for which at least one of their associated assets
             transitions to a worse damage state.
+        include_people (bool):
+            If True, the output includes the number of census people per building_id and damage
+            state.
         outpath (str):
             Directory to which the results will be written.
         filename_without_extension (str):
@@ -560,10 +602,13 @@ def write_damage_by_building_id(
                     Number of buildings of 'building_id' in damage state "X".
                 "proportion_DX" (float):
                     Proportion of buildings of 'building_id' in damage state "X".
+                "ppl_census_DX" (float):
+                    Number of census people of 'building_id' in damage state "X" (if
+                    'include_people' is True).
     """
 
     if previously_calculated_damage_by_bdg_id is None:
-        damage_by_bdg_id = damage_by_building_id_as_columns(exposure)
+        damage_by_bdg_id = damage_by_building_id_as_columns(exposure, include_people)
     else:
         damage_by_bdg_id = deepcopy(previously_calculated_damage_by_bdg_id)
 
@@ -595,11 +640,14 @@ def write_damage_by_building_id(
     return damage_by_bdg_id
 
 
-def damage_by_building_id_as_columns(exposure):
+def damage_by_building_id_as_columns(exposure, include_people=False):
     """
     Args:
         exposure (Pandas DataFrame):
             Exposure Pandas DataFrame.
+        include_people (bool):
+            If True, the output includes the number of census people per 'building_id' and
+            damage state.
 
     Returns:
         damage_by_bdg_id (Pandas DataFrame):
@@ -610,10 +658,18 @@ def damage_by_building_id_as_columns(exposure):
                     Number of buildings of 'building_id' in damage state "X".
                 "proportion_DX" (float):
                     Proportion of buildings of 'building_id' in damage state "X".
+                "ppl_census_DX" (float):
+                    Number of census people of 'building_id' in damage state "X" (if
+                    'include_people' is True).
     """
-    damage_by_bdg_id_aux = exposure.groupby(
-        ["building_id", "final_damage"]
-    ).agg({"number": "sum"})
+    if include_people:
+        damage_by_bdg_id_aux = exposure.groupby(
+            ["building_id", "final_damage"]
+        ).agg({"number": "sum", "ppl_census": "sum"})
+    else:
+        damage_by_bdg_id_aux = exposure.groupby(
+            ["building_id", "final_damage"]
+        ).agg({"number": "sum"})
 
     unique_damage_levels = damage_by_bdg_id_aux.index.get_level_values("final_damage").unique()
 
@@ -622,6 +678,12 @@ def damage_by_building_id_as_columns(exposure):
 
     for final_damage in unique_damage_levels:
         damage_by_bdg_id["number_D%s" % (final_damage)] = np.zeros(damage_by_bdg_id.shape[0])
+
+    if include_people:  # Separate for loop so that all "number" and all "ppl" cols are together
+        for final_damage in unique_damage_levels:
+            damage_by_bdg_id["ppl_census_D%s" % (final_damage)] = np.zeros(
+                damage_by_bdg_id.shape[0]
+            )
 
     for final_damage in unique_damage_levels:
         # Filter rows associated with 'final_damage'
@@ -637,6 +699,12 @@ def damage_by_building_id_as_columns(exposure):
         damage_by_bdg_id.loc[idx, "number_D%s" % (final_damage)] += (
             just_final_damage_rows.loc[:, "number"]
         )
+
+        if include_people:
+            # For those rows whose index exist, add the corresponding census people
+            damage_by_bdg_id.loc[idx, "ppl_census_D%s" % (final_damage)] += (
+                just_final_damage_rows.loc[:, "ppl_census"]
+            )
 
     for final_damage in unique_damage_levels:
         damage_by_bdg_id["proportion_D%s" % (final_damage)] = (

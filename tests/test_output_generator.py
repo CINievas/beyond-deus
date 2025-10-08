@@ -33,8 +33,6 @@ def test_damage_by_building_id_as_columns():
         )
     )
 
-    returned_damage_by_bdg_id = damage_by_building_id_as_columns(updated_exposure)
-
     expected_damage_by_bdg_id = pd.DataFrame(
         {
             "number": [126.0, 12.0],
@@ -48,10 +46,38 @@ def test_damage_by_building_id_as_columns():
             "proportion_D2": [0.269841, 0.0],
             "proportion_D3": [0.285714, 0.0],
             "proportion_D4": [0.111111, 0.0],
+            "ppl_census_D0": [20.0, 24.0],
+            "ppl_census_D1": [64.0, 0.0],
+            "ppl_census_D2": [68.0, 0.0],
+            "ppl_census_D3": [72.0, 0.0],
+            "ppl_census_D4": [28.0, 0.0],            
         },
         index=["B1", "B2"]
     )
     expected_damage_by_bdg_id.index.name = "building_id"
+
+    # Including census people
+    returned_damage_by_bdg_id = damage_by_building_id_as_columns(
+        updated_exposure, include_people=True
+    )
+
+    assert returned_damage_by_bdg_id.shape[0] == expected_damage_by_bdg_id.shape[0]
+    assert returned_damage_by_bdg_id.shape[1] == expected_damage_by_bdg_id.shape[1]
+
+    for bdg_id in expected_damage_by_bdg_id.index:
+        for col in expected_damage_by_bdg_id.columns:
+            assert (
+                round(returned_damage_by_bdg_id.loc[bdg_id, col], 6) ==
+                round(expected_damage_by_bdg_id.loc[bdg_id, col], 6)
+            )
+
+    # Excluding census people
+    for dmg_state in range(5):
+        del expected_damage_by_bdg_id["ppl_census_D%s" % (dmg_state)]
+
+    returned_damage_by_bdg_id = damage_by_building_id_as_columns(
+        updated_exposure, include_people=False
+    )
 
     assert returned_damage_by_bdg_id.shape[0] == expected_damage_by_bdg_id.shape[0]
     assert returned_damage_by_bdg_id.shape[1] == expected_damage_by_bdg_id.shape[1]
@@ -73,7 +99,9 @@ def test_filter_damage_by_bdg_id_only_transitioned():
         )
     )
 
-    returned_damage_by_bdg_id = damage_by_building_id_as_columns(updated_exposure)
+    returned_damage_by_bdg_id = damage_by_building_id_as_columns(
+        updated_exposure, include_people=True
+    )
 
     filtered_damage_by_bdg_id = filter_damage_by_bdg_id_only_transitioned(
         updated_exposure, returned_damage_by_bdg_id
@@ -92,6 +120,11 @@ def test_filter_damage_by_bdg_id_only_transitioned():
             "proportion_D2": [0.269841],
             "proportion_D3": [0.285714],
             "proportion_D4": [0.111111],
+            "ppl_census_D0": [20.0],
+            "ppl_census_D1": [64.0],
+            "ppl_census_D2": [68.0],
+            "ppl_census_D3": [72.0],
+            "ppl_census_D4": [28.0],
         },
         index=["B1"]
     )

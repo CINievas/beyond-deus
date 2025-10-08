@@ -102,5 +102,9 @@ corresponding output type:
     - `only_transitioned_damage_gpkg_per_realisation`: Same as `damage_gpkg_per_realisation`,
     but keeping only the building_ids for which at least one of the assets transitions damage
     state.
+    - `damage_with_people_csv_per_realisation`: Same as `damage_csv_per_realisation`, plus
+    columns with number of census people per damage state.
+    - `damage_with_people_gpkg_per_realisation`: Same as `damage_gpkg_per_realisation`, plus
+    columns with number of census people per damage state.
 
 An example of a config.yml file can be found [here](../config_example.yml).

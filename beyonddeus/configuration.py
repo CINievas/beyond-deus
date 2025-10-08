@@ -122,6 +122,12 @@ class Configuration:
                     "only_transitioned_damage_gpkg_per_realisation": Same as
                         'damage_gpkg_per_realisation', but keeping only the building_ids for
                         which at least one of the assets transitions damage state.
+                    "damage_with_people_csv_per_realisation": Same as
+                        'damage_csv_per_realisation', plus columns with number of census people
+                        per damage state.
+                    "damage_with_people_gpkg_per_realisation": Same as
+                        'damage_gpkg_per_realisation', plus columns with number of census people
+                        per damage state.
     """
 
     def __init__(self, filepath):
@@ -275,6 +281,18 @@ class Configuration:
             self._assign_parameter(
                 config["output_types"]["by_building_id"],
                 "only_transitioned_damage_gpkg_per_realisation"
+            )
+        )
+        self.output_types["by_building_id"]["damage_with_people_csv_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"],
+                "damage_with_people_csv_per_realisation"
+            )
+        )
+        self.output_types["by_building_id"]["damage_with_people_gpkg_per_realisation"] = (
+            self._assign_parameter(
+                config["output_types"]["by_building_id"],
+                "damage_with_people_gpkg_per_realisation"
             )
         )
 
