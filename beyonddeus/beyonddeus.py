@@ -487,6 +487,43 @@ def main():
     # Read configuration parameters
     config = Configuration("config.yml")
 
+    if config.running_mode in ("processing", "both"):
+        processing_mode(config, log_queue)
+
+    if config.running_mode in ("post-processing", "both"):
+        post_processing_mode(config)
+
+    if config.running_mode not in ("processing", "post-processing", "both"):
+        error_message = (
+            "Running mode %s not recognised. The program will stop."
+            % (config.running_mode)
+        )
+        logging.getLogger(__name__).critical(error_message)
+        raise OSError(error_message)
+
+    logging.getLogger(__name__).info("Beyond-DEUS has finished")
+    listener.stop()
+
+    # If the listener has a private thread attribute, join it
+    thread = getattr(listener, '_thread', None) or getattr(listener, 'thread', None)
+    if thread:
+        thread.join()
+    else:
+        # Fallback: give it a moment to drain the queue
+        import time
+        time.sleep(0.2)
+
+    # Flush and close all handlers
+    logging.shutdown()
+
+
+def processing_mode(config, log_queue):
+    """
+    Run damage/loss calculations.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Running in processing mode")
+
     if not os.path.exists(config.output_path):
         # Create output directory if it does not exist yet
         os.mkdir(config.output_path)
@@ -497,7 +534,7 @@ def main():
             "The directory '%s' is not empty but should be. The program will stop."
             % (config.output_path)
         )
-        logging.getLogger(__name__).critical(error_message)
+        logger.critical(error_message)
         raise OSError(error_message)
 
     # Create sub-directories to store updated exposure models
@@ -507,42 +544,38 @@ def main():
     os.mkdir(os.path.join(config.output_path, "mapped_exposure_csv"))
 
     # Read exposure input names
-    logging.getLogger(__name__).info(
-        "Retrieving name(s) of input initial exposure model(s)"
-    )
+    logger.info("Retrieving name(s) of input initial exposure model(s)")
     exposure_input_names = retrieve_exposure_input_names(config.input_paths["exposure_csv"])
 
-    logging.getLogger(__name__).info(
+    logger.info(
         "Running of calculations will be parallelised %s"
-        % (config.mode.replace("_", " "))
+        % (config.parallelisation_mode.replace("_", " "))
     )
 
-    if config.mode == "by_input_exposure":
+    if config.parallelisation_mode == "by_input_exposure":
         # Load objects necessary for pre-loading all intensity values
         # (exposure_geoms, intensity_provider)
         # Read intensity files
-        logging.getLogger(__name__).info("Reading input intensity file(s)")
+        logger.info("Reading input intensity file(s)")
         intensity_provider = read_intensity_files(
             config.input_paths["intensity"],
             config.parameters["intensity_file_type"]
         )
 
         if len(intensity_provider.keys()) == 0:
-            logging.getLogger(__name__).info(
+            logger.info(
                 "No intensity files found. "
                 "Check if 'intensity_file_type' in 'config.yml' is supported."
             )
             return
 
         # Read exposure geometries
-        logging.getLogger(__name__).info("Reading exposure geometries")
+        logger.info("Reading exposure geometries")
         exposure_geoms = read_exposure_geoms(config.input_paths["exposure_gpkg"])
 
         # Retrieve location (nearest neighbour position) of hazard intensity measures at the
         # centroids indicated in the input exposure geometries
-        logging.getLogger(__name__).info(
-            "Determining nearest-neighbour hazard positions for all exposure sites"
-        )
+        logger.info("Determining nearest-neighbour hazard positions for all exposure sites")
         target_locations = np.array(
             [exposure_geoms["centroid_lon"], exposure_geoms["centroid_lat"]]
         ).T
@@ -565,7 +598,7 @@ def main():
             for realisation in intensity_provider[branch]:
                 # Set up internal logger
                 step_logger = logging.LoggerAdapter(
-                    logging.getLogger(__name__), {"branch": branch, "realisation": realisation}
+                    logger, {"branch": branch, "realisation": realisation}
                 )
 
                 all_intensities = (
@@ -598,16 +631,16 @@ def main():
         ) as pool:
             pool.map(func, exposure_input_names)
 
-    elif config.mode == "by_intensity_realisation":
+    elif config.parallelisation_mode == "by_intensity_realisation":
         # Read intensity files
-        logging.getLogger(__name__).info("Reading input intensity file(s)")
+        logger.info("Reading input intensity file(s)")
         intensity_provider = read_intensity_files(
             config.input_paths["intensity"],
             config.parameters["intensity_file_type"]
         )
 
         if len(intensity_provider.keys()) == 0:
-            logging.getLogger(__name__).info(
+            logger.info(
                 "No intensity files found. "
                 "Check if 'intensity_file_type' in 'config.yml' is supported."
             )
@@ -615,14 +648,12 @@ def main():
 
         # Load objects necessary for pre-loading all exposure models
         # (exposure_geoms, schema_mapper)
-        logging.getLogger(__name__).info("Reading exposure geometries")
+        logger.info("Reading exposure geometries")
         exposure_geoms = read_exposure_geoms(config.input_paths["exposure_gpkg"])
 
         # Retrieve location (nearest neighbour position) of hazard intensity measures at the
         # centroids indicated in the input exposure geometries
-        logging.getLogger(__name__).info(
-            "Determining nearest-neighbour hazard positions for all exposure sites"
-        )
+        logger.info("Determining nearest-neighbour hazard positions for all exposure sites")
         target_locations = np.array(
             [exposure_geoms["centroid_lon"], exposure_geoms["centroid_lat"]]
         ).T
@@ -635,7 +666,7 @@ def main():
             index=exposure_geoms["building_id"]
         )
 
-        logging.getLogger(__name__).info("Reading input compatibility matrices")
+        logger.info("Reading input compatibility matrices")
         if (
             config.input_paths["conversion_taxonomy"] == "None"
             and config.input_paths["conversion_damage_states"] == "None"
@@ -648,7 +679,7 @@ def main():
             )
 
         # Read, check and map all input exposure models
-        logging.getLogger(__name__).info("Reading all input exposure models")
+        logger.info("Reading all input exposure models")
         mapped_exposures = {}
         for initial_exposure_name_raw in exposure_input_names:
             mapped_exposure, _ = read_check_and_map_exposure(
@@ -685,26 +716,23 @@ def main():
 
     else:
         error_message = (
-            "Running mode %s not recognised. The program will stop."
-            % (config.mode)
+            "Parallelisation mode %s not recognised. The program will stop."
+            % (config.parallelisation_mode)
         )
-        logging.getLogger(__name__).critical(error_message)
+        logger.critical(error_message)
         raise OSError(error_message)
 
-    logging.getLogger(__name__).info("Beyond-DEUS has finished")
-    listener.stop()
+    logger.info("Running in processing mode has finished")
 
-    # If the listener has a private thread attribute, join it
-    thread = getattr(listener, '_thread', None) or getattr(listener, 'thread', None)
-    if thread:
-        thread.join()
-    else:
-        # Fallback: give it a moment to drain the queue
-        import time
-        time.sleep(0.2)
 
-    # Flush and close all handlers
-    logging.shutdown()
+def post_processing_mode(config):
+    """
+    Calculate statistics of previously-run damage/loss calculations.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Running in post-processing mode")
+    # TO DO
+    logger.info("Running in post-processing mode has finished")
 
 
 class SafeFormatter(logging.Formatter):

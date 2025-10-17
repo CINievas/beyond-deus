@@ -40,10 +40,16 @@ it will be created. If it exists, it must be empty, otherwise the software will 
 avoid overwritting results from previous runs).
 - `output_path_profiling`: Path to the folder to which the outputs of `profiling.py` will be
 written, if `profiling.py` is manually run.
-- `mode`: Parallelisation mode. Currently supported options are "by_input_exposure" (each CPU
-will process all hazard intensity branches and realisations for one individual input exposure
-model) and "by_intensity_realisation" (each CPU will process one especific combination of a
-realisation of hazard intensity and input exposure model).
+- `running_mode`: Mode in which the software runs. Currently supported options:
+  - `processing`: The software will calculate damage/losses only, without outputting statistics.
+  - `post-processing`: The software will only calculate statistics of previously-run
+  calculations.
+  - `both`: The software will calculate damage/losses as well as the statistics of the current
+  calculation.
+- `parallelisation_mode`: Parallelisation mode. Currently supported options are
+"by_input_exposure" (each CPU will process all hazard intensity branches and realisations for
+one individual input exposure model) and "by_intensity_realisation" (each CPU will process one
+especific combination of a realisation of hazard intensity and input exposure model).
 - `cpus`: Number of processors to be used in the parallelisation of the calculations.
 - `parameters`:
   - `building_schema_exposure`: Name of the building classification schema of the input exposure

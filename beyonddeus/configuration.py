@@ -54,7 +54,15 @@ class Configuration:
             exist, it will be created.
         self.output_path_profiling (str):
             Path to directory where outputs of profiling.py will be written, if manually run.
-        self.mode (str):
+        self.running_mode (str):
+            Mode in which the software runs. Currently supported options:
+                - "processing": The software will calculate damage/losses only, without
+                    outputting statistics.
+                - "post-processing": The software will only calculate statistics of
+                    previously-run calculations.
+                - "both": The software will calculate damage/losses as well as the statistics of
+                    the current calculation.
+        self.parallelisation_mode (str):
             Parallelisation mode. Currently supported options are "by_input_exposure" (each CPU
             will process all hazard intensity branches and realisations for one individual input
             exposure model) and "by_intensity_realisation" (each CPU will process one especific
@@ -177,8 +185,12 @@ class Configuration:
             config, "output_path_profiling"
         )
 
-        self.mode = self._assign_parameter(
-            config, "mode"
+        self.running_mode = self._assign_parameter(
+            config, "running_mode"
+        )
+
+        self.parallelisation_mode = self._assign_parameter(
+            config, "parallelisation_mode"
         )
 
         self.cpus = self._assign_parameter(
