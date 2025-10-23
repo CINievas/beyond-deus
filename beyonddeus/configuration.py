@@ -136,6 +136,42 @@ class Configuration:
                     "damage_with_people_gpkg_per_realisation": Same as
                         'damage_gpkg_per_realisation', plus columns with number of census people
                         per damage state.
+        self.post_processing (dict):
+            Dictionary indicating the parameters and info necessary for the post-processing of
+            damage/loss results and calculation of statistics. Sub-parameters include:
+                "target_quantiles" (list of float):
+                    List of quantiles in the range (0.0, 1.0) to be used for calculating
+                    quantiles of results.
+                "logic_tree_meta" (dict):
+                    Dictionary describing the logic trees of all hazards in the chain run so
+                    far. The sub-keys are integers >= 1, indicating the order in which the
+                    hazards were applied (1 = first hazard, 2 = second hazard, ...). For each
+                    hazard, the subkey is a dictionary with the following parameters:
+                        "hazard_prefix" (str):
+                            'self.hazard_prefix' as used in the associated software run.
+                        "logic_tree_path" (str):
+                            Full path to CSV file containing the logic tree associated with this
+                            hazard (the file contains all names and weights of the logic tree
+                            branches).
+                        "realisations" (int > 0):
+                            Number of realisations per logic tree branch.
+                "initial_damage_range" (list of int):
+                    List of integers designating the initial damage states (of the last hazard
+                    run).
+                "final_damage_range" (list of int):
+                    List of integers designating the final damage states (of the last hazard
+                    run).
+                "types":
+                    Dictionary indicating the kind of post-processing outputs to export, by
+                    means of True/False. Options are sets of nested keys:
+                        "by_initial_and_final_damage_all": Mean, quantiles and standard
+                            deviation of number of buildings, incremental loss and cumulative
+                            loss, per combination of initial-final damage states, for all
+                            branches and realisations considered together, with their weights.
+                        "by_initial_and_final_damage_per_branch": Mean, quantiles and standard
+                            deviation of number of buildings, incremental loss and cumulative
+                            loss, per combination of initial-final damage states, for each
+                            branch of each hazard run so far.
     """
 
     def __init__(self, filepath):
@@ -308,6 +344,79 @@ class Configuration:
             )
         )
 
+        aux_post_processing = self._assign_parameter(
+            config, "post_processing"
+        )
+        if aux_post_processing == "None":
+            self.post_processing = aux_post_processing
+        else:
+            self.post_processing = {}
+
+            self.post_processing["target_quantiles"] = self._assign_listed_parameters(
+                aux_post_processing, "target_quantiles"
+            )
+            for i in range(len(self.post_processing["target_quantiles"])):
+                self.post_processing["target_quantiles"][i] = float(
+                    self.post_processing["target_quantiles"][i]
+                )
+
+            self.post_processing["logic_tree_meta"] = self._assign_hierarchical_parameters(
+                aux_post_processing, "logic_tree_meta"
+            )
+
+            self.post_processing["initial_damage_range"] = self._assign_listed_parameters(
+                aux_post_processing, "initial_damage_range"
+            )
+            for i in range(len(self.post_processing["initial_damage_range"])):
+                self.post_processing["initial_damage_range"][i] = int(
+                    self.post_processing["initial_damage_range"][i]
+                )
+            for i in range(len(self.post_processing["initial_damage_range"])-1):
+                if (
+                    self.post_processing["initial_damage_range"][i]
+                    > self.post_processing["initial_damage_range"][i+1]
+                ):
+                    error_message = (
+                        "The damage states in 'initial_damage_range' need to be in ascending "
+                        "order (e.g., [0, 1, ...], not [4, 3, ...], not [0, 4, 2, ...])"
+                    )
+                    logger.critical(error_message)
+                    raise OSError(error_message)
+
+            self.post_processing["final_damage_range"] = self._assign_listed_parameters(
+                aux_post_processing, "final_damage_range"
+            )
+            for i in range(len(self.post_processing["final_damage_range"])):
+                self.post_processing["final_damage_range"][i] = int(
+                    self.post_processing["final_damage_range"][i]
+                )
+            for i in range(len(self.post_processing["final_damage_range"])-1):
+                if (
+                    self.post_processing["final_damage_range"][i]
+                    > self.post_processing["final_damage_range"][i+1]
+                ):
+                    error_message = (
+                        "The damage states in 'final_damage_range' need to be in ascending "
+                        "order (e.g., [0, 1, ...], not [4, 3, ...], not [0, 4, 2, ...])"
+                    )
+                    logger.critical(error_message)
+                    raise OSError(error_message)
+
+            self.post_processing["types"] = self._assign_hierarchical_parameters(
+                aux_post_processing, "types"
+            )
+
+        if (
+            (self.running_mode in ("post-processing", "both"))
+            and (self.post_processing == "None")
+        ):
+            error_message = (
+                "Running mode %s requires that 'post_processing' parameters "
+                "be indicated in config.yml. The program cannot run."
+                % (self.running_mode)
+            )
+            logger.critical(error_message)
+            raise OSError(error_message)
 
     def _read_config_file(self, filepath):
         """This function attempts to open the configuration file. If not found, it logs a
@@ -356,5 +465,84 @@ class Configuration:
                 "Warning: parameter '%s' is missing from configuration file" % (input_parameter)
             )
             assigned_parameter = None
+
+        return assigned_parameter
+
+    def _assign_listed_parameters(self, config, input_parameter):
+        """This function searches for the key input_parameter in the dictionary config, and
+        splits its assigned value as per ", ", i.e. a comma plus space separation.
+
+        If input_parameter is not a key of config, the output is None.
+
+        Args:
+            config (dictionary):
+                The configuration file read as a dictionary. It may be an empty dictionary.
+            input_parameter (str):
+                Name of the desired parameter, to be searched for as a primary key of config.
+
+        Returns:
+            assigned_parameter (list of str):
+                Each element of the list is an element of config[input_parameter], separated as
+                per a comma followed by a space (", "). E.g. if 'config[input_parameter]' is
+                "Name_A, Name_B", 'assigned_parameter' is ["Name_A", "Name_B"].
+        """
+
+        assigned_parameter = self._assign_parameter(config, input_parameter)
+
+        if assigned_parameter is None:
+            return None
+
+        assigned_parameter = assigned_parameter.split(", ")
+
+        return assigned_parameter
+
+    def _assign_hierarchical_parameters(self, config, input_parameter, requested_nested=[]):
+        """This function searches for the key input_parameter in the dictionary config, and for
+        each of the elements of requested_nested as keys of config[input_parameter].
+
+        If input_parameter is not a key of config, the output is None.
+
+        If input_parameter is a key of config, but one of the elements of requested_nested is
+        not a key of config[input_parameter], the output is None.
+
+        Args:
+            config (dictionary):
+                The configuration file read as a dictionary. It may be an empty dictionary.
+            input_parameter (str):
+                Name of the desired parameter, to be searched for as a primary key of config.
+            requested_nested (list of str):
+                List of the names of the desired nested parameters, to be searched for as keys
+                of config[input_parameter]. If empty, the function will retrieve all nested
+                parameters available in 'config'.
+
+        Returns:
+            assigned_parameter (dictionary or None):
+                The content of config[input_parameter], if input_parameter is a key of config
+                and all elements of requested_nested are keys of config[input_parameter], or
+                None otherwise.
+        """
+
+        assigned_parameter = self._assign_parameter(config, input_parameter)
+
+        if assigned_parameter is None:
+            return None
+
+        if not isinstance(assigned_parameter, dict):
+            return None
+
+        if len(requested_nested) == 0:
+            requested_nested = list(assigned_parameter.keys())
+
+        sub_parameters_missing = False
+        for requested_parameter in requested_nested:
+            if requested_parameter not in assigned_parameter.keys():
+                logger.critical(
+                    "ERROR instantiating Configuration: parameter '%s' does not "
+                    "exist in %s" % (requested_parameter, input_parameter)
+                )
+                sub_parameters_missing = True
+
+        if sub_parameters_missing is True:
+            return None
 
         return assigned_parameter

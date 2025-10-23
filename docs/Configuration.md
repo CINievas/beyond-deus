@@ -112,5 +112,25 @@ corresponding output type:
     columns with number of census people per damage state.
     - `damage_with_people_gpkg_per_realisation`: Same as `damage_gpkg_per_realisation`, plus
     columns with number of census people per damage state.
+- `post_processing`: If `running_mode` is either `post-processing` or `both`, these
+post-processing parameters need to be provided for the generation of statistics on damage/loss.
+Sub-parameters include:
+  - `target_quantiles`: List of quantiles in the range (0.0, 1.0) to be used for calculating
+  quantiles of results.
+  - `logic_tree_meta`: Nested dictionaries describing the logic trees of all hazards in the
+  chain run so far. The sub-keys need to be integers >= 1, indicating the order in which the
+  hazards were applied (1 = first hazard, 2 = second hazard, ...). For each hazard, the subkey
+  is a dictionary with the following parameters:
+    - `hazard_prefix`: `hazard_prefix` (see above) as used in the associated software run.
+    - `logic_tree_path`: Full path to CSV file containing the logic tree associated with this
+    hazard (the file contains all names and weights of the logic tree branches; see
+    [here](Post_Processing.md)).
+    - `realisations`: Number of realisations per logic tree branch of this hazard. It is assumed
+    that all realisations of the same logic tree branch carry the same weight (i.e., the weight
+    within the branch of a realisation is calculated as 1/`realisations`).
+  - `initial_damage_range`: List of integers designating the initial damage states of the last
+  hazard run.
+  - `final_damage_range`: List of integers designating the final damage states of the last
+  hazard run.
 
 An example of a config.yml file can be found [here](../config_example.yml).

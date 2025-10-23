@@ -38,6 +38,7 @@ from beyonddeus.exposure import (
 from beyonddeus.loss import LossProvider
 from beyonddeus.usability import Usability
 from beyonddeus.output_generator import OutputGenerator
+from beyonddeus.post_processor import PostProcessor
 
 # Worker functions use globals pickled at Pool startup
 _config = None
@@ -731,7 +732,42 @@ def post_processing_mode(config):
     """
     logger = logging.getLogger(__name__)
     logger.info("Running in post-processing mode")
-    # TO DO
+
+    if not os.path.exists(config.output_path):
+        error_message = (
+            "The path '%s' does not exist. No results can be retrieved to be post-processed. "
+            "The program will stop." % (config.output_path)
+        )
+        logger.critical(error_message)
+        raise OSError(error_message)
+
+    # Check if output directory is empty
+    if len(os.listdir(config.output_path)) == 0:
+        error_message = (
+            "The directory '%s' is empty. No results can be retrieved to be post-processed. "
+            "The program will stop." % (config.output_path)
+        )
+        logger.critical(error_message)
+        raise OSError(error_message)
+
+    # Prepare directory to output statistics
+    stats_output_path = os.path.join(config.output_path, "statistics")
+    if os.path.exists(stats_output_path):
+        # If it exists, check if there are files in it
+        if not len(os.listdir(stats_output_path)) == 0:
+            error_message = (
+                "The path '%s' contains previously-calculated statistics. "
+                "The program will stop." % (config.output_path)
+            )
+            logger.critical(error_message)
+            raise OSError(error_message)
+    else:
+        # Create sub-directory to store statistics
+        os.mkdir(stats_output_path)
+
+    postprocessor = PostProcessor(config.post_processing, config.output_path)
+    postprocessor.export()
+
     logger.info("Running in post-processing mode has finished")
 
 

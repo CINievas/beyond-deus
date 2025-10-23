@@ -1,0 +1,7 @@
+EQ,TSU,weight_branches,weight_realisations
+earthq_1,tsun_1,0.125,0.000125
+earthq_1,tsun_2,0.375,0.000375
+earthq_2,tsun_1,0.050,0.000050
+earthq_2,tsun_2,0.150,0.000150
+earthq_3,tsun_1,0.075,0.000075
+earthq_3,tsun_2,0.225,0.000225
