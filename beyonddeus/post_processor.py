@@ -117,13 +117,19 @@ class PostProcessor:
     def export(self):
         summaries = {}
 
+        if self.post_processing_config["types"]["by_initial_and_final_damage_all"]:
+            summaries["by_initial_and_final_damage_all"] = (
+                self.calculate_total_stats_by_initial_and_final_damage()
+            )
+
         if self.post_processing_config["types"]["by_initial_and_final_damage_per_branch"]:
             summaries["by_initial_and_final_damage_per_branch"] = (
                 self.calculate_by_initial_and_final_damage_per_branch()
             )
 
         return summaries
-        
+
+
     def calculate_by_initial_and_final_damage_per_branch(self):
         """
         This method calculates weighted means, weighted standard deviations and weighted
@@ -184,7 +190,7 @@ class PostProcessor:
                 ]
 
                 logger.info("            Found %s files" % (len(matching_files)))
-                
+
                 gather_hazards.append(haz_prefix)
                 gather_branches.append(branch)
                 gather_number_files.append(len(matching_files))
@@ -224,7 +230,7 @@ class PostProcessor:
                 normalised_weights = weights / weights.sum()
 
                 filename_stem = ("%s_b_%s" % (haz_prefix, branch))
-                
+
                 weighted_means = np.average(
                     all_data, axis=2, weights=normalised_weights
                 )
@@ -294,6 +300,166 @@ class PostProcessor:
                 self.general_output_path,
                 "statistics",
                 "by_initial_and_final_damage_by_branch_meta_summary.csv"
+            ),
+            index=False
+        )
+
+        return summary_number_files
+
+
+    def calculate_total_stats_by_initial_and_final_damage(self):
+        """
+        This method calculates weighted means, weighted standard deviations and weighted
+        quantiles of the number of buildings, incremental losses and cumulative losses by
+        combination of initial and final damage state, for the whole set of results available
+        in 'self.general_output_path', assumed to correspond to all branches and realisations of
+        'self.post_processing_config["logic_tree_meta"]'.
+
+        Resulting statistics are exported to `self.general_output_path`\statistics with
+        filenames following the pattern "by_initial_and_final_damage_by_branch_STATNAME.csv",
+        where STATNAME is the name of the statistics (means, stdev, ...).
+
+        Returns:
+            summary_number_files (Pandas DataFrame):
+                DataFrame summarising the number of files that were found and used to calculate
+                the statistics of each branch of each hazard. Columns:
+                    "hazard": Name (prefix) of the hazard.
+                    "branch": Name of the branch,
+                    "number_files": Number of files.
+        """
+        logger.info(
+            "Calculating total stats of number of buildings and losses "
+            "per initial and final damage state"
+        )
+
+        columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
+
+        # Initialise list to collect all data:
+        all_data_slices = []  # each element will be a 2D array
+
+        # Initialise "weights" to collect weights, same dimension as "depth" of "all_data"
+        weights = []
+
+        target_output = "by_initial_and_final_damage"
+
+        matching_files = [
+            f for f in os.listdir(self.general_output_path)
+            if target_output.lower() in f.lower()
+        ]
+
+        logger.info("    Found %s files" % (len(matching_files)))
+
+        for k, filename in enumerate(matching_files):
+            # Retrieve results of this realisation
+            df = pd.read_csv(
+                os.path.join(self.general_output_path, filename),
+                index_col=[0, 1]
+            )
+
+            # All arrays that go into "all_data_slices" need to have the same shape, but it may
+            # be that this df does not have all possible combinations of initial and final
+            # damage, so cast into standard shape
+            structure_array = np.zeros(
+                (
+                    self.all_initial_final_damage_combinations.shape[0],
+                    len(columns_to_use),
+                )
+            )
+            rows_to_fill = self.rows_all_initial_final_damage_combinations[
+                self.all_initial_final_damage_combinations.isin(df.index)
+            ]
+            structure_array[rows_to_fill, :] = df[columns_to_use].to_numpy()
+            # If this df didn't have all combinations, those rows will have zeroes
+
+            all_data_slices.append(structure_array)
+
+            # Retrieve weight of this realisation
+            haz_branch_realisation_info = (
+                retrieve_hazard_branch_realisation_from_filename(filename)
+            )
+            filtered_weights = retrieve_weight(
+                haz_branch_realisation_info, self.all_logic_tree_combination_weights
+            )
+            weights.append(filtered_weights.loc[0, "weight_realisations"])
+
+        all_data = np.stack(all_data_slices, axis=2)
+        # Dimensions of "all_data":
+        # rows: all initial and final damage combinations
+        # columns: columns_to_use
+        # depth: the number of data results (e.g. 5,000*13=65,000 in the EQ-TSU case)
+
+        logger.info("    A total of %s realisations were retrieved" % (all_data.shape[2]))
+
+        weights = np.array(weights)
+        normalised_weights = weights / weights.sum()
+
+        weighted_means = np.average(
+            all_data, axis=2, weights=normalised_weights
+        )
+        weighted_means_df = pd.DataFrame(
+            weighted_means,
+            columns=columns_to_use,
+            index=self.all_initial_final_damage_combinations
+        )
+        weighted_means_df.to_csv(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "by_initial_and_final_damage_by_branch_means_total.csv"
+            ),
+            index=True
+        )
+
+        weighted_st_dev_df = pd.DataFrame(
+            weighted_sample_unbiased_stdev_3D(
+                all_data, normalised_weights, weighted_means
+            ),
+            columns=columns_to_use,
+            index=self.all_initial_final_damage_combinations
+        )
+        weighted_st_dev_df.to_csv(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "by_initial_and_final_damage_by_branch_stdev_total.csv"
+            ),
+            index=True
+        )
+
+        quantiles = np.quantile(
+            all_data,
+            self.post_processing_config["target_quantiles"],
+            axis=2,
+            weights=normalised_weights,
+            method="inverted_cdf"
+        )
+
+        for q, quantile in enumerate(self.post_processing_config["target_quantiles"]):
+            quantile_str = "{:.2f}".format(quantile).replace(".", "_")
+
+            quantile_df = pd.DataFrame(
+                quantiles[q, :, :],
+                columns=columns_to_use,
+                index=self.all_initial_final_damage_combinations
+            )
+            quantile_df.to_csv(
+                os.path.join(
+                    self.general_output_path, "statistics",
+                    "by_initial_and_final_damage_by_branch_q_%s_total.csv" % (quantile_str)
+                ),
+                index=True
+            )
+
+        summary_number_files = pd.DataFrame(
+            {
+                "hazard": ["all"],
+                "branch": ["all"],
+                "number_files": [len(matching_files)]
+            }
+        )
+        summary_number_files.to_csv(
+            os.path.join(
+                self.general_output_path,
+                "statistics",
+                "by_initial_and_final_damage_total_meta_summary.csv"
             ),
             index=False
         )
@@ -475,7 +641,7 @@ def retrieve_hazard_branch_realisation_from_filename(filename):
                 respectively
             - "EXPOSUREFILENAME" is the name of the input exposure file, removing the extension, 
             - "output_type" is the type of output.
-            
+
     Returns:
         results (list of dict):
             List with one dictionary per hazard that has been run. Each dictionary contains:
@@ -526,7 +692,7 @@ def retrieve_weight(haz_branch_realisation_info, all_logic_tree_combination_weig
             It also contains one column per hazard, indicating the name of the branch of each
             hazard associated with a row. Each row is one full-path end-branch combination.
             It is the output of 'calculate_all_logic_tree_combination_weights'.
-        
+
     Returns:
         filtered_weights (Pandas DataFrame):
             The one row of 'all_logic_tree_combination_weights' that refers to the full-path
@@ -602,7 +768,7 @@ def weighted_sample_unbiased_stdev_3D(data_3D, weights, weighted_means):
     array ('data_3D') with reliability weights 'weights' and weighted mean 'weighted_means'
     (2D array). It is assumed that 'weighted_means' has been calcualted with the same 'data_3D'
     and 'weights', also along axis=2. It calls 'weighted_sample_unbiased_stdev_1D'.
-    
+
     Args:
         data_3D (arr of float): 3D array of individual data values.
             Dimensions: num_rows x num_cols x num_data_points.

@@ -301,7 +301,14 @@ def test_PostProcessor_export():
     tsu_branches = ["tsun_1", "tsun_2"]
     stats = ["means", "stdev", "q_0_50", "q_0_95"]
 
-    expected_filenames = ["by_initial_and_final_damage_by_branch_meta_summary.csv"]
+    expected_filenames = [
+        "by_initial_and_final_damage_total_meta_summary.csv",
+        "by_initial_and_final_damage_by_branch_meta_summary.csv",
+        "by_initial_and_final_damage_by_branch_means_total.csv",
+        "by_initial_and_final_damage_by_branch_stdev_total.csv",
+        "by_initial_and_final_damage_by_branch_q_0_50_total.csv",
+        "by_initial_and_final_damage_by_branch_q_0_95_total.csv"
+    ]
 
     for branch in tsu_branches:
         for stat in stats:
@@ -321,7 +328,7 @@ def test_PostProcessor_export():
         assert filename in returned_filenames
 
     # Check summary of number of files:
-    assert len(returned_summaries.keys()) == 1
+    assert len(returned_summaries.keys()) == 2
 
     expected_summary = pd.DataFrame(
         {
@@ -339,8 +346,8 @@ def test_PostProcessor_export():
         for col in expected_summary.columns:
             assert returned_summaries[key].loc[row, col] == expected_summary.loc[row, col]
 
-    # Check stats for one case: number of buildings that transitioned from DS1 to DS2, for
-    # the earthquake branch "earthq_2":
+    # Check stats for one per-branch case: number of buildings that transitioned
+    # from DS1 to DS2, for the earthquake branch "earthq_2":
     expected_mean = 72.964025
     expected_stdev = 2.992626
     expected_q_0_50 = 71.929000
@@ -377,6 +384,45 @@ def test_PostProcessor_export():
         index_col = [0, 1]
     )
     assert round(q_0_95_df.loc[(1, 2), "number"], 5) == round(expected_q_0_95, 5)
+
+    # Check stats for one total case: number of buildings that transitioned
+    # from DS1 to DS2:
+    expected_mean = 122.87894875
+    expected_stdev = 29.13962854
+    expected_q_0_50 = 139.9373
+    expected_q_0_95 = 158.3046
+
+    mean_df = pd.read_csv(
+        os.path.join(
+            stats_output_path, "by_initial_and_final_damage_by_branch_means_total.csv"
+        ),
+        index_col = [0, 1]
+    )
+    assert round(mean_df.loc[(1, 2), "number"], 5) == round(expected_mean, 5)
+
+    stdev_df = pd.read_csv(
+        os.path.join(
+            stats_output_path, "by_initial_and_final_damage_by_branch_stdev_total.csv"
+        ),
+        index_col = [0, 1]
+    )
+    assert round(stdev_df.loc[(1, 2), "number"], 5) == round(expected_stdev, 5)
+
+    q_0_50_df = pd.read_csv(
+        os.path.join(
+            stats_output_path, "by_initial_and_final_damage_by_branch_q_0_50_total.csv"
+        ),
+        index_col = [0, 1]
+    )
+    assert round(q_0_50_df.loc[(1, 2), "number"], 4) == round(expected_q_0_50, 4)
+
+    q_0_95_df = pd.read_csv(
+        os.path.join(
+            stats_output_path, "by_initial_and_final_damage_by_branch_q_0_95_total.csv"
+        ),
+        index_col = [0, 1]
+    )
+    assert round(q_0_95_df.loc[(1, 2), "number"], 4) == round(expected_q_0_95, 4)
 
     # Delete created output files
     for filename in expected_filenames:
