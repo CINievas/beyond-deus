@@ -281,7 +281,10 @@ def test_PostProcessor_export():
         "final_damage_range": [0, 1, 2, 3, 4],
         "types": {
             "by_initial_and_final_damage_all": True,
-            "by_initial_and_final_damage_per_branch": True
+            "by_initial_and_final_damage_per_branch": True,
+            "loss_by_building_id_per_branch": False,
+            "damage_by_building_id_per_branch": False,
+            "damage_with_people_by_building_id_per_branch": False
         }
     }
 
@@ -293,8 +296,10 @@ def test_PostProcessor_export():
     stats_output_path = os.path.join(output_path, "statistics")
     os.mkdir(stats_output_path)
 
+    exposure_geoms = None  # Not testing this functionality yet
+
     postprocessor = PostProcessor(post_processing, output_path)
-    returned_summaries = postprocessor.export()
+    returned_summaries = postprocessor.export(exposure_geoms)
 
     # Build names of expected output files
     eq_branches = ["earthq_1", "earthq_2", "earthq_3"]
@@ -304,10 +309,10 @@ def test_PostProcessor_export():
     expected_filenames = [
         "by_initial_and_final_damage_total_meta_summary.csv",
         "by_initial_and_final_damage_by_branch_meta_summary.csv",
-        "by_initial_and_final_damage_by_branch_means_total.csv",
-        "by_initial_and_final_damage_by_branch_stdev_total.csv",
-        "by_initial_and_final_damage_by_branch_q_0_50_total.csv",
-        "by_initial_and_final_damage_by_branch_q_0_95_total.csv"
+        "by_initial_and_final_damage_total_means.csv",
+        "by_initial_and_final_damage_total_stdev.csv",
+        "by_initial_and_final_damage_total_q_0_50.csv",
+        "by_initial_and_final_damage_total_q_0_95.csv"
     ]
 
     for branch in tsu_branches:
@@ -394,7 +399,7 @@ def test_PostProcessor_export():
 
     mean_df = pd.read_csv(
         os.path.join(
-            stats_output_path, "by_initial_and_final_damage_by_branch_means_total.csv"
+            stats_output_path, "by_initial_and_final_damage_total_means.csv"
         ),
         index_col = [0, 1]
     )
@@ -402,7 +407,7 @@ def test_PostProcessor_export():
 
     stdev_df = pd.read_csv(
         os.path.join(
-            stats_output_path, "by_initial_and_final_damage_by_branch_stdev_total.csv"
+            stats_output_path, "by_initial_and_final_damage_total_stdev.csv"
         ),
         index_col = [0, 1]
     )
@@ -410,7 +415,7 @@ def test_PostProcessor_export():
 
     q_0_50_df = pd.read_csv(
         os.path.join(
-            stats_output_path, "by_initial_and_final_damage_by_branch_q_0_50_total.csv"
+            stats_output_path, "by_initial_and_final_damage_total_q_0_50.csv"
         ),
         index_col = [0, 1]
     )
@@ -418,7 +423,7 @@ def test_PostProcessor_export():
 
     q_0_95_df = pd.read_csv(
         os.path.join(
-            stats_output_path, "by_initial_and_final_damage_by_branch_q_0_95_total.csv"
+            stats_output_path, "by_initial_and_final_damage_total_q_0_95.csv"
         ),
         index_col = [0, 1]
     )

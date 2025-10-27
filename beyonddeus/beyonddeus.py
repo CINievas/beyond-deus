@@ -765,8 +765,20 @@ def post_processing_mode(config):
         # Create sub-directory to store statistics
         os.mkdir(stats_output_path)
 
+    exposure_geoms = None
+    if (
+        config.post_processing["types"]["loss_by_building_id_per_branch"] or
+        config.post_processing["types"]["damage_by_building_id_per_branch"] or
+        config.post_processing["types"]["damage_with_people_by_building_id_per_branch"]
+       ):
+        # Read exposure geometries
+        logger.info("Reading exposure geometries")
+        exposure_geoms = read_exposure_geoms(config.input_paths["exposure_gpkg"])
+        exposure_geoms.set_index(exposure_geoms["building_id"], inplace=True)
+        exposure_geoms.drop(columns=["building_id"], inplace=True)
+
     postprocessor = PostProcessor(config.post_processing, config.output_path)
-    postprocessor.export()
+    _ = postprocessor.export(exposure_geoms)
 
     logger.info("Running in post-processing mode has finished")
 

@@ -72,6 +72,17 @@ class PostProcessor:
                                 standard deviation of number of buildings, incremental loss and
                                 cumulative loss, per combination of initial-final damage states,
                                 for each branch of each hazard run so far.
+                            "loss_by_building_id_per_branch": Mean, quantiles and standard
+                                deviation of incremental loss (absolute and ratio) and
+                                cumulative loss (absolute and ratio) per building_id, for each
+                                branch of each hazard run so far.
+                            "damage_by_building_id_per_branch": Mean, quantiles and standard
+                                deviation of number and proportion of buildings per damage state,
+                                per building_id and for each branch of each hazard run so far.
+                            "damage_with_people_by_building_id_per_branch": Mean, quantiles and
+                                standard deviation of number and proportion of buildings, and
+                                number of census people per damage state, per building_id and
+                                for each branch of each hazard run so far.
             self.general_output_path (str):
                 Path to directory where outputs to be post-processed are stored, and where
                 post-processing results will be stored (under the "statistics" sub-directory).
@@ -114,7 +125,14 @@ class PostProcessor:
             )
         )
 
-    def export(self):
+    def export(self, exposure_geoms):
+        """
+        Args:
+            exposure_geoms (GeoPandas GeoDataFrame):
+                GeoDataFrame with the geometries of the exposure polygons. The indices are the
+                exposure "building_id"s. Only necessary if post-processing "by_building"
+                results, otherwise can be None.
+        """
         summaries = {}
 
         if self.post_processing_config["types"]["by_initial_and_final_damage_all"]:
@@ -125,6 +143,48 @@ class PostProcessor:
         if self.post_processing_config["types"]["by_initial_and_final_damage_per_branch"]:
             summaries["by_initial_and_final_damage_per_branch"] = (
                 self.calculate_by_initial_and_final_damage_per_branch()
+            )
+
+        if self.post_processing_config["types"]["loss_by_building_id_per_branch"]:
+            columns_to_use = [
+                "number",
+                "incremental_loss",
+                "cum_loss_value",
+                "incremental_loss_ratio",
+                "cum_loss_ratio"
+            ]
+            summaries["loss_by_building_id_per_branch"] = (
+                self.calculate_stats_by_building_id_per_branch(
+                    "loss", columns_to_use, exposure_geoms
+                )
+            )
+
+        if self.post_processing_config["types"]["damage_by_building_id_per_branch"]:
+
+            columns_to_use = ["number"]
+            subtypes = ["number", "proportion"]
+            for subtype in subtypes:
+                for dmg_state in self.post_processing_config["final_damage_range"]:
+                    columns_to_use.append("%s_D%s" % (subtype, dmg_state))
+
+            summaries["damage_by_building_id_per_branch"] = (
+                self.calculate_stats_by_building_id_per_branch(
+                    "damage", columns_to_use, exposure_geoms
+                )
+            )
+
+        if self.post_processing_config["types"]["damage_with_people_by_building_id_per_branch"]:
+
+            columns_to_use = ["number"]
+            subtypes = ["number", "proportion", "ppl_census"]
+            for subtype in subtypes:
+                for dmg_state in self.post_processing_config["final_damage_range"]:
+                    columns_to_use.append("%s_D%s" % (subtype, dmg_state))
+
+            summaries["damage_with_people_by_building_id_per_branch"] = (
+                self.calculate_stats_by_building_id_per_branch(
+                    "damage_with_people", columns_to_use, exposure_geoms
+                )
             )
 
         return summaries
@@ -194,6 +254,10 @@ class PostProcessor:
                 gather_hazards.append(haz_prefix)
                 gather_branches.append(branch)
                 gather_number_files.append(len(matching_files))
+
+                if len(matching_files) < 1:  # No files found
+                    logger.info("                No stats to be produced")
+                    break
 
                 all_data = np.zeros(
                     (
@@ -347,7 +411,27 @@ class PostProcessor:
             if target_output.lower() in f.lower()
         ]
 
+        summary_number_files = pd.DataFrame(
+            {
+                "hazard": ["all"],
+                "branch": ["all"],
+                "number_files": [len(matching_files)]
+            }
+        )
+        summary_number_files.to_csv(
+            os.path.join(
+                self.general_output_path,
+                "statistics",
+                "by_initial_and_final_damage_total_meta_summary.csv"
+            ),
+            index=False
+        )
+
         logger.info("    Found %s files" % (len(matching_files)))
+
+        if len(matching_files) < 1:  # No files found
+            logger.info("        No stats to be produced")
+            return summary_number_files
 
         for k, filename in enumerate(matching_files):
             # Retrieve results of this realisation
@@ -404,7 +488,7 @@ class PostProcessor:
         weighted_means_df.to_csv(
             os.path.join(
                 self.general_output_path, "statistics",
-                "by_initial_and_final_damage_by_branch_means_total.csv"
+                "by_initial_and_final_damage_total_means.csv"
             ),
             index=True
         )
@@ -419,7 +503,7 @@ class PostProcessor:
         weighted_st_dev_df.to_csv(
             os.path.join(
                 self.general_output_path, "statistics",
-                "by_initial_and_final_damage_by_branch_stdev_total.csv"
+                "by_initial_and_final_damage_total_stdev.csv"
             ),
             index=True
         )
@@ -443,28 +527,254 @@ class PostProcessor:
             quantile_df.to_csv(
                 os.path.join(
                     self.general_output_path, "statistics",
-                    "by_initial_and_final_damage_by_branch_q_%s_total.csv" % (quantile_str)
+                    "by_initial_and_final_damage_total_q_%s.csv" % (quantile_str)
                 ),
                 index=True
             )
 
+        return summary_number_files
+
+
+    def calculate_stats_by_building_id_per_branch(
+        self, output_type, columns_to_use, exposure_geoms
+    ):
+        """
+        This method calculates weighted means, weighted standard deviations and weighted
+        quantiles of the columns in 'columns_to_use' of 'output_type', per branch of each
+        hazard indicated in 'self.post_processing_config["logic_tree_meta"]'.
+
+        Resulting statistics are exported to `self.general_output_path`\statistics with
+        filenames following the pattern
+        "OUTPUTTYPE_by_building_id_by_branch_STATNAME_HAZPREFIX_b_BRANCHNAME.csv", where:
+        - OUTPUTTYPE: output_type (e.g., "loss", "damage_with_people").
+        - STATNAME: name of the statistics (means, stdev, ...)
+        - HAZPREFIX: hazard prefix
+        - BRANCHNAME: branch name
+
+        All resulting statistics, combined with the exposure geometries in 'exposure_geoms', are
+        exported to a GeoPackage file as well. The filename follows the pattern:
+        "OUTPUTTYPE_by_building_id_by_branch_stats_HAZPREFIX_b_BRANCHNAME.gpkg".
+
+        Args:
+            output_type (str):
+                Type of output to calculate statistics from. E.g.: "loss", "damage_with_people".
+            columns_to_use (list of str):
+                List of names of columns of the output file (of 'output_type') to be used for
+                the statistics.
+            exposure_geoms (GeoPandas GeoDataFrame):
+                GeoDataFrame with the geometries of the exposure polygons. The indices are the
+                exposure "building_id"s.
+
+        Returns:
+            summary_number_files (Pandas DataFrame):
+                DataFrame summarising the number of files that were found and used to calculate
+                the statistics of each branch of each hazard. Columns:
+                    "hazard": Name (prefix) of the hazard.
+                    "branch": Name of the branch,
+                    "number_files": Number of files.
+        """
+        logger.info("Calculating per-branch %s stats per building_id" % (output_type))
+
+        gather_hazards = []
+        gather_branches = []
+        gather_number_files = []
+
+        for haz in self.post_processing_config["logic_tree_meta"].keys():
+
+            haz_prefix = self.post_processing_config["logic_tree_meta"][haz]["hazard_prefix"]
+
+            logger.info("    Working on hazard %s: %s" % (haz, haz_prefix))
+
+            for branch in self.logic_tree_weights[haz_prefix]:
+                logger.info("        Working on branch %s" % (branch))
+
+                # Retrieve filenames associated with this branch of this hazard
+                substring = ("%s_b_%s_r_" % (haz_prefix, branch))
+
+                matching_files = [
+                    f for f in os.listdir(self.general_output_path)
+                    if substring.lower() in f.lower()
+                ]
+
+                # Now filter those 'matching_files' to be only those that contain
+                # "output_type" results
+                target_output = "%s_by_building_id.csv" % (output_type)
+
+                matching_files = [
+                    f for f in matching_files
+                    if target_output.lower() in f.lower()
+                ]
+
+                logger.info("            Found %s files" % (len(matching_files)))
+
+                gather_hazards.append(haz_prefix)
+                gather_branches.append(branch)
+                gather_number_files.append(len(matching_files))
+
+                if len(matching_files) < 1:  # No files found
+                    logger.info("                No stats to be produced")
+                    break
+
+                all_data = None
+                last_building_id_list = None
+                weights = np.zeros(len(matching_files))
+
+                for k, filename in enumerate(matching_files):
+                    # Retrieve results of this realisation
+                    df = pd.read_csv(
+                        os.path.join(self.general_output_path, filename),
+                        index_col=0
+                    )
+
+                    if all_data is None: # create data structure for the first time
+                        all_data = np.zeros(
+                            (
+                                df.shape[0],  # reason why we cannot create this outside
+                                len(columns_to_use),
+                                len(matching_files)
+                            )
+                        )
+
+                    all_data[:, :, k] = df[columns_to_use].to_numpy()
+
+                    # Make sure building_ids are in the same order in all files (they should be)
+                    building_ids = df.index.astype(str).to_list()  # current list of building_ids
+                    if last_building_id_list is not None:
+                        # Compare the last building_id list with the current one
+                        the_same = (building_ids == last_building_id_list)  # boolean
+                        if not the_same:
+                            error_message = (
+                                "The order of the building_ids is not the same in different "
+                                "result files. The method "
+                                "'calculate_stats_by_building_id_per_branch' cannot run"
+                            )
+                            logger.critical(error_message)
+                            raise ValueError(error_message)
+
+                    last_building_id_list = deepcopy(building_ids)
+
+                    # Retrieve weight of this realisation
+                    haz_branch_realisation_info = (
+                        retrieve_hazard_branch_realisation_from_filename(filename)
+                    )
+                    filtered_weights = retrieve_weight(
+                        haz_branch_realisation_info, self.all_logic_tree_combination_weights
+                    )
+                    weights[k] = filtered_weights.loc[0, "weight_realisations"]
+
+                normalised_weights = weights / weights.sum()
+
+                filename_stem = ("%s_b_%s" % (haz_prefix, branch))
+
+                weighted_means = np.average(
+                    all_data, axis=2, weights=normalised_weights
+                )
+                weighted_means_df = pd.DataFrame(
+                    weighted_means,
+                    columns=columns_to_use,
+                    index=last_building_id_list
+                )
+                weighted_means_df.to_csv(
+                    os.path.join(
+                        self.general_output_path, "statistics",
+                        "%s_by_building_id_by_branch_means_%s.csv" % (
+                            output_type, filename_stem
+                        )
+                    ),
+                    index=True
+                )
+
+                stats_with_geoms = exposure_geoms.join(weighted_means_df)
+
+                weighted_st_dev_df = pd.DataFrame(
+                    weighted_sample_unbiased_stdev_3D(
+                        all_data, normalised_weights, weighted_means
+                    ),
+                    columns=columns_to_use,
+                    index=last_building_id_list
+                )
+                weighted_st_dev_df.to_csv(
+                    os.path.join(
+                        self.general_output_path, "statistics",
+                        "%s_by_building_id_by_branch_stdev_%s.csv" % (
+                            output_type, filename_stem
+                        )
+                    ),
+                    index=True
+                )
+
+                stats_with_geoms = stats_with_geoms.join(
+                    weighted_st_dev_df, lsuffix="_mean", rsuffix="_stdev"
+                )
+
+                quantiles = np.quantile(
+                    all_data,
+                    self.post_processing_config["target_quantiles"],
+                    axis=2,
+                    weights=normalised_weights,
+                    method="inverted_cdf"
+                )
+
+                for q, quantile in enumerate(self.post_processing_config["target_quantiles"]):
+                    quantile_str = "{:.2f}".format(quantile).replace(".", "_")
+
+                    quantile_df = pd.DataFrame(
+                        quantiles[q, :, :],
+                        columns=columns_to_use,
+                        index=last_building_id_list
+                    )
+                    quantile_df.to_csv(
+                        os.path.join(
+                            self.general_output_path, "statistics",
+                            "%s_by_building_id_by_branch_q_%s_%s.csv" % (
+                                output_type, quantile_str, filename_stem
+                            )
+                        ),
+                        index=True
+                    )
+
+                    stats_with_geoms = stats_with_geoms.join(
+                        quantile_df, rsuffix="_q_%s" % (quantile_str)
+                    )
+
+                    if q == 0:
+                        # Manually add statistic's name
+                        renaming_dict = {}
+                        for col in columns_to_use:
+                            renaming_dict[col] = "%s_q_%s" % (col, quantile_str)
+                        stats_with_geoms.rename(
+                            columns=renaming_dict,
+                            inplace=True
+                        )
+
+                stats_with_geoms.to_file(
+                    os.path.join(
+                        self.general_output_path, "statistics",
+                        "%s_by_building_id_by_branch_stats_%s.gpkg" % (
+                            output_type, filename_stem
+                        )
+                    ),
+                    driver="GPKG"
+                )
+
         summary_number_files = pd.DataFrame(
             {
-                "hazard": ["all"],
-                "branch": ["all"],
-                "number_files": [len(matching_files)]
+                "hazard": gather_hazards,
+                "branch": gather_branches,
+                "number_files": gather_number_files
             }
         )
         summary_number_files.to_csv(
             os.path.join(
                 self.general_output_path,
                 "statistics",
-                "by_initial_and_final_damage_total_meta_summary.csv"
+                "%s_by_building_id_by_branch_meta_summary.csv" % (output_type)
             ),
             index=False
         )
 
         return summary_number_files
+
 
 
 def calculate_all_damage_combinations(initial_damage_range, final_damage_range):

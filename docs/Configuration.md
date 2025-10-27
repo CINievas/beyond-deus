@@ -132,5 +132,22 @@ Sub-parameters include:
   hazard run.
   - `final_damage_range`: List of integers designating the final damage states of the last
   hazard run.
+  - `types`: Write True/False next to each option, to calculate and export or not each type of
+  post-processing output:
+    - `by_initial_and_final_damage_all`: Mean, quantiles and standard deviation of number of
+    buildings, incremental loss and cumulative loss, per combination of initial-final damage
+    states, for all branches and realisations considered together, with their weights.
+    - `by_initial_and_final_damage_per_branch`: Mean, quantiles and standard deviation of number
+    of buildings, incremental loss and cumulative loss, per combination of initial-final damage
+    states, for each branch of each hazard run so far.
+    - `loss_by_building_id_per_branch`: Mean, quantiles and standard deviation of incremental
+    loss (absolute and ratio) and cumulative loss (absolute and ratio) per building_id, for each
+    branch of each hazard run so far.
+    - `damage_by_building_id_per_branch`: Mean, quantiles and standard deviation of number and
+    proportion of buildings per damage state, per building_id and for each branch of each hazard
+    run so far.
+    - `damage_with_people_by_building_id_per_branch`: Mean, quantiles and standard deviation of
+    number and proportion of buildings, and number of census people per damage state, per
+    building_id and for each branch of each hazard run so far.
 
 An example of a config.yml file can be found [here](../config_example.yml).
