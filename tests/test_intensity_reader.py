@@ -129,3 +129,22 @@ def test_read_intensity_files():
 
         for realisation in expected_realisations:
             assert realisation in intensity_provider[branch].keys()
+
+    # 8 Set of Temperature NetCDF files provided in sub-directories
+    intensity_provider = read_intensity_files(
+        os.path.join(os.path.dirname(__file__), "data", "reading_intensity_two_branch_Temp"),
+        "netcdf_temp"
+    )
+
+    expected_branches = ["Branch01", "Branch02"]
+    expected_realisations = [0, 1, 2]
+
+    assert len(intensity_provider.keys()) == len(expected_branches)
+
+    for branch in expected_branches:
+
+        assert branch in intensity_provider.keys()
+        assert len(intensity_provider[branch].keys()) == len(expected_realisations)
+
+        for realisation in expected_realisations:
+            assert realisation in intensity_provider[branch].keys()

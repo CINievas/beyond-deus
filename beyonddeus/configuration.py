@@ -77,7 +77,8 @@ class Configuration:
                     Name of the building classification schema of the output, i.e. of the
                     input fragility and consequence models.
                 "intensity_file_type":
-                    Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu.
+                    Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu,
+                    netcdf_temp.
                 "intensity_threshold":
                     Threshold of hazard intensity, to be used so that if the intensity value
                     at a target point is smaller than the threshold, no further damage is

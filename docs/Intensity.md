@@ -19,6 +19,10 @@ organised into sub-directories, they are all treated as realisations of intensit
 tree branch. If the files are organised into sub-directories, it is assumed that each
 sub-directory corresponds to a logic tree branch, and all files within are realisations within
 each branch.
+- Temperature fields in `NetCDF` files. The software expects at least one sub-directory under
+the path defined in the [configuration file](Configuration.md), and only one `NetCDF` file per
+sub-directory. Each sub-directory (and thus, each file) is interpreted as a logic tree branch,
+which is assumed to contain one or more realisations for that branch.
 
 In each run of Beyond DEUS, all intensity files must be of the same kind.
 

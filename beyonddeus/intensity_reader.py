@@ -21,6 +21,7 @@ import logging
 from beyonddeus.shakemap import Shakemaps
 from beyonddeus.earthquake_hdf_reader import EQ_HDF_fields
 from beyonddeus.tsunami_netcdf_reader import TSU_NetCDF_fields
+from beyonddeus.temperature_netcdf_reader import TEMP_NetCDF_fields
 
 
 logger = logging.getLogger()
@@ -37,7 +38,9 @@ def read_intensity_files(intensity_path, intensity_file_type):
             are located. If the files are not organised into sub-directories, they are all
             treated as realisations of intensity of one logic tree branch. If the files are
             organised into sub-folders, it is assumed that each sub-folder corresponds to a
-            logic tree branch, and all files within are realisations within each branch.
+            logic tree branch, and all files within are realisations within each branch. If the
+            'intensity_file_type' is 'netcdf_temp', then only one NetCDF file is expected per
+            sub-folder.
         (2) One HDF5 file in the format of shakyground2 (earthquake ground motion fields,
             https://git.gfz.de/shakemap/shakyground2). The distinction between logic tree
             branches and realisations within each branch is implicit within the HDF5 file in
@@ -48,7 +51,7 @@ def read_intensity_files(intensity_path, intensity_file_type):
             Path to either (1) a directory containing a series of .xml or NetCDF files or
             (2) an HDF5 file with shakyground2 format (https://git.gfz.de/shakemap/shakyground2).
         intensity_file_type (str):
-            Type of intensity input files. Supported values: xml, hdf5.
+            Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu, netcdf_temp.
 
     Returns:
         intensity_provider (dict):
@@ -146,6 +149,51 @@ def read_intensity_files(intensity_path, intensity_file_type):
                 intensity_provider["unique"][k] = TSU_NetCDF_fields(
                     os.path.join(intensity_path, filename)
                 ).to_intensity_provider()
+
+        return intensity_provider
+
+    if intensity_file_type.lower() == "netcdf_temp":
+
+        filenames, sub_dirs = get_list_of_contents(intensity_path)
+
+        intensity_provider = {}
+
+        if len(sub_dirs) > 0 :
+            # There are logic tree branches
+            logger.info(
+                "      %s branches of a logic tree found" % (len(sub_dirs))
+            )
+
+            for branch in sub_dirs:
+                intensity_provider[branch] = {}
+
+                branch_filenames = os.listdir(os.path.join(intensity_path, branch))
+                number_files = len(branch_filenames)
+
+                logger.info(
+                    "          Branch '%s': %s file(s) found"
+                    % (branch, number_files)
+                )
+
+                if number_files != 1:
+                    error_message = (
+                        "The path '%s' contains a number of files different from 1. "
+                        "The software cannot run"
+                        % (os.path.join(intensity_path, branch))
+                    )
+                    raise OSError(error_message)
+
+                intensity_provider[branch] = TEMP_NetCDF_fields(
+                    os.path.join(intensity_path, branch, branch_filenames[0])
+                ).to_intensity_provider()
+
+        if len(filenames) > 0:
+            error_message = (
+                "Error: intensity_file_type='netcdf_temp' only supports one NetCDF per "
+                "sub-folder. The software cannot run"
+                % (os.path.join(intensity_path, branch))
+            )
+            raise OSError(error_message)
 
         return intensity_provider
 

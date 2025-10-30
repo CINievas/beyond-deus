@@ -59,7 +59,8 @@ especific combination of a realisation of hazard intensity and input exposure mo
   - `intensity_file_type`: Type of intensity input files. Currently supported values: "xml",
   "hdf5" (i.e., earthquake ground motions as output by
   [shakyground2](https://git.gfz.de/shakemap/shakyground2)), "netcdf_tsu" (i.e., tsunami
-  inundations as output by [TsunAWI](https://tsunami.awi.de/).
+  inundations as output by [TsunAWI](https://tsunami.awi.de/), and "netcdf_temp" (i.e.,
+  temperature fields).
   - `intensity_threshold`: Threshold of hazard intensity, to be used so that if the intensity
   value at a target exposure location is smaller than the threshold, no further damage is
   assumed (i.e., the current damage state remains unmodified and the detailed calculation is

@@ -16,7 +16,7 @@ cpus: 1  # Number of processors to use in the parallelisation
 parameters:
   building_schema_exposure: source_schema_name  #  Name of the building classification schema of the input exposure (one string)
   building_schema_fragility: target_schema_name  # Name of the building classification schema of the output, i.e. of the fragility model (one string)
-  intensity_file_type: intensity_file_type  # Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu
+  intensity_file_type: intensity_file_type  # Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu, netcdf_temp
   intensity_threshold: theshold_value # Threshold of hazard intensity. If intensity value < threshold, no further damage assumed
 output_types:  # Write True/False next to each option, to export or not export the corresponding output type
   compress_exposure_csvs: True  # If True, the updated exposure CSVs will be compressed into zstd format

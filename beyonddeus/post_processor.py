@@ -191,7 +191,7 @@ class PostProcessor:
 
 
     def calculate_by_initial_and_final_damage_per_branch(self):
-        """
+        r"""
         This method calculates weighted means, weighted standard deviations and weighted
         quantiles of the number of buildings, incremental losses and cumulative losses by
         combination of initial and final damage state, per branch of each hazard indicated in
@@ -372,7 +372,7 @@ class PostProcessor:
 
 
     def calculate_total_stats_by_initial_and_final_damage(self):
-        """
+        r"""
         This method calculates weighted means, weighted standard deviations and weighted
         quantiles of the number of buildings, incremental losses and cumulative losses by
         combination of initial and final damage state, for the whole set of results available
@@ -538,7 +538,7 @@ class PostProcessor:
     def calculate_stats_by_building_id_per_branch(
         self, output_type, columns_to_use, exposure_geoms
     ):
-        """
+        r"""
         This method calculates weighted means, weighted standard deviations and weighted
         quantiles of the columns in 'columns_to_use' of 'output_type', per branch of each
         hazard indicated in 'self.post_processing_config["logic_tree_meta"]'.
