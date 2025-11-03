@@ -280,6 +280,8 @@ def test_PostProcessor_export():
         "initial_damage_range": [0, 1, 2, 3, 4],
         "final_damage_range": [0, 1, 2, 3, 4],
         "types": {
+            "by_final_damage_all": False,
+            "by_final_damage_per_branch": False,
             "by_initial_and_final_damage_all": True,
             "by_initial_and_final_damage_per_branch": True,
             "loss_by_building_id_per_branch": False,

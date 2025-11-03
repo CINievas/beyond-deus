@@ -63,6 +63,14 @@ class PostProcessor:
                     "types":
                         Dictionary indicating the kind of post-processing outputs to export, by
                         means of True/False. Options are sets of nested keys:
+                            "by_final_damage_all": Mean, quantiles and standard deviation of
+                                number of buildings, incremental loss and cumulative loss, per
+                                final damage state, for all branches and realisations considered
+                                together, with their weights.
+                            "by_final_damage_per_branch": Mean, quantiles and standard deviation
+                                of number of buildings, incremental loss and cumulative loss,
+                                per final damage state, for each branch of each hazard run so
+                                far.
                             "by_initial_and_final_damage_all": Mean, quantiles and standard
                                 deviation of number of buildings, incremental loss and
                                 cumulative loss, per combination of initial-final damage states,
@@ -135,14 +143,32 @@ class PostProcessor:
         """
         summaries = {}
 
+        if self.post_processing_config["types"]["by_final_damage_all"]:
+            summaries["by_final_damage_all"] = (
+                self.calculate_total_stats_by_initial_and_final_damage(
+                    "by_final_damage"
+                )
+            )
+
+        if self.post_processing_config["types"]["by_final_damage_per_branch"]:
+            summaries["by_final_damage_per_branch"] = (
+                self.calculate_by_initial_and_final_damage_per_branch(
+                    "by_final_damage"
+                )
+            )
+
         if self.post_processing_config["types"]["by_initial_and_final_damage_all"]:
             summaries["by_initial_and_final_damage_all"] = (
-                self.calculate_total_stats_by_initial_and_final_damage()
+                self.calculate_total_stats_by_initial_and_final_damage(
+                    "by_initial_and_final_damage"
+                )
             )
 
         if self.post_processing_config["types"]["by_initial_and_final_damage_per_branch"]:
             summaries["by_initial_and_final_damage_per_branch"] = (
-                self.calculate_by_initial_and_final_damage_per_branch()
+                self.calculate_by_initial_and_final_damage_per_branch(
+                    "by_initial_and_final_damage"
+                )
             )
 
         if self.post_processing_config["types"]["loss_by_building_id_per_branch"]:
@@ -190,11 +216,13 @@ class PostProcessor:
         return summaries
 
 
-    def calculate_by_initial_and_final_damage_per_branch(self):
+    def calculate_by_initial_and_final_damage_per_branch(self, target_output):
         r"""
         This method calculates weighted means, weighted standard deviations and weighted
         quantiles of the number of buildings, incremental losses and cumulative losses by
-        combination of initial and final damage state, per branch of each hazard indicated in
+        combination of initial and final damage state (target_output =
+        "by_initial_and_final_damage"), or by final damage state only (target_output =
+        "by_final_damage"), per branch of each hazard indicated in
         'self.post_processing_config["logic_tree_meta"]'.
 
         Resulting statistics are exported to `self.general_output_path`\statistics with
@@ -203,6 +231,11 @@ class PostProcessor:
         - STATNAME: name of the statistics (means, stdev, ...)
         - HAZPREFIX: hazard prefix
         - BRANCHNAME: branch name
+
+        Args:
+            target_output (str):
+                Kind of output over which to calculate stats. Supported values:
+                "by_initial_and_final_damage", "by_final_damage".
 
         Returns:
             summary_number_files (Pandas DataFrame):
@@ -214,7 +247,20 @@ class PostProcessor:
         """
         logger.info(
             "Calculating per-branch stats of number of buildings and losses "
-            "per initial and final damage state"
+            "%s state" % (target_output.replace("_", " ").replace("by", "per"))
+        )
+
+        # Use either all combinations of initial and final damage, or just the final damage
+        if target_output=="by_initial_and_final_damage":
+            out_combinations = deepcopy(self.all_initial_final_damage_combinations)
+            index_columns=[0, 1]
+        elif target_output=="by_final_damage":
+            out_combinations = pd.Index(self.post_processing_config["final_damage_range"])
+            index_columns=0
+        else:
+            out_combinations = None
+        rows_out_combinations = np.array(
+            range(out_combinations.shape[0])
         )
 
         columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
@@ -241,9 +287,7 @@ class PostProcessor:
                 ]
 
                 # Now filter those 'matching_files' to be only those that contain
-                # "by_initial_and_final_damage" results
-                target_output = "by_initial_and_final_damage"
-
+                # "by_initial_and_final_damage" or "by_final_damage" (target_output) results
                 matching_files = [
                     f for f in matching_files
                     if target_output.lower() in f.lower()
@@ -261,7 +305,7 @@ class PostProcessor:
 
                 all_data = np.zeros(
                     (
-                        self.all_initial_final_damage_combinations.shape[0],
+                        out_combinations.shape[0],
                         len(columns_to_use),
                         len(matching_files)
                     )
@@ -272,14 +316,12 @@ class PostProcessor:
                     # Retrieve results of this realisation
                     df = pd.read_csv(
                         os.path.join(self.general_output_path, filename),
-                        index_col=[0, 1]
+                        index_col=index_columns
                     )
 
                     # It may be that this df does not have all possible combinations of
                     # initial and final damage, so cast into standard shape
-                    rows_to_fill = self.rows_all_initial_final_damage_combinations[
-                        self.all_initial_final_damage_combinations.isin(df.index)
-                    ]
+                    rows_to_fill = rows_out_combinations[out_combinations.isin(df.index)]
                     all_data[rows_to_fill, :, k] = df[columns_to_use].to_numpy()
 
                     # Retrieve weight of this realisation
@@ -301,12 +343,12 @@ class PostProcessor:
                 weighted_means_df = pd.DataFrame(
                     weighted_means,
                     columns=columns_to_use,
-                    index=self.all_initial_final_damage_combinations
+                    index=out_combinations
                 )
                 weighted_means_df.to_csv(
                     os.path.join(
                         self.general_output_path, "statistics",
-                        "by_initial_and_final_damage_by_branch_means_%s.csv" % (filename_stem)
+                        "%s_by_branch_means_%s.csv" % (target_output, filename_stem)
                     ),
                     index=True
                 )
@@ -316,12 +358,12 @@ class PostProcessor:
                         all_data, normalised_weights, weighted_means
                     ),
                     columns=columns_to_use,
-                    index=self.all_initial_final_damage_combinations
+                    index=out_combinations
                 )
                 weighted_st_dev_df.to_csv(
                     os.path.join(
                         self.general_output_path, "statistics",
-                        "by_initial_and_final_damage_by_branch_stdev_%s.csv" % (filename_stem)
+                        "%s_by_branch_stdev_%s.csv" % (target_output, filename_stem)
                     ),
                     index=True
                 )
@@ -340,13 +382,13 @@ class PostProcessor:
                     quantile_df = pd.DataFrame(
                         quantiles[q, :, :],
                         columns=columns_to_use,
-                        index=self.all_initial_final_damage_combinations
+                        index=out_combinations
                     )
                     quantile_df.to_csv(
                         os.path.join(
                             self.general_output_path, "statistics",
-                            "by_initial_and_final_damage_by_branch_q_%s_%s.csv" % (
-                                quantile_str, filename_stem
+                            "%s_by_branch_q_%s_%s.csv" % (
+                                target_output, quantile_str, filename_stem
                             )
                         ),
                         index=True
@@ -363,7 +405,7 @@ class PostProcessor:
             os.path.join(
                 self.general_output_path,
                 "statistics",
-                "by_initial_and_final_damage_by_branch_meta_summary.csv"
+                "%s_by_branch_meta_summary.csv" % (target_output)
             ),
             index=False
         )
@@ -371,17 +413,25 @@ class PostProcessor:
         return summary_number_files
 
 
-    def calculate_total_stats_by_initial_and_final_damage(self):
+    def calculate_total_stats_by_initial_and_final_damage(self, target_output):
         r"""
         This method calculates weighted means, weighted standard deviations and weighted
         quantiles of the number of buildings, incremental losses and cumulative losses by
-        combination of initial and final damage state, for the whole set of results available
-        in 'self.general_output_path', assumed to correspond to all branches and realisations of
+        combination of initial and final damage state (target_output =
+        "by_initial_and_final_damage") or by final damage state only (target_output =
+        "by_final_damage"), for the whole set of results available in 'self.general_output_path',
+        assumed to correspond to all branches and realisations of
         'self.post_processing_config["logic_tree_meta"]'.
 
         Resulting statistics are exported to `self.general_output_path`\statistics with
-        filenames following the pattern "by_initial_and_final_damage_by_branch_STATNAME.csv",
-        where STATNAME is the name of the statistics (means, stdev, ...).
+        filenames following the pattern "by_initial_and_final_damage_by_branch_STATNAME.csv", or
+        "by_final_damage_by_branch_STATNAME.csv", where STATNAME is the name of the statistics
+        (means, stdev, ...).
+
+        Args:
+            target_output (str):
+                Kind of output over which to calculate stats. Supported values:
+                "by_initial_and_final_damage", "by_final_damage".
 
         Returns:
             summary_number_files (Pandas DataFrame):
@@ -393,7 +443,20 @@ class PostProcessor:
         """
         logger.info(
             "Calculating total stats of number of buildings and losses "
-            "per initial and final damage state"
+            "%s state" % (target_output.replace("_", " ").replace("by", "per"))
+        )
+
+        # Use either all combinations of initial and final damage, or just the final damage
+        if target_output=="by_initial_and_final_damage":
+            out_combinations = deepcopy(self.all_initial_final_damage_combinations)
+            index_columns=[0, 1]
+        elif target_output=="by_final_damage":
+            out_combinations = pd.Index(self.post_processing_config["final_damage_range"])
+            index_columns=0
+        else:
+            out_combinations = None
+        rows_out_combinations = np.array(
+            range(out_combinations.shape[0])
         )
 
         columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
@@ -403,8 +466,6 @@ class PostProcessor:
 
         # Initialise "weights" to collect weights, same dimension as "depth" of "all_data"
         weights = []
-
-        target_output = "by_initial_and_final_damage"
 
         matching_files = [
             f for f in os.listdir(self.general_output_path)
@@ -422,7 +483,7 @@ class PostProcessor:
             os.path.join(
                 self.general_output_path,
                 "statistics",
-                "by_initial_and_final_damage_total_meta_summary.csv"
+                "%s_total_meta_summary.csv" % (target_output)
             ),
             index=False
         )
@@ -437,21 +498,14 @@ class PostProcessor:
             # Retrieve results of this realisation
             df = pd.read_csv(
                 os.path.join(self.general_output_path, filename),
-                index_col=[0, 1]
+                index_col=index_columns
             )
 
             # All arrays that go into "all_data_slices" need to have the same shape, but it may
             # be that this df does not have all possible combinations of initial and final
             # damage, so cast into standard shape
-            structure_array = np.zeros(
-                (
-                    self.all_initial_final_damage_combinations.shape[0],
-                    len(columns_to_use),
-                )
-            )
-            rows_to_fill = self.rows_all_initial_final_damage_combinations[
-                self.all_initial_final_damage_combinations.isin(df.index)
-            ]
+            structure_array = np.zeros((out_combinations.shape[0], len(columns_to_use)))
+            rows_to_fill = rows_out_combinations[out_combinations.isin(df.index)]
             structure_array[rows_to_fill, :] = df[columns_to_use].to_numpy()
             # If this df didn't have all combinations, those rows will have zeroes
 
@@ -483,12 +537,12 @@ class PostProcessor:
         weighted_means_df = pd.DataFrame(
             weighted_means,
             columns=columns_to_use,
-            index=self.all_initial_final_damage_combinations
+            index=out_combinations
         )
         weighted_means_df.to_csv(
             os.path.join(
                 self.general_output_path, "statistics",
-                "by_initial_and_final_damage_total_means.csv"
+                "%s_total_means.csv" % (target_output)
             ),
             index=True
         )
@@ -498,12 +552,12 @@ class PostProcessor:
                 all_data, normalised_weights, weighted_means
             ),
             columns=columns_to_use,
-            index=self.all_initial_final_damage_combinations
+            index=out_combinations
         )
         weighted_st_dev_df.to_csv(
             os.path.join(
                 self.general_output_path, "statistics",
-                "by_initial_and_final_damage_total_stdev.csv"
+                "%s_total_stdev.csv" % (target_output)
             ),
             index=True
         )
@@ -522,12 +576,12 @@ class PostProcessor:
             quantile_df = pd.DataFrame(
                 quantiles[q, :, :],
                 columns=columns_to_use,
-                index=self.all_initial_final_damage_combinations
+                index=out_combinations
             )
             quantile_df.to_csv(
                 os.path.join(
                     self.general_output_path, "statistics",
-                    "by_initial_and_final_damage_total_q_%s.csv" % (quantile_str)
+                    "%s_total_q_%s.csv" % (target_output, quantile_str)
                 ),
                 index=True
             )

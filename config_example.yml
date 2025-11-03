@@ -56,6 +56,8 @@ post_processing:
   initial_damage_range: 0, 1, 2, 3, 4  # initial damage states (of the last hazard run)
   final_damage_range: 0, 1, 2, 3, 4  # final damage states (of the last hazard run)
   types:
+    by_final_damage_all: True
+    by_final_damage_per_branch: True
     by_initial_and_final_damage_all: True
     by_initial_and_final_damage_per_branch: True
     loss_by_building_id_per_branch: True
