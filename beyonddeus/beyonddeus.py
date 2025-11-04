@@ -769,7 +769,10 @@ def post_processing_mode(config):
     if (
         config.post_processing["types"]["loss_by_building_id_per_branch"] or
         config.post_processing["types"]["damage_by_building_id_per_branch"] or
-        config.post_processing["types"]["damage_with_people_by_building_id_per_branch"]
+        config.post_processing["types"]["damage_with_people_by_building_id_per_branch"] or
+        config.post_processing["types"]["loss_by_building_id_all"] or
+        config.post_processing["types"]["damage_by_building_id_all"] or
+        config.post_processing["types"]["damage_with_people_by_building_id_all"]
        ):
         # Read exposure geometries
         logger.info("Reading exposure geometries")
