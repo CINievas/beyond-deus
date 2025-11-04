@@ -147,6 +147,15 @@ Sub-parameters include:
     - `by_initial_and_final_damage_per_branch`: Mean, quantiles and standard deviation of number
     of buildings, incremental loss and cumulative loss, per combination of initial-final damage
     states, for each branch of each hazard run so far.
+    - `loss_by_building_id_all`: Mean, quantiles and standard deviation of incremental loss
+    (absolute and ratio) and cumulative loss (absolute and ratio) per building_id, for all
+    branches and realisations considered together, with their weights.
+    - `damage_by_building_id_all`: Mean, quantiles and standard deviation of number and
+    proportion of buildings per damage state, per building_id and for all branches and
+    realisations considered together, with their weights.
+    - `damage_with_people_by_building_id_all`: Mean, quantiles and standard deviation of number
+    and proportion of buildings, and number of census people per damage state, per building_id
+    and for all branches and realisations considered together, with their weights.
     - `loss_by_building_id_per_branch`: Mean, quantiles and standard deviation of incremental
     loss (absolute and ratio) and cumulative loss (absolute and ratio) per building_id, for each
     branch of each hazard run so far.

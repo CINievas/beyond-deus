@@ -60,6 +60,9 @@ post_processing:
     by_final_damage_per_branch: True
     by_initial_and_final_damage_all: True
     by_initial_and_final_damage_per_branch: True
+    loss_by_building_id_all: True
+    damage_by_building_id_all: True
+    damage_with_people_by_building_id_all: True
     loss_by_building_id_per_branch: True
     damage_by_building_id_per_branch: True
     damage_with_people_by_building_id_per_branch: True

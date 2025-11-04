@@ -284,6 +284,9 @@ def test_PostProcessor_export():
             "by_final_damage_per_branch": False,
             "by_initial_and_final_damage_all": True,
             "by_initial_and_final_damage_per_branch": True,
+            "loss_by_building_id_all": False,
+            "damage_by_building_id_all": False,
+            "damage_with_people_by_building_id_all": False,
             "loss_by_building_id_per_branch": False,
             "damage_by_building_id_per_branch": False,
             "damage_with_people_by_building_id_per_branch": False
