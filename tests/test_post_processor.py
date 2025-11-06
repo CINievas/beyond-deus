@@ -317,7 +317,11 @@ def test_PostProcessor_export():
         "by_initial_and_final_damage_total_means.csv",
         "by_initial_and_final_damage_total_stdev.csv",
         "by_initial_and_final_damage_total_q_0_50.csv",
-        "by_initial_and_final_damage_total_q_0_95.csv"
+        "by_initial_and_final_damage_total_q_0_95.csv",
+        "by_initial_and_final_damage_total_all_values_cum_loss_value.csv",
+        "by_initial_and_final_damage_total_all_values_incremental_loss.csv",
+        "by_initial_and_final_damage_total_all_values_number.csv",
+        "portfolio_total_losses_all_values.csv"
     ]
 
     for branch in tsu_branches:

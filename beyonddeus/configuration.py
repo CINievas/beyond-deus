@@ -168,7 +168,7 @@ class Configuration:
                         "by_final_damage_all": Mean, quantiles and standard deviation of number
                             of buildings, incremental loss and cumulative loss, per final damage
                             state, for all branches and realisations considered together, with
-                            their weights.
+                            their weights. All individual values are exported as well.
                         "by_final_damage_per_branch": Mean, quantiles and standard deviation of
                             number of buildings, incremental loss and cumulative loss, per final
                             damage state, for each branch of each hazard run so far.
@@ -176,6 +176,7 @@ class Configuration:
                             deviation of number of buildings, incremental loss and cumulative
                             loss, per combination of initial-final damage states, for all
                             branches and realisations considered together, with their weights.
+                            All individual values are exported as well.
                         "by_initial_and_final_damage_per_branch": Mean, quantiles and standard
                             deviation of number of buildings, incremental loss and cumulative
                             loss, per combination of initial-final damage states, for each

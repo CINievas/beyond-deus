@@ -66,7 +66,8 @@ class PostProcessor:
                             "by_final_damage_all": Mean, quantiles and standard deviation of
                                 number of buildings, incremental loss and cumulative loss, per
                                 final damage state, for all branches and realisations considered
-                                together, with their weights.
+                                together, with their weights. All individual values are exported
+                                as well.
                             "by_final_damage_per_branch": Mean, quantiles and standard deviation
                                 of number of buildings, incremental loss and cumulative loss,
                                 per final damage state, for each branch of each hazard run so
@@ -75,7 +76,7 @@ class PostProcessor:
                                 deviation of number of buildings, incremental loss and
                                 cumulative loss, per combination of initial-final damage states,
                                 for all branches and realisations considered together, with
-                                their weights.
+                                their weights. All individual values are exported as well.
                             "by_initial_and_final_damage_per_branch": Mean, quantiles and
                                 standard deviation of number of buildings, incremental loss and
                                 cumulative loss, per combination of initial-final damage states,
@@ -483,6 +484,23 @@ class PostProcessor:
         "by_final_damage_by_branch_STATNAME.csv", where STATNAME is the name of the statistics
         (means, stdev, ...).
 
+        All the individual values from all realisations are also exported as:
+        - "portfolio_total_losses_all_values.csv": One row per inidividual realisation, three
+        columns (number of buildings, incremental losses and cumulative losses), for all damage
+        states together.
+        - "TARGET_OUTPUT_total_all_values_cum_loss_value.csv": One row per inidividual
+        realisation, one column per final damage state (target_output = "by_final_damage" ) or
+        combination of initial-final damage states (target_output =
+        "by_initial_and_final_damage"). Values are cumulative economic losses.
+        - "TARGET_OUTPUT_total_all_values_incremental_loss.csv: One row per inidividual
+        realisation, one column per final damage state (target_output = "by_final_damage" ) or
+        combination of initial-final damage states (target_output =
+        "by_initial_and_final_damage"). Values are incremental economic losses.
+        - "TARGET_OUTPUT_total_all_values_number.csv": One row per inidividual
+        realisation, one column per final damage state (target_output = "by_final_damage" ) or
+        combination of initial-final damage states (target_output =
+        "by_initial_and_final_damage"). Values are number of buildings.
+
         Args:
             target_output (str):
                 Kind of output over which to calculate stats. Supported values:
@@ -579,7 +597,7 @@ class PostProcessor:
         # Dimensions of "all_data":
         # rows: all initial and final damage combinations
         # columns: columns_to_use
-        # depth: the number of data results (e.g. 5,000*13=65,000 in the EQ-TSU case)
+        # depth: the number of data results
 
         logger.info("    A total of %s realisations were retrieved" % (all_data.shape[2]))
 
@@ -640,6 +658,34 @@ class PostProcessor:
                 ),
                 index=True
             )
+
+        # Export all individual values from all realisations
+        for j, parameter in enumerate(columns_to_use):
+            # One row per realisation, one column per initial-final damage combination
+            out_df = pd.DataFrame(
+                all_data[:, j, :].T,
+                columns=out_combinations
+            )
+            out_df.to_csv(
+                os.path.join(
+                    self.general_output_path, "statistics",
+                    "%s_total_all_values_%s.csv" % (target_output, parameter)
+                ),
+                index=False
+            )
+
+        # One row per realisation, one column per parameter, all damage states together
+        out_df = pd.DataFrame(
+            all_data.sum(axis=0).T,
+            columns=columns_to_use,
+        )
+        out_df.to_csv(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "portfolio_total_losses_all_values.csv"
+            ),
+            index=False
+        )
 
         return summary_number_files
 
