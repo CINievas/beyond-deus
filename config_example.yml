@@ -6,7 +6,7 @@ input_paths:
   exposure_gpkg: path_to_exposure_gpkg_file  # One exposure gpkg file with exposure polygons and their centroids
   conversion_taxonomy: path_to_directory_with_taxonomy_conversion_files # All files in this directory will be used
   conversion_damage_states: path_to_directory_with_damage_states_conversion_files  # All files in this directory will be used
-  consequence: path_to_consequence_model_file  # One json file with economic consequence model
+  consequence: path_to_consequence_model_file  # One json file with economic consequence model (can take None)
   usability: path_to_usability_file  # One csv file indicating if buildings in each damage state are usable/unusable
 output_path: path_to_output_folder  # Folder to which the outputs will be written, must be empty
 output_path_profiling: path_to_profiling_output_fikder  # Folder to which the outputs of profiling.py will be written

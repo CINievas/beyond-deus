@@ -1035,3 +1035,55 @@ def test_update_exposure_transitions_and_losses():
                     round(returned_updated_exposure_and_losses.loc[row, col], 3) ==
                     round(expected_updated_exposure_and_losses.loc[row, col], 3)
                 )
+
+    # TEST 5: The same as TEST 1, but with loss_provider = None, i.e. no economic losses
+    # should be calculated
+
+    # Read test exposure file
+    initial_exposure = read_exposure_csv(
+       os.path.join(os.path.dirname(__file__), "data", "exposure_test.csv")
+    )
+
+    # Read fragility input
+    fragility_provider = Fragility.from_file(
+       os.path.join(os.path.dirname(__file__), "data", "fragility_test.json")
+    ).to_fragility_provider()
+
+    # Read schema mapper (will not be used)
+    schema_mapper = SchemaMapper.from_taxonomy_and_damage_state_conversion_files(
+        os.path.join(os.path.dirname(__file__), "data", "conversion_taxonomy"),
+        os.path.join(os.path.dirname(__file__), "data", "conversion_damage")
+    )
+
+    # Read intensity provider
+    intensity_provider = Shakemaps.from_file(
+        os.path.join(os.path.dirname(__file__), "data", "intensity_test.xml"),
+    ).to_intensity_provider()
+
+    # Intensity positions
+    intensity_positions = pd.DataFrame(
+        {"nearest_neighbour": [8, 11]},
+        index=["1230", "1231"]
+    )
+    intensity_positions.index.rename("building_id", inplace=True)
+
+    # Intensity values
+    intensity_threshold = 0.001
+    all_hazard_intensities = intensity_provider.get_values_at_multiple_positions(
+        intensity_positions, intensity_threshold
+    )
+
+    # Set loss_provider
+    loss_provider = None
+
+    returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
+        initial_exposure,
+        all_hazard_intensities,
+        intensity_threshold,
+        fragility_provider,
+        loss_provider,
+    )
+
+    # Check that no economic loss columns have been created
+    assert "cum_loss_value" not in returned_updated_exposure_and_losses.columns
+    assert "incremental_loss" not in returned_updated_exposure_and_losses.columns

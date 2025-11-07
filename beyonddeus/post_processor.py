@@ -29,7 +29,9 @@ logger = logging.getLogger()
 
 
 class PostProcessor:
-    def __init__(self, post_processing_config, general_output_path):
+    def __init__(
+        self, post_processing_config, general_output_path, economic_consequence_input_path
+    ):
         """
         This class handles the generation of statistics (means, standard deviations, quantiles)
         of results, accounting for logic tree weights.
@@ -108,6 +110,9 @@ class PostProcessor:
             self.general_output_path (str):
                 Path to directory where outputs to be post-processed are stored, and where
                 post-processing results will be stored (under the "statistics" sub-directory).
+            self.include_economic_losses (bool):
+                If True, outputs associated with economic losses will be post-processed. If
+                False, they will not.
             self.all_initial_final_damage_combinations (Pandas MultiIndex):
                 MultiIndex of all combinations of initial and final damage states that are
                 physically possible, i.e. all cases in which initial damage <= final damage.
@@ -131,6 +136,11 @@ class PostProcessor:
         """
         self.post_processing_config = post_processing_config
         self.general_output_path = general_output_path
+
+        if economic_consequence_input_path != "None":
+            self.include_economic_losses = True
+        else:
+            self.include_economic_losses = False
 
         self.all_initial_final_damage_combinations = calculate_all_damage_combinations(
             self.post_processing_config["initial_damage_range"],
@@ -319,7 +329,10 @@ class PostProcessor:
             range(out_combinations.shape[0])
         )
 
-        columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
+        if self.include_economic_losses:
+            columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
+        else:
+            columns_to_use = ["number"]
 
         gather_hazards = []
         gather_branches = []
@@ -484,7 +497,8 @@ class PostProcessor:
         "by_final_damage_by_branch_STATNAME.csv", where STATNAME is the name of the statistics
         (means, stdev, ...).
 
-        All the individual values from all realisations are also exported as:
+        All the individual values from all realisations are also exported as (economic losses
+        only if self.include_economic_losses is True):
         - "portfolio_total_losses_all_values.csv": One row per inidividual realisation, three
         columns (number of buildings, incremental losses and cumulative losses), for all damage
         states together.
@@ -532,7 +546,10 @@ class PostProcessor:
             range(out_combinations.shape[0])
         )
 
-        columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
+        if self.include_economic_losses:
+            columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
+        else:
+            columns_to_use = ["number"]
 
         # Initialise list to collect all data:
         all_data_slices = []  # each element will be a 2D array

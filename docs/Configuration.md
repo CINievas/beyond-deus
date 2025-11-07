@@ -31,7 +31,8 @@ following parameters:
   files. All files in this directory will be read. Write "None" (without quotation marks) if
   these files are not needed, i.e. when the damage scales of the input exposure
   (`building_schema_exposure`) and fragility (`building_schema_fragility`) models are the same.
-  - `consequence`: Path to `.json` file with the economic consequence model.
+  - `consequence`: Path to `.json` file with the economic consequence model. Write "None"
+  (without quotation marks) if economic losses are not to be calculated.
   - `usability`: Path to `.csv` file indicating if buildings in each damage state are usable or
   unusable. This information is used to split the output updated exposure into one usable and
   one unusable file, if `csv_by_usability` is True (see below).

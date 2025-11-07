@@ -115,10 +115,13 @@ def init_worker_for_by_exposure(log_queue):
     _exposure_geoms = read_exposure_geoms(_config.input_paths["exposure_gpkg"])
 
     # Read economic consequence model
-    logging.getLogger(__name__).info(
-        "Initialising worker: Reading input economic consequence model"
-    )
-    _loss_provider = LossProvider.from_files(_config.input_paths["consequence"])
+    if _config.input_paths["consequence"] != "None":
+        logging.getLogger(__name__).info(
+            "Initialising worker: Reading input economic consequence model"
+        )
+        _loss_provider = LossProvider.from_files(_config.input_paths["consequence"])
+    else:
+        _loss_provider = None
 
     # Read usability model
     logging.getLogger(__name__).info("Initialising worker: Reading input usability model")
@@ -190,10 +193,13 @@ def init_worker_for_by_itensity_realisation(log_queue):
     _exposure_geoms = read_exposure_geoms(_config.input_paths["exposure_gpkg"])
 
     # Read economic consequence model
-    logging.getLogger(__name__).info(
-        "Initialising worker: Reading input economic consequence model"
-    )
-    _loss_provider = LossProvider.from_files(_config.input_paths["consequence"])
+    if _config.input_paths["consequence"] != "None":
+        logging.getLogger(__name__).info(
+            "Initialising worker: Reading input economic consequence model"
+        )
+        _loss_provider = LossProvider.from_files(_config.input_paths["consequence"])
+    else:
+        _loss_provider = None
 
     # Read usability model
     logging.getLogger(__name__).info("Initialising worker: Reading input usability model")
@@ -780,7 +786,9 @@ def post_processing_mode(config):
         exposure_geoms.set_index(exposure_geoms["building_id"], inplace=True)
         exposure_geoms.drop(columns=["building_id"], inplace=True)
 
-    postprocessor = PostProcessor(config.post_processing, config.output_path)
+    postprocessor = PostProcessor(
+        config.post_processing, config.output_path, config.input_paths["consequence"]
+    )
     _ = postprocessor.export(exposure_geoms)
 
     logger.info("Running in post-processing mode has finished")

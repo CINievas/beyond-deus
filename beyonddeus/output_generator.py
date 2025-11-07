@@ -413,17 +413,28 @@ def write_output_by_final_damage(exposure, filename):
         filename (str):
             Full path to the CSV file to which results by final damage state will be written.
     """
-    by_damage = exposure.groupby(
-        ["final_damage"]
-    ).agg(
-        {
-            "number": "sum",
-            "replacement_cost_tot": "sum",
-            "ppl_census": "sum",
-            "incremental_loss": "sum",
-            "cum_loss_value": "sum"
-        },
-    )
+    if ("incremental_loss" in exposure.columns) and ("cum_loss_value" in exposure.columns):
+        by_damage = exposure.groupby(
+            ["final_damage"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum",
+                "incremental_loss": "sum",
+                "cum_loss_value": "sum"
+            },
+        )
+    else:
+        by_damage = exposure.groupby(
+            ["final_damage"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum"
+            },
+        )
 
     by_damage.to_csv(filename, index=True)
 
@@ -441,17 +452,28 @@ def write_output_by_initial_and_final_damage(exposure, filename):
             Full path to the CSV file to which results by initial and final damage states will
             be written.
     """
-    by_initial_and_final_damage = exposure.groupby(
-        ["initial_damage", "final_damage"]
-    ).agg(
-        {
-            "number": "sum",
-            "replacement_cost_tot": "sum",
-            "ppl_census": "sum",
-            "incremental_loss": "sum",
-            "cum_loss_value": "sum"
-        },
-    )
+    if ("incremental_loss" in exposure.columns) and ("cum_loss_value" in exposure.columns):
+        by_initial_and_final_damage = exposure.groupby(
+            ["initial_damage", "final_damage"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum",
+                "incremental_loss": "sum",
+                "cum_loss_value": "sum"
+            },
+        )
+    else:
+        by_initial_and_final_damage = exposure.groupby(
+            ["initial_damage", "final_damage"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum"
+            },
+        )
 
     by_initial_and_final_damage.to_csv(filename, index=True)
 

@@ -303,7 +303,7 @@ def test_PostProcessor_export():
 
     exposure_geoms = None  # Not testing this functionality yet
 
-    postprocessor = PostProcessor(post_processing, output_path)
+    postprocessor = PostProcessor(post_processing, output_path, "some_path")
     returned_summaries = postprocessor.export(exposure_geoms)
 
     # Build names of expected output files

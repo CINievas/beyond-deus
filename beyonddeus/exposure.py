@@ -135,6 +135,9 @@ def read_exposure_csv(filename_csv):
     if "transition" in exposure_df.columns:  # It means Beyond-DEUS has been run before
         del exposure_df["transition"]
 
+    if "cum_loss_value" not in exposure_df.columns:
+        exposure_df["cum_loss_value"] = np.zeros(exposure_df.shape[0], dtype=float)
+
     # Group combinations of ["building_id", "taxonomy", "initial_damage"], if duplicates exist
     # (index doesn't matter because 'unique_combis' is only used to check if duplicates exist)
     unique_combis = exposure_df[["building_id", "taxonomy", "initial_damage"]].drop_duplicates()
@@ -481,11 +484,19 @@ class Updater:
         # if one of the two DFs concatenated is empty, "transition" is no longer boolean
         updated_exposure_df["transition"] = updated_exposure_df["transition"].astype(bool)
 
+        if self.loss_provider is None:
+            if "cum_loss_value" in updated_exposure_df.columns:
+                del updated_exposure_df["cum_loss_value"]
+            if "incremental_loss" in updated_exposure_df.columns:
+                del updated_exposure_df["incremental_loss"]
+
         return updated_exposure_df
 
     def update_exposure_polygon(self, exposure, intensity_values, intensity_threshold):
         """
         Updates a set of assets of the exposure model associated with one exposure polygon.
+
+        If self.loss_provider is not None, economic losses are calculated.
 
         Args:
             exposure (Pandas DataFrame):
@@ -542,6 +553,9 @@ class Updater:
             intensity_threshold,
             self.fragility_provider
         )
+
+        if self.loss_provider is None:
+            return updated_exposure
 
         # Compute the incremental and cumulative economic losses
         updated_exposure_and_losses = compute_loss(
@@ -955,9 +969,7 @@ def compute_loss(updated_exposure, loss_provider, schema):
     transitions = updated_exposure[updated_exposure.transition].copy()
     nontransitions = updated_exposure[~ updated_exposure.transition].copy()
     nontransitions["incremental_loss"] = np.zeros(nontransitions.shape[0])
-    nontransitions["cum_loss_value"] = (
-        nontransitions["cum_loss_value"] + nontransitions["incremental_loss"]
-    )
+    #nontransitions["cum_loss_value"] remains the same
 
     # Calculate incremental losses for rows that transition
     incremental_loss_ratios = np.zeros(transitions.shape[0])
