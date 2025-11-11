@@ -1,0 +1,5 @@
+exposure_csv,branch,realisation
+exposure_test_01.zstd,subdir_1,TSU_inundation_fields_test_01
+exposure_test_01.zstd,subdir_1,TSU_inundation_fields_test_02
+exposure_test_02.zstd,subdir_2,TSU_inundation_fields_test_01
+exposure_test_02.zstd,subdir_2,TSU_inundation_fields_test_02

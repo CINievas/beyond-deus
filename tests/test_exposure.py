@@ -30,7 +30,8 @@ from beyonddeus.loss import LossProvider
 from beyonddeus.exposure import (
     read_exposure_csv, read_exposure_geoms, check_all_building_ids_in_geoms, map_exposure,
     get_sorted_damage_states, get_updated_exposure_and_transitions, compute_loss,
-    update_exposure_transitions_and_losses, retrieve_exposure_input_names
+    update_exposure_transitions_and_losses, retrieve_exposure_input_names,
+    read_exposure_intensity_combinations, check_exposure_intensity_combinations
 )
 
 
@@ -157,6 +158,69 @@ def test_check_all_building_ids_in_geoms():
     # Test case in which GPKG does not contain polygons for all building_id of CSV
     with pytest.raises(OSError) as excinfo:
         check_all_building_ids_in_geoms(initial_exposure, exposure_geometries)
+
+    assert "OSError" in str(excinfo.type)
+
+
+def test_read_exposure_intensity_combinations():
+    # TEST 1: open a real file, everything as it should
+    returned_combinations = read_exposure_intensity_combinations(
+        os.path.join(
+            os.path.dirname(__file__), "data", "test_exposure_intensity_combinations.csv"
+        )
+    )
+
+    assert returned_combinations.shape[0] == 4
+    assert returned_combinations.shape[1] == 3
+
+
+def test_check_exposure_intensity_combinations():
+    returned_combinations = read_exposure_intensity_combinations(
+        os.path.join(
+            os.path.dirname(__file__), "data", "test_exposure_intensity_combinations.csv"
+        )
+    )
+
+    # TEST 1: all good
+    exposure_input_names = ["exposure_test_01.zstd", "exposure_test_02.zstd"]
+    intensity_provider = {
+        "subdir_1": {
+            "TSU_inundation_fields_test_01": None, "TSU_inundation_fields_test_02": None
+        },
+        "subdir_2": {
+            "TSU_inundation_fields_test_01": None, "TSU_inundation_fields_test_02": None
+        }
+    }
+
+    check_exposure_intensity_combinations(
+        returned_combinations, exposure_input_names, intensity_provider
+    )
+
+    # TEST 2: exposure input names error
+    exposure_input_names = ["exposure_test_03.zstd", "exposure_test_02.zstd"]
+
+    with pytest.raises(OSError) as excinfo:
+        check_exposure_intensity_combinations(
+            returned_combinations, exposure_input_names, intensity_provider
+        )
+
+    assert "OSError" in str(excinfo.type)
+
+    # TEST 3: intensity_provider error
+    exposure_input_names = ["exposure_test_01.zstd", "exposure_test_02.zstd"]
+    intensity_provider = {
+        "subdir_1": {
+            "TSU_inundation_fields_test_04": None, "TSU_inundation_fields_test_02": None
+        },
+        "subdir_2": {
+            "TSU_inundation_fields_test_01": None, "TSU_inundation_fields_test_02": None
+        }
+    }
+
+    with pytest.raises(OSError) as excinfo:
+        check_exposure_intensity_combinations(
+            returned_combinations, exposure_input_names, intensity_provider
+        )
 
     assert "OSError" in str(excinfo.type)
 

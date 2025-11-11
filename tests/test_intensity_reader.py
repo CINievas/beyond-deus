@@ -30,7 +30,7 @@ def test_read_intensity_files():
     )
 
     expected_branches = ["GMPE1", "GMPE2"]
-    expected_realisations = [0, 1, 2, 3, 4]
+    expected_realisations = ["0", "1", "2", "3", "4"]
 
     assert len(intensity_provider.keys()) == len(expected_branches)
 
@@ -49,7 +49,7 @@ def test_read_intensity_files():
     )
 
     expected_branches = ["unique"]
-    expected_realisations = [0, 1]
+    expected_realisations = ["intensity_test_01", "intensity_test_02"]
 
     assert len(intensity_provider.keys()) == len(expected_branches)
 
@@ -68,7 +68,7 @@ def test_read_intensity_files():
     )
 
     expected_branches = ["subdir_1", "subdir_2"]
-    expected_realisations = [0, 1, 2]
+    expected_realisations = ["intensity_test_01", "intensity_test_02", "intensity_test_03"]
 
     assert len(intensity_provider.keys()) == len(expected_branches)
 
@@ -118,7 +118,7 @@ def test_read_intensity_files():
     )
 
     expected_branches = ["subdir_1", "subdir_2"]
-    expected_realisations = [0, 1]
+    expected_realisations = ["TSU_inundation_fields_test_01", "TSU_inundation_fields_test_02"]
 
     assert len(intensity_provider.keys()) == len(expected_branches)
 
@@ -137,7 +137,7 @@ def test_read_intensity_files():
     )
 
     expected_branches = ["Branch01", "Branch02"]
-    expected_realisations = [0, 1, 2]
+    expected_realisations = ["0", "1", "2"]
 
     assert len(intensity_provider.keys()) == len(expected_branches)
 

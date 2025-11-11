@@ -108,14 +108,14 @@ def test_calculate_all_logic_tree_combination_weights():
             "logic_tree_path": os.path.join(
                 os.path.dirname(__file__), "data", "test_EQ_logic_tree.csv"
             ),
-            "realisations": 200
+            "weight_of_realisation": 0.005  # 200 realisations
         },
         2: {
             "hazard_prefix": "TSU",
             "logic_tree_path": os.path.join(
                 os.path.dirname(__file__), "data", "test_TSU_logic_tree.csv"
             ),
-            "realisations": 5
+            "weight_of_realisation": 0.2  # 5
         },
     }
 
@@ -261,20 +261,21 @@ def test_PostProcessor_export():
 
     post_processing = {
         "target_quantiles": [0.5, 0.95],
+        "export_weight_per_file": True,
         "logic_tree_meta":  {
             1: {
                 "hazard_prefix": "EQ",
                 "logic_tree_path": os.path.join(
                     os.path.dirname(__file__), "data", "test_EQ_logic_tree.csv"
                 ),
-                "realisations": 2
+                "weight_of_realisation": 0.5
             },
             2: {
                 "hazard_prefix": "TSU",
                 "logic_tree_path": os.path.join(
                     os.path.dirname(__file__), "data", "test_TSU_logic_tree.csv"
                 ),
-                "realisations": 1
+                "weight_of_realisation": 1
             },
         },
         "initial_damage_range": [0, 1, 2, 3, 4],
@@ -314,6 +315,7 @@ def test_PostProcessor_export():
     expected_filenames = [
         "by_initial_and_final_damage_total_meta_summary.csv",
         "by_initial_and_final_damage_by_branch_meta_summary.csv",
+        "by_initial_and_final_damage_total_stats_weights.csv",
         "by_initial_and_final_damage_total_means.csv",
         "by_initial_and_final_damage_total_stdev.csv",
         "by_initial_and_final_damage_total_q_0_50.csv",
@@ -329,11 +331,18 @@ def test_PostProcessor_export():
             expected_filenames.append(
                 "by_initial_and_final_damage_by_branch_%s_TSU_b_%s.csv" % (stat, branch)
             )
+        expected_filenames.append(
+            "by_initial_and_final_damage_by_branch_stats_weights_TSU_b_%s.csv" % (branch)
+        )
+
     for branch in eq_branches:
         for stat in stats:
             expected_filenames.append(
                 "by_initial_and_final_damage_by_branch_%s_EQ_b_%s.csv" % (stat, branch)
             )
+        expected_filenames.append(
+            "by_initial_and_final_damage_by_branch_stats_weights_EQ_b_%s.csv" % (branch)
+        )
 
     # Check all expected files have been created
     returned_filenames = os.listdir(stats_output_path)
@@ -437,6 +446,59 @@ def test_PostProcessor_export():
         index_col = [0, 1]
     )
     assert round(q_0_95_df.loc[(1, 2), "number"], 4) == round(expected_q_0_95, 4)
+
+    # Check weights per file for total stats
+    returned_weights = pd.read_csv(
+        os.path.join(
+            stats_output_path, "by_initial_and_final_damage_total_stats_weights.csv"
+        ),
+        index_col = 0
+    )
+    expected_weights = pd.read_csv(
+        os.path.join(
+            os.path.dirname(__file__), "data",
+            "expected_by_initial_and_final_damage_total_stats_weights.csv"
+        ),
+        index_col = 0
+    )
+
+    assert returned_weights.shape[0] == expected_weights.shape[0]
+    assert returned_weights.shape[1] == expected_weights.shape[1]
+
+    for filename in expected_weights.index:
+        assert filename in returned_weights.index
+        for col in ["weights_raw", "weights_final"]:
+            assert (
+                round(returned_weights.loc[filename, col], 5) ==
+                round(expected_weights.loc[filename, col], 5)
+            )
+
+    # Check weights per file for per-branch stats of TSU branch tsun_1
+    returned_weights = pd.read_csv(
+        os.path.join(
+            stats_output_path,
+            "by_initial_and_final_damage_by_branch_stats_weights_TSU_b_tsun_1.csv"
+        ),
+        index_col = 0
+    )
+    expected_weights = pd.read_csv(
+        os.path.join(
+            os.path.dirname(__file__), "data",
+            "expected_by_initial_and_final_damage_by_branch_stats_weights_TSU_b_tsun_1.csv"
+        ),
+        index_col = 0
+    )
+
+    assert returned_weights.shape[0] == expected_weights.shape[0]
+    assert returned_weights.shape[1] == expected_weights.shape[1]
+
+    for filename in expected_weights.index:
+        assert filename in returned_weights.index
+        for col in ["weights_raw", "weights_final"]:
+            assert (
+                round(returned_weights.loc[filename, col], 5) ==
+                round(expected_weights.loc[filename, col], 5)
+            )
 
     # Delete created output files
     for filename in expected_filenames:

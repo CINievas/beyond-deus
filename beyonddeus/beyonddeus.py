@@ -32,8 +32,9 @@ from beyonddeus.fragility import Fragility
 from beyonddeus.schemamapping import SchemaMapper
 from beyonddeus.exposure import (
     retrieve_exposure_input_names, read_exposure_geoms, read_exposure_csv,
-    check_all_building_ids_in_geoms, map_exposure,
-    update_exposure_transitions_and_losses
+    read_exposure_intensity_combinations, check_all_building_ids_in_geoms,
+    map_exposure, update_exposure_transitions_and_losses,
+    check_exposure_intensity_combinations
 )
 from beyonddeus.loss import LossProvider
 from beyonddeus.usability import Usability
@@ -365,7 +366,7 @@ def process_by_exposure(all_intensity_values, initial_exposure_name_raw):
                 _config.output_types,
                 _usability_model.data,
                 branch,
-                str(realisation),
+                realisation,
                 updated_exposure,
                 _exposure_geoms
             )
@@ -454,7 +455,7 @@ def process_by_intensity_realisation(task: tuple):
         _config.output_types,
         _usability_model.data,
         branch,
-        str(realisation),
+        realisation,
         updated_exposure,
         _exposure_geoms
     )
@@ -638,7 +639,10 @@ def processing_mode(config, log_queue):
         ) as pool:
             pool.map(func, exposure_input_names)
 
-    elif config.parallelisation_mode == "by_intensity_realisation":
+    elif (
+        config.parallelisation_mode == "by_intensity_realisation" or
+        config.parallelisation_mode == "by_exposure_intensity_combination"
+    ):
         # Read intensity files
         logger.info("Reading input intensity file(s)")
         intensity_provider = read_intensity_files(
@@ -696,21 +700,43 @@ def processing_mode(config, log_queue):
 
         del exposure_geoms, schema_mapper
 
-        # Gather task tuples (individual combinations of each input exposure model with each
-        # realisation of each branch of the hazard intensity)
-        tasks = [
-            (
-                ename,
-                mapped_exposures[ename],
-                branch,
-                realisation,
-                intensity_provider[branch][realisation],
-                intensity_positions
+        if config.parallelisation_mode == "by_intensity_realisation":
+            # Gather task tuples (individual combinations of each input exposure model with each
+            # realisation of each branch of the hazard intensity)
+            tasks = [
+                (
+                    ename,
+                    mapped_exposures[ename],
+                    branch,
+                    realisation,
+                    intensity_provider[branch][realisation],
+                    intensity_positions
+                )
+                for ename in exposure_input_names
+                for branch in intensity_provider
+                for realisation in intensity_provider[branch]
+            ]
+
+        elif config.parallelisation_mode == "by_exposure_intensity_combination":
+            # Read combinations of exposure-intensity to be run
+            exposure_intensity_combinations = read_exposure_intensity_combinations(
+                config.input_paths["exposure_intensity_combinations"]
             )
-            for ename in exposure_input_names
-            for branch in intensity_provider
-            for realisation in intensity_provider[branch]
-        ]
+            check_exposure_intensity_combinations(
+                exposure_intensity_combinations, exposure_input_names, intensity_provider
+            )
+            tasks = [
+                (
+                    exposure_intensity_combinations.loc[i, "exposure_csv"],
+                    mapped_exposures[exposure_intensity_combinations.loc[i, "exposure_csv"]],
+                    exposure_intensity_combinations.loc[i, "branch"],
+                    exposure_intensity_combinations.loc[i, "realisation"],
+                    intensity_provider[branch][realisation],
+                    intensity_positions
+                )
+                for i in range(exposure_intensity_combinations.shape[0])
+            ]
+
         runner = process_by_intensity_realisation
 
         # Dispatch the pool

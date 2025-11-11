@@ -23,6 +23,10 @@ following parameters:
   - `exposure_gpkg`: Path to exposure `.gpkg` file with exposure polygons and their centroids.
   There needs to be one polygon for each `building_id` in the exposure `.csv` file. See details
   [here](Exposure.md).
+  - `exposure_intensity_combinations`: Path to CSV file indicating the combination of input
+  exposure files and input intensity files to be run. Only necessary if `parallelisation_mode`
+  (see below) is `by_exposure_intensity_combination`, otherwise write "None" (without quotation
+  marks).
   - `conversion_taxonomy`: Path to directory that contains the building taxonomy conversion
   `.json` file. Write "None" (without quotation marks) if this file is not needed, i.e. when the
   building taxonomies of exposure (`building_schema_exposure`) and fragility
@@ -47,10 +51,16 @@ written, if `profiling.py` is manually run.
   calculations.
   - `both`: The software will calculate damage/losses as well as the statistics of the current
   calculation.
-- `parallelisation_mode`: Parallelisation mode. Currently supported options are
-"by_input_exposure" (each CPU will process all hazard intensity branches and realisations for
-one individual input exposure model) and "by_intensity_realisation" (each CPU will process one
-especific combination of a realisation of hazard intensity and input exposure model).
+- `parallelisation_mode`: Parallelisation mode. Currently supported options are:
+  - `by_input_exposure`: All possible combinations of input exposure and hazard intensities are
+  run. Each CPU will process all hazard intensity branches and realisations for one individual
+  input exposure model.
+  - `by_intensity_realisation`: All possible combinations of input exposure and hazard
+  intensities are run. Each CPU will process one especific combination of a realisation of
+  hazard intensity and input exposure model.
+  - `by_exposure_intensity_combination`: Only the combinations of input exposure and hazard
+  intensities specified in `exposure_intensity_combinations` (see above) are run. Each CPU will
+  process one of these combinations.
 - `cpus`: Number of processors to be used in the parallelisation of the calculations.
 - `parameters`:
   - `building_schema_exposure`: Name of the building classification schema of the input exposure
@@ -119,6 +129,9 @@ post-processing parameters need to be provided for the generation of statistics 
 Sub-parameters include:
   - `target_quantiles`: List of quantiles in the range (0.0, 1.0) to be used for calculating
   quantiles of results.
+  - `export_weight_per_file`: If True, the weights used for each results file of each
+  post-processing ouput will be exported to a CSV. This option is useful to make sure the
+  weights are as intended, specially when running in `by_exposure_intensity_combination` mode.
   - `logic_tree_meta`: Nested dictionaries describing the logic trees of all hazards in the
   chain run so far. The sub-keys need to be integers >= 1, indicating the order in which the
   hazards were applied (1 = first hazard, 2 = second hazard, ...). For each hazard, the subkey
@@ -127,9 +140,8 @@ Sub-parameters include:
     - `logic_tree_path`: Full path to CSV file containing the logic tree associated with this
     hazard (the file contains all names and weights of the logic tree branches; see
     [here](Post_Processing.md)).
-    - `realisations`: Number of realisations per logic tree branch of this hazard. It is assumed
-    that all realisations of the same logic tree branch carry the same weight (i.e., the weight
-    within the branch of a realisation is calculated as 1/`realisations`).
+    - `weight_of_realisation`: Weight of one realisation of this hazard, independently of the
+    branch weight. It must be a float larger than 0 and smaller than or equal to 1.
   - `initial_damage_range`: List of integers designating the initial damage states of the last
   hazard run.
   - `final_damage_range`: List of integers designating the final damage states of the last

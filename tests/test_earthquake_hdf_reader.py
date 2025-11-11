@@ -29,7 +29,7 @@ def test_intensity_from_EQ_HDF():
 
     # 1
     gmpe_name = "GMPE1"
-    realisation = 0
+    realisation = "0"
     target_lon = 13.55
     target_lat = 36.1
     expected = {"PGA": 0.1, "SA(0.3)": 0.2, "SA(0.6)": 0.3, "SA(1.0)": 0.4}
@@ -41,7 +41,7 @@ def test_intensity_from_EQ_HDF():
 
     # 2, same as # 1, but for a different GMPE name and realisation number
     gmpe_name = "GMPE2"
-    realisation = 2
+    realisation = "2"
     target_lon = 13.55
     target_lat = 36.1
     expected = {"PGA": 0.6, "SA(0.3)": 1.2, "SA(0.6)": 1.8, "SA(1.0)": 2.4}
@@ -53,7 +53,7 @@ def test_intensity_from_EQ_HDF():
 
     # 3, point too far away
     gmpe_name = "GMPE1"
-    realisation = 0
+    realisation = "0"
     target_lon = 12.5
     target_lat = 36.1
     expected = {"PGA": 0.0, "SA(0.3)": 0.0, "SA(0.6)": 0.0, "SA(1.0)": 0.0}
@@ -65,7 +65,7 @@ def test_intensity_from_EQ_HDF():
 
     # 4, identify nearest neighbour positions
     gmpe_name = "GMPE1"
-    realisation = 0
+    realisation = "0"
     target_locations = np.array([
         [14.6, 37.1], [14.9, 36.9], [16.0, 37.0], [15.5, 37.0], [-14.0, -36.0]
     ])

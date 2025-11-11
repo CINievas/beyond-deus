@@ -47,6 +47,15 @@ class TEMP_NetCDF_fields:
         """
         Returns an instance of intensityprovider.IntensityProvider, which later enables access
         to the intensity data point that is closest to a target location.
+
+        Diffferent realisations are labelled by the position they occupy in the original data
+        (self.temperature[realisation, :, :]).
+
+        Returns:
+            intensity_provider (dict):
+                Dictionary with keys equal to realisation numbers (as strings). Each key
+                contains an instance of intensityprovider.IntensityProvider that enables access
+                to the intensity data for that specific realisation.
         """
 
         intensity_provider = {}
@@ -64,7 +73,7 @@ class TEMP_NetCDF_fields:
                 possible_x_columns=["lon"],
                 possible_y_columns=["lat"],
             )
-            intensity_provider[k] = IntensityProvider(
+            intensity_provider[str(k)] = IntensityProvider(
                 intensity_data=wrapped_data, na_value=-1000.0
             )
 

@@ -39,6 +39,9 @@ class Configuration:
                     Path to the directory containing the exposure CSV input file(s).
                 "exposure_gpkg":
                     Path to exposure GeoPackage input file.
+                "exposure_intensity_combinations":
+                    Path to CSV file indicating the combination of input exposure files and
+                    input intensity files to be run.
                 "conversion_taxonomy":
                     Path to directory containing conversion file(s) of building taxonomies.
                 "conversion_damage_states":
@@ -63,10 +66,16 @@ class Configuration:
                 - "both": The software will calculate damage/losses as well as the statistics of
                     the current calculation.
         self.parallelisation_mode (str):
-            Parallelisation mode. Currently supported options are "by_input_exposure" (each CPU
-            will process all hazard intensity branches and realisations for one individual input
-            exposure model) and "by_intensity_realisation" (each CPU will process one especific
-            combination of a realisation of hazard intensity and input exposure model).
+            Parallelisation mode. Currently supported options are:
+                - "by_input_exposure": All possible combinations of input exposure and hazard
+                intensities are run. Each CPU will process all hazard intensity branches and
+                realisations for one individual input exposure model.
+                - "by_intensity_realisation": All possible combinations of input exposure and
+                hazard intensities are run. Each CPU will process one especific combination of a
+                realisation of hazard intensity and input exposure model.
+                - "by_exposure_intensity_combination": Only the combinations of input exposure
+                and hazard intensities specified in 'exposure_intensity_combinations' are run.
+                Each CPU will process one of these combinations.
         self.cpus (int):
             Number of processors to be used in the parallelisation of the calculations.
         self.parameters (dict):
@@ -143,6 +152,8 @@ class Configuration:
                 "target_quantiles" (list of float):
                     List of quantiles in the range (0.0, 1.0) to be used for calculating
                     quantiles of results.
+                "export_weight_per_file" (bool): If True, the weights used for each results file
+                    of each post-processing ouput will be exported to a CSV.
                 "logic_tree_meta" (dict):
                     Dictionary describing the logic trees of all hazards in the chain run so
                     far. The sub-keys are integers >= 1, indicating the order in which the
@@ -154,8 +165,9 @@ class Configuration:
                             Full path to CSV file containing the logic tree associated with this
                             hazard (the file contains all names and weights of the logic tree
                             branches).
-                        "realisations" (int > 0):
-                            Number of realisations per logic tree branch.
+                        "weight_of_realisation" (0 < float <= 1):
+                            Weight of one realisation of this hazard, independently of the
+                            branch weight.
                 "initial_damage_range" (list of int):
                     List of integers designating the initial damage states (of the last hazard
                     run).
@@ -391,6 +403,10 @@ class Configuration:
                 self.post_processing["target_quantiles"][i] = float(
                     self.post_processing["target_quantiles"][i]
                 )
+
+            self.post_processing["export_weight_per_file"] = self._assign_parameter(
+                aux_post_processing, "export_weight_per_file"
+            )
 
             self.post_processing["logic_tree_meta"] = self._assign_hierarchical_parameters(
                 aux_post_processing, "logic_tree_meta"

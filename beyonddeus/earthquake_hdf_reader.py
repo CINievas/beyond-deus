@@ -49,6 +49,9 @@ class EQ_HDF_fields:
         Returns a dictionary of instances of intensityprovider.IntensityProvider, which later
         enable access to the intensity data point that is closest to a target location.
 
+        Diffferent realisations of the same branch are labelled by the position they occupy in
+        the original data (self.gr_motion_fields[:, :, realisation, :]).
+
         Returns:
             intensity_provider (dict):
                 Dictionary with two levels of keys. The first level is the name of the ground
@@ -78,7 +81,7 @@ class EQ_HDF_fields:
                     possible_x_columns=["lon"],
                     possible_y_columns=["lat"],
                 )
-                intensity_provider[gmpe_name][k] = IntensityProvider(
+                intensity_provider[gmpe_name][str(k)] = IntensityProvider(
                     intensity_data=wrapped_data
                 )
 

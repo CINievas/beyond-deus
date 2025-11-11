@@ -4,6 +4,7 @@ input_paths:
   fragility: path_to_fragility_file  # One fragility json file
   exposure_csv: path_to_exposure_csv_files  # One directory with all exposure csv files
   exposure_gpkg: path_to_exposure_gpkg_file  # One exposure gpkg file with exposure polygons and their centroids
+  exposure_intensity_combinations: path_to_exposure_intensity_combinations_csv_file  # One file linking input exposure and intensity files (for by_exposure_intensity_combination mode)
   conversion_taxonomy: path_to_directory_with_taxonomy_conversion_files # All files in this directory will be used
   conversion_damage_states: path_to_directory_with_damage_states_conversion_files  # All files in this directory will be used
   consequence: path_to_consequence_model_file  # One json file with economic consequence model (can take None)
@@ -11,7 +12,7 @@ input_paths:
 output_path: path_to_output_folder  # Folder to which the outputs will be written, must be empty
 output_path_profiling: path_to_profiling_output_fikder  # Folder to which the outputs of profiling.py will be written
 running_mode: processing  # Supported: processing (only calculating damage/loss), post-processing (only stats of previous calculations), full (both)
-parallelisation_mode: parallelisation_mode  # Supported: by_input_exposure, by_intensity_realisation
+parallelisation_mode: parallelisation_mode  # Supported: by_input_exposure, by_intensity_realisation, by_exposure_intensity_combination
 cpus: 1  # Number of processors to use in the parallelisation
 parameters:
   building_schema_exposure: source_schema_name  #  Name of the building classification schema of the input exposure (one string)
@@ -44,15 +45,16 @@ output_types:  # Write True/False next to each option, to export or not export t
     damage_with_people_gpkg_per_realisation: True
 post_processing:
   target_quantiles: 0.05, 0.16, 0.25, 0.5, 0.75, 0.84, 0.95  # quantiles for stats
+  export_weight_per_file: True
   logic_tree_meta:  # the logic tree must include previously-run hazards
     1:  # order in which the hazard was applied 1, 2, 3...
       hazard_prefix: PREHAZ  # hazard_prefix as used in the software run
       logic_tree_path: path_to_PREHAZ_logic_tree_file  # file with names and weights of branches
-      realisations: 100  # realisations per logic tree branch
+      weight_of_realisation: 0.01  # weight of one realisation of this hazard, independently of the branch weight
     2:
       hazard_prefix: HAZ
       logic_tree_path: path_to_HAZ_logic_tree_file
-      realisations: 1
+      weight_of_realisation: 1  # weight of one realisation of this hazard, independently of the branch weight
   initial_damage_range: 0, 1, 2, 3, 4  # initial damage states (of the last hazard run)
   final_damage_range: 0, 1, 2, 3, 4  # final damage states (of the last hazard run)
   types:

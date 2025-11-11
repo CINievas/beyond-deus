@@ -92,7 +92,8 @@ def read_intensity_files(intensity_path, intensity_file_type):
                 )
 
                 for k, filename in enumerate(branch_filenames):
-                    intensity_provider[branch][k] = Shakemaps.from_file(
+                    realisation = filename.split(".")[0]
+                    intensity_provider[branch][realisation] = Shakemaps.from_file(
                         os.path.join(intensity_path, branch, filename)
                     ).to_intensity_provider()
 
@@ -104,7 +105,8 @@ def read_intensity_files(intensity_path, intensity_file_type):
             intensity_provider["unique"] = {}
 
             for k, filename in enumerate(filenames):
-                intensity_provider["unique"][k] = Shakemaps.from_file(
+                realisation = filename.split(".")[0]
+                intensity_provider["unique"][realisation] = Shakemaps.from_file(
                     os.path.join(intensity_path, filename)
                 ).to_intensity_provider()
 
@@ -134,7 +136,8 @@ def read_intensity_files(intensity_path, intensity_file_type):
                 )
 
                 for k, filename in enumerate(branch_filenames):
-                    intensity_provider[branch][k] = TSU_NetCDF_fields(
+                    realisation = filename.split(".")[0]
+                    intensity_provider[branch][realisation] = TSU_NetCDF_fields(
                         os.path.join(intensity_path, branch, filename)
                     ).to_intensity_provider()
 
@@ -146,7 +149,8 @@ def read_intensity_files(intensity_path, intensity_file_type):
             intensity_provider["unique"] = {}
 
             for k, filename in enumerate(filenames):
-                intensity_provider["unique"][k] = TSU_NetCDF_fields(
+                realisation = filename.split(".")[0]
+                intensity_provider["unique"][realisation] = TSU_NetCDF_fields(
                     os.path.join(intensity_path, filename)
                 ).to_intensity_provider()
 

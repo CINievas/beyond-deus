@@ -24,6 +24,10 @@ import re
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from beyonddeus.exposure import (
+    read_exposure_intensity_combinations,
+    check_exposure_intensity_combinations
+)
 
 logger = logging.getLogger()
 
@@ -43,6 +47,8 @@ class PostProcessor:
                     "target_quantiles" (list of float):
                         List of quantiles in the range (0.0, 1.0) to be used for calculating
                         quantiles of results.
+                    "export_weight_per_file" (bool): If True, the weights used for each results
+                        file of each post-processing ouput will be exported to a CSV.
                     "logic_tree_meta" (dict):
                         Dictionary describing the logic trees of all hazards in the chain run so
                         far. The sub-keys are integers >= 1, indicating the order in which the
@@ -54,8 +60,9 @@ class PostProcessor:
                                 Full path to CSV file containing the logic tree associated with
                                 this hazard (the file contains all names and weights of the
                                 logic tree branches).
-                            "realisations" (int > 0):
-                                Number of realisations per logic tree branch.
+                            "weight_of_realisation" (0 < float <= 1):
+                                Weight of one realisation of this hazard, independently of the
+                                branch weight.
                     "initial_damage_range" (list of int):
                         List of integers designating the initial damage states (of the last
                         hazard run).
@@ -298,6 +305,9 @@ class PostProcessor:
         - HAZPREFIX: hazard prefix
         - BRANCHNAME: branch name
 
+        If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
+        the list of results files and weights used for the statistics is created.
+
         Args:
             target_output (str):
                 Kind of output over which to calculate stats. Supported values:
@@ -405,6 +415,22 @@ class PostProcessor:
                 normalised_weights = weights / weights.sum()
 
                 filename_stem = ("%s_b_%s" % (haz_prefix, branch))
+
+                if self.post_processing_config["export_weight_per_file"]:
+                    weights_df = pd.DataFrame(
+                        {
+                            "weights_raw": weights,
+                            "weights_final": normalised_weights
+                        },
+                        index=matching_files
+                    )
+                    weights_df.to_csv(
+                        os.path.join(
+                            self.general_output_path, "statistics",
+                            "%s_by_branch_stats_weights_%s.csv" % (target_output, filename_stem)
+                        ),
+                        index=True
+                    )
 
                 weighted_means = np.average(
                     all_data, axis=2, weights=normalised_weights
@@ -515,6 +541,9 @@ class PostProcessor:
         combination of initial-final damage states (target_output =
         "by_initial_and_final_damage"). Values are number of buildings.
 
+        If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
+        the list of results files and weights used for the statistics is created.
+
         Args:
             target_output (str):
                 Kind of output over which to calculate stats. Supported values:
@@ -621,6 +650,22 @@ class PostProcessor:
         weights = np.array(weights)
         normalised_weights = weights / weights.sum()
 
+        if self.post_processing_config["export_weight_per_file"]:
+            weights_df = pd.DataFrame(
+                {
+                    "weights_raw": weights,
+                    "weights_final": normalised_weights
+                },
+                index=matching_files
+            )
+            weights_df.to_csv(
+                os.path.join(
+                    self.general_output_path, "statistics",
+                    "%s_total_stats_weights.csv" % (target_output)
+                ),
+                index=True
+            )
+
         weighted_means = np.average(
             all_data, axis=2, weights=normalised_weights
         )
@@ -726,6 +771,9 @@ class PostProcessor:
         All resulting statistics, combined with the exposure geometries in 'exposure_geoms', are
         exported to a GeoPackage file as well. The filename follows the pattern:
         "OUTPUTTYPE_by_building_id_by_branch_stats_HAZPREFIX_b_BRANCHNAME.gpkg".
+
+        If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
+        the list of results files and weights used for the statistics is created.
 
         Args:
             output_type (str):
@@ -847,6 +895,24 @@ class PostProcessor:
                 normalised_weights = weights / weights.sum()
 
                 filename_stem = ("%s_b_%s" % (haz_prefix, branch))
+
+                if self.post_processing_config["export_weight_per_file"]:
+                    weights_df = pd.DataFrame(
+                        {
+                            "weights_raw": weights,
+                            "weights_final": normalised_weights
+                        },
+                        index=matching_files
+                    )
+                    weights_df.to_csv(
+                        os.path.join(
+                            self.general_output_path, "statistics",
+                            "%s_by_building_id_by_branch_stats_weights_%s.csv" % (
+                                output_type, filename_stem
+                            )
+                        ),
+                        index=True
+                    )
 
                 weighted_means = np.average(
                     all_data, axis=2, weights=normalised_weights
@@ -977,6 +1043,9 @@ class PostProcessor:
         exported to a GeoPackage file as well. The filename follows the pattern:
         "OUTPUTTYPE_by_building_id_total_stats.gpkg".
 
+        If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
+        the list of results files and weights used for the statistics is created.
+
         Args:
             output_type (str):
                 Type of output to calculate statistics from. E.g.: "loss", "damage_with_people".
@@ -1090,6 +1159,22 @@ class PostProcessor:
             weights[k] = filtered_weights.loc[0, "weight_realisations"]
 
         normalised_weights = weights / weights.sum()
+
+        if self.post_processing_config["export_weight_per_file"]:
+            weights_df = pd.DataFrame(
+                {
+                    "weights_raw": weights,
+                    "weights_final": normalised_weights
+                },
+                index=matching_files
+            )
+            weights_df.to_csv(
+                os.path.join(
+                    self.general_output_path, "statistics",
+                    "%s_by_building_id_total_stats_weights.csv" % (output_type)
+                ),
+                index=True
+            )
 
         logger.info("    A total of %s realisations were retrieved" % (all_data.shape[2]))
 
@@ -1228,8 +1313,9 @@ def calculate_all_logic_tree_combination_weights(logic_tree_meta):
                     Full path to CSV file containing the logic tree associated with this
                     hazard (the file contains all names and weights of the logic tree
                     branches).
-                "realisations" (int > 0):
-                    Number of realisations per logic tree branch.
+                "weight_of_realisation" (0 < float <= 1):
+                    Weight of one realisation of this hazard, independently of the
+                    branch weight.
 
     Returns:
         all_logic_tree_combination_weights (Pandas DataFrame):
@@ -1273,12 +1359,9 @@ def calculate_all_logic_tree_combination_weights(logic_tree_meta):
     )
 
     for haz in logic_tree_meta.keys():
-        number_realisations = logic_tree_meta[haz]["realisations"]
-        realisation_weight = 1.0 / number_realisations
-
         all_logic_tree_combination_weights["weight_realisations"] = (
             all_logic_tree_combination_weights["weight_realisations"]
-            * realisation_weight
+            * logic_tree_meta[haz]["weight_of_realisation"]
         )
 
     return all_logic_tree_combination_weights, logic_tree_weights

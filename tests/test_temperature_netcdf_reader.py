@@ -38,7 +38,7 @@ def test_intensity_from_temperature_NetCDF():
     target_lat = 37.04
     expected = {"temperature": 38.9}
 
-    returned = intensity_provider[0].get_nearest(target_lon, target_lat)
+    returned = intensity_provider["0"].get_nearest(target_lon, target_lat)
 
     for i, im in enumerate(expected.keys()):
         assert round(returned[im], 5) == round(expected[im], 5)
@@ -48,7 +48,7 @@ def test_intensity_from_temperature_NetCDF():
     target_lat = 37.0
     expected = {"temperature": -1000.0}
 
-    returned = intensity_provider[0].get_nearest(target_lon, target_lat)
+    returned = intensity_provider["0"].get_nearest(target_lon, target_lat)
 
     for i, im in enumerate(expected.keys()):
         assert round(returned[im], 5) == round(expected[im], 5)
@@ -57,7 +57,7 @@ def test_intensity_from_temperature_NetCDF():
     target_locations = np.array([
         [14.86, 37.04], [14.84, 37.06], [16.0, 37.0], [14.6, 36.79], [-14.0, -36.0]
     ])
-    returned_nearest_neighbours = intensity_provider[0].identify_nearest_neighbours(
+    returned_nearest_neighbours = intensity_provider["0"].identify_nearest_neighbours(
         target_locations
     )
 
@@ -76,7 +76,7 @@ def test_intensity_from_temperature_NetCDF():
 
     for i in range(expected_nearest_neighbours.shape[0]):
 
-        returned_ims = intensity_provider[0].get_values_at_position(
+        returned_ims = intensity_provider["0"].get_values_at_position(
             expected_nearest_neighbours[i]
         )
 

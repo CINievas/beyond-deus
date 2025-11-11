@@ -17,10 +17,13 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import os
+import logging
 import pandas as pd
 import geopandas as gpd
 import numpy as np
 from copy import deepcopy
+
+logger = logging.getLogger()
 
 
 def retrieve_exposure_input_names(directory_csv):
@@ -156,6 +159,78 @@ def read_exposure_csv(filename_csv):
         exposure_df.reset_index(inplace=True)
 
     return exposure_df
+
+
+def read_exposure_intensity_combinations(filename_csv):
+    """
+    This method reads the exposure-intensity combinations CSV file.
+
+    Returns:
+        combis_df (Pandas DataFrame):
+            DataFrame in which each row is a combination of an input exposure file and a hazard
+            realisation within a branch. Columns:
+                "exposure_csv": Name of the input exposure CSV file.
+                "branch": Name of the hazard branch.
+                "realisation": Name of the realisation within the hazard branch.
+    """
+
+    combis_df = pd.read_csv(filename_csv)
+    combis_df["branch"] = combis_df["branch"].astype(str)
+    combis_df["realisation"] = combis_df["realisation"].astype(str)
+
+    return combis_df
+
+
+def check_exposure_intensity_combinations(
+    exposure_intensity_combinations, exposure_input_names, intensity_provider
+):
+
+    # Check all exposure filenames exist in 'exposure_input_names'
+    unique_exposure_filenames = exposure_intensity_combinations["exposure_csv"].unique()
+
+    not_found = []
+    for filename in unique_exposure_filenames:
+        if filename not in exposure_input_names:
+            not_found.append(filename)
+
+    if len(not_found) > 0:
+        error_message = (
+            "Some input exposure files listed in the exposure-intensity combinations have not "
+            "been found: %s. The program cannot run." % (", ".join(not_found))
+        )
+        logger.critical(error_message)
+        raise OSError(error_message)
+
+    # Check all hazard branch names exist in 'intensity_provider':
+    unique_branches = exposure_intensity_combinations["branch"].unique()
+
+    not_found = []
+    for branch in unique_branches:
+        if branch not in intensity_provider.keys():
+            not_found.append(branch)
+
+    if len(not_found) > 0:
+        error_message = (
+            "Some input hazard branches listed in the exposure-intensity combinations have not "
+            "been found: %s. The program cannot run." % (", ".join(not_found))
+        )
+        logger.critical(error_message)
+        raise OSError(error_message)
+
+    # Check that the realisations exist within the branches
+    branch_reals = exposure_intensity_combinations.groupby(
+        ["branch", "realisation"]
+    ).agg({"exposure_csv": "first"})  # it does not matter, it's just to get the index
+
+    for i in range(branch_reals.shape[0]):
+        if not(branch_reals.index[i][1] in intensity_provider[branch_reals.index[i][0]].keys()):
+            error_message = (
+                "Realisation '%s' cannot be found in branch '%s' of the intensity provider. "
+                "Check of the exposure-intensity combinations has failed. "
+                "The program cannot run." % (branch_reals.index[i][1], branch_reals.index[i][0])
+            )
+            logger.critical(error_message)
+            raise OSError(error_message)
 
 
 def check_all_building_ids_in_geoms(exposure_df, exposure_geoms):
