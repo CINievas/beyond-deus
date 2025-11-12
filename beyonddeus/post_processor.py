@@ -747,6 +747,8 @@ class PostProcessor:
         """
         logger.info("Calculating per-branch %s stats per building_id" % (output_type))
 
+        columns_to_use_as_index = pd.Index(columns_to_use)
+
         gather_hazards = []
         gather_branches = []
         gather_number_files = []
@@ -806,6 +808,14 @@ class PostProcessor:
                                 len(matching_files)
                             )
                         )
+
+                    # Check if all "columns_to_use" exist in df (they may not if, for example,
+                    # some damage states did not occur for this exposure/intensity)
+                    columns_exist = columns_to_use_as_index.isin(df.columns)
+                    if not columns_exist.all():
+                        missing_columns = columns_to_use_as_index[~columns_exist]
+                        for col_name in missing_columns:
+                            df[col_name] = np.zeros(df.shape[0])
 
                     all_data[:, :, k] = df[columns_to_use].to_numpy()
 
@@ -987,6 +997,8 @@ class PostProcessor:
         """
         logger.info("Calculating total %s stats per building_id" % (output_type))
 
+        columns_to_use_as_index = pd.Index(columns_to_use)
+
         # Initialise list to collect all data:
         all_data_slices = []  # each element will be a 2D array
 
@@ -1041,6 +1053,14 @@ class PostProcessor:
                         len(matching_files)
                     )
                 )
+
+            # Check if all "columns_to_use" exist in df (they may not if, for example, some
+            # damage states did not occur for this exposure/intensity)
+            columns_exist = columns_to_use_as_index.isin(df.columns)
+            if not columns_exist.all():
+                missing_columns = columns_to_use_as_index[~columns_exist]
+                for col_name in missing_columns:
+                    df[col_name] = np.zeros(df.shape[0])
 
             all_data[:, :, k] = df[columns_to_use].to_numpy()
 
