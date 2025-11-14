@@ -588,8 +588,11 @@ def processing_mode(config, log_queue):
             [exposure_geoms["centroid_lon"], exposure_geoms["centroid_lat"]]
         ).T
         first_branch = list(intensity_provider.keys())[0]
-        nearest_neighbours = intensity_provider[first_branch][0].identify_nearest_neighbours(
-            target_locations
+        first_realisation = list(intensity_provider[first_branch].keys())[0]
+        nearest_neighbours = (
+            intensity_provider[first_branch][first_realisation].identify_nearest_neighbours(
+                target_locations
+            )
         )
         intensity_positions = pd.DataFrame(
             {"nearest_neighbour": nearest_neighbours},
@@ -669,8 +672,11 @@ def processing_mode(config, log_queue):
             [exposure_geoms["centroid_lon"], exposure_geoms["centroid_lat"]]
         ).T
         first_branch = list(intensity_provider.keys())[0]
-        nearest_neighbours = intensity_provider[first_branch][0].identify_nearest_neighbours(
-            target_locations
+        first_realisation = list(intensity_provider[first_branch].keys())[0]
+        nearest_neighbours = (
+            intensity_provider[first_branch][first_realisation].identify_nearest_neighbours(
+                target_locations
+            )
         )
         intensity_positions = pd.DataFrame(
             {"nearest_neighbour": nearest_neighbours},
