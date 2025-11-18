@@ -244,6 +244,9 @@ class Configuration:
         self.input_paths["exposure_gpkg"] = self._assign_parameter(
             config["input_paths"], "exposure_gpkg"
         )
+        self.input_paths["exposure_intensity_combinations"] = self._assign_parameter(
+            config["input_paths"], "exposure_intensity_combinations"
+        )
         self.input_paths["conversion_taxonomy"] = self._assign_parameter(
             config["input_paths"], "conversion_taxonomy"
         )

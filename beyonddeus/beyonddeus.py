@@ -380,6 +380,11 @@ def process_by_intensity_realisation(task: tuple):
     """
     Process a single (exposure, branch, realisation) task.
 
+    Difference between methods 'process_by_exposure_intensity_combination' and
+    'process_by_intensity_realisation': 'process_by_intensity_realisation' requires that the
+    input exposure models be loaded and mapped in advance, while
+    'process_by_exposure_intensity_combination' does the loading and mapping itself.
+
     Args:
         task (tuple):
             Tuple of (
@@ -424,6 +429,103 @@ def process_by_intensity_realisation(task: tuple):
     logger.info("START processing")
 
     initial_exposure_name = initial_exposure_name_raw.split(".")[0].split("_updated")[0]
+
+    all_intensities = intensity_provider_branch_real.get_values_at_multiple_positions(
+        intensity_positions,
+        _config.parameters["intensity_threshold"]
+    )
+
+    logger.info(
+        "%s out of %s building_id "
+        "assumed with no further damage (intensity < threshold)"
+        % (
+            all_intensities.shape[0] - all_intensities["run"].sum(),
+            all_intensities.shape[0]
+        )
+    )
+
+    updated_exposure = update_exposure_transitions_and_losses(
+        mapped_exposure,
+        all_intensities,
+        _config.parameters["intensity_threshold"],
+        _fragility_provider,
+        _loss_provider
+    )
+
+    logger.info("Exporting results")
+    outputgen = OutputGenerator(
+        _config.hazard_prefix,
+        initial_exposure_name,
+        _config.output_path,
+        _config.output_types,
+        _usability_model.data,
+        branch,
+        realisation,
+        updated_exposure,
+        _exposure_geoms
+    )
+    outputgen.export()
+    logger.info("Results exported")
+
+    logger.info("END processing")
+
+
+def process_by_exposure_intensity_combination(task: tuple):
+    """
+    Process a single (exposure, branch, realisation) task.
+
+    Difference between methods 'process_by_exposure_intensity_combination' and
+    'process_by_intensity_realisation': 'process_by_intensity_realisation' requires that the
+    input exposure models be loaded and mapped in advance, while
+    'process_by_exposure_intensity_combination' does the loading and mapping itself.
+
+    Args:
+        task (tuple):
+            Tuple of (
+                    initial_exposure_name_raw,
+                    branch,
+                    realisation,
+                    intensity_provider_branch_real,
+                    intensity_positions
+                    ):
+                initial_exposure_name_raw (str)
+                branch (str):
+                    Name of the branch of the intensity logic tree.
+                realisation (int):
+                    Number of the realisation of intensity within 'branch'.
+                intensity_provider_branch_real (intensityprovider.IntensityProvider):
+                    Instance of intensityprovider.IntensityProvider for this 'branch' and
+                    'realisation'.
+                intensity_positions (Pandas DataFrame):
+                    DataFrame with index "building_id", indicating the ID of exposure polygons,
+                    and one column "nearest_neighbour", with the position of the nearest
+                    neighbour site of the hazard intensitiy fields.
+    """
+    (
+        initial_exposure_name_raw,
+        branch,
+        realisation,
+        intensity_provider_branch_real,
+        intensity_positions
+    ) = task
+
+    # Attach exposure, branch and realisation context
+    base_logger = logging.getLogger(__name__)
+    logger = logging.LoggerAdapter(base_logger, {
+        "exposure": initial_exposure_name_raw.split(".")[0],
+        "branch": branch,
+        "realisation": realisation
+    })
+
+    logger.info("START processing")
+
+    logger.info("Loading exposure model")
+    mapped_exposure, initial_exposure_name = read_check_and_map_exposure(
+        initial_exposure_name_raw,
+        _config,
+        _exposure_geoms,
+        _schema_mapper
+    )
 
     all_intensities = intensity_provider_branch_real.get_values_at_multiple_positions(
         intensity_positions,
@@ -642,10 +744,7 @@ def processing_mode(config, log_queue):
         ) as pool:
             pool.map(func, exposure_input_names)
 
-    elif (
-        config.parallelisation_mode == "by_intensity_realisation" or
-        config.parallelisation_mode == "by_exposure_intensity_combination"
-    ):
+    elif config.parallelisation_mode == "by_intensity_realisation":
         # Read intensity files
         logger.info("Reading input intensity file(s)")
         intensity_provider = read_intensity_files(
@@ -706,42 +805,21 @@ def processing_mode(config, log_queue):
 
         del exposure_geoms, schema_mapper
 
-        if config.parallelisation_mode == "by_intensity_realisation":
-            # Gather task tuples (individual combinations of each input exposure model with each
-            # realisation of each branch of the hazard intensity)
-            tasks = [
-                (
-                    ename,
-                    mapped_exposures[ename],
-                    branch,
-                    realisation,
-                    intensity_provider[branch][realisation],
-                    intensity_positions
-                )
-                for ename in exposure_input_names
-                for branch in intensity_provider
-                for realisation in intensity_provider[branch]
-            ]
-
-        elif config.parallelisation_mode == "by_exposure_intensity_combination":
-            # Read combinations of exposure-intensity to be run
-            exposure_intensity_combinations = read_exposure_intensity_combinations(
-                config.input_paths["exposure_intensity_combinations"]
+        # Gather task tuples (individual combinations of each input exposure model with each
+        # realisation of each branch of the hazard intensity)
+        tasks = [
+            (
+                ename,
+                mapped_exposures[ename],
+                branch,
+                realisation,
+                intensity_provider[branch][realisation],
+                intensity_positions
             )
-            check_exposure_intensity_combinations(
-                exposure_intensity_combinations, exposure_input_names, intensity_provider
-            )
-            tasks = [
-                (
-                    exposure_intensity_combinations.loc[i, "exposure_csv"],
-                    mapped_exposures[exposure_intensity_combinations.loc[i, "exposure_csv"]],
-                    exposure_intensity_combinations.loc[i, "branch"],
-                    exposure_intensity_combinations.loc[i, "realisation"],
-                    intensity_provider[branch][realisation],
-                    intensity_positions
-                )
-                for i in range(exposure_intensity_combinations.shape[0])
-            ]
+            for ename in exposure_input_names
+            for branch in intensity_provider
+            for realisation in intensity_provider[branch]
+        ]
 
         runner = process_by_intensity_realisation
 
@@ -749,6 +827,75 @@ def processing_mode(config, log_queue):
         with Pool(
             processes=config.cpus,
             initializer=init_worker_for_by_itensity_realisation,
+            initargs=(log_queue,)
+        ) as pool:
+            pool.map(runner, tasks)
+
+    elif config.parallelisation_mode == "by_exposure_intensity_combination":
+        # Read intensity files
+        logger.info("Reading input intensity file(s)")
+        intensity_provider = read_intensity_files(
+            config.input_paths["intensity"],
+            config.parameters["intensity_file_type"]
+        )
+
+        if len(intensity_provider.keys()) == 0:
+            logger.info(
+                "No intensity files found. "
+                "Check if 'intensity_file_type' in 'config.yml' is supported."
+            )
+            return
+
+        # Read exposure geometries
+        logger.info("Reading exposure geometries")
+        exposure_geoms = read_exposure_geoms(config.input_paths["exposure_gpkg"])
+
+        # Retrieve location (nearest neighbour position) of hazard intensity measures at the
+        # centroids indicated in the input exposure geometries
+        logger.info("Determining nearest-neighbour hazard positions for all exposure sites")
+        target_locations = np.array(
+            [exposure_geoms["centroid_lon"], exposure_geoms["centroid_lat"]]
+        ).T
+        first_branch = list(intensity_provider.keys())[0]
+        first_realisation = list(intensity_provider[first_branch].keys())[0]
+        nearest_neighbours = (
+            intensity_provider[first_branch][first_realisation].identify_nearest_neighbours(
+                target_locations
+            )
+        )
+        intensity_positions = pd.DataFrame(
+            {"nearest_neighbour": nearest_neighbours},
+            index=exposure_geoms["building_id"]
+        )
+
+        # Read combinations of exposure-intensity to be run
+        exposure_intensity_combinations = read_exposure_intensity_combinations(
+            config.input_paths["exposure_intensity_combinations"]
+        )
+        check_exposure_intensity_combinations(
+            exposure_intensity_combinations, exposure_input_names, intensity_provider
+        )
+        tasks = [
+            (
+                exposure_intensity_combinations.loc[i, "exposure_csv"],
+                exposure_intensity_combinations.loc[i, "branch"],
+                exposure_intensity_combinations.loc[i, "realisation"],
+                intensity_provider[
+                    exposure_intensity_combinations.loc[i, "branch"]
+                ][
+                    exposure_intensity_combinations.loc[i, "realisation"]
+                ],
+                intensity_positions
+            )
+            for i in range(exposure_intensity_combinations.shape[0])
+        ]
+
+        runner = process_by_exposure_intensity_combination
+
+        # Dispatch the pool
+        with Pool(
+            processes=config.cpus,
+            initializer=init_worker_for_by_exposure,
             initargs=(log_queue,)
         ) as pool:
             pool.map(runner, tasks)
