@@ -58,6 +58,7 @@ post_processing:
       weight_of_realisation: 1  # weight of one realisation of this hazard, independently of the branch weight
   initial_damage_range: 0, 1, 2, 3, 4  # initial damage states (of the last hazard run)
   final_damage_range: 0, 1, 2, 3, 4  # final damage states (of the last hazard run)
+  per_branch_which_hazards: EQ, TSU
   types:
     by_final_damage_all: True
     by_final_damage_per_branch: True

@@ -72,6 +72,10 @@ class PostProcessor:
                     "final_damage_range" (list of int):
                         List of integers designating the final damage states (of the last hazard
                         run).
+                    "per_branch_which_hazards" (list of str):
+                        List of hazards (as hazard prefixes from "logic_tree_meta") for which
+                        the per-branch results will be post-processed (if options such as
+                        "by_final_damage_per_branch", etc., are selected).
                     "types":
                         Dictionary indicating the kind of post-processing outputs to export, by
                         means of True/False. Options are sets of nested keys:
@@ -188,7 +192,7 @@ class PostProcessor:
         if self.post_processing_config["types"]["by_final_damage_per_branch"]:
             summaries["by_final_damage_per_branch"] = (
                 self.calculate_by_initial_and_final_damage_per_branch(
-                    "by_final_damage"
+                    "by_final_damage", self.post_processing_config["per_branch_which_hazards"]
                 )
             )
 
@@ -203,7 +207,8 @@ class PostProcessor:
         if self.post_processing_config["types"]["by_initial_and_final_damage_per_branch"]:
             summaries["by_initial_and_final_damage_per_branch"] = (
                 self.calculate_by_initial_and_final_damage_per_branch(
-                    "by_initial_and_final_damage"
+                    "by_initial_and_final_damage",
+                    self.post_processing_config["per_branch_which_hazards"]
                 )
             )
 
@@ -259,7 +264,8 @@ class PostProcessor:
             ]
             summaries["loss_by_building_id_per_branch"] = (
                 self.calculate_stats_by_building_id_per_branch(
-                    "loss", columns_to_use, exposure_geoms
+                    "loss", columns_to_use, exposure_geoms,
+                    self.post_processing_config["per_branch_which_hazards"]
                 )
             )
 
@@ -273,7 +279,8 @@ class PostProcessor:
 
             summaries["damage_by_building_id_per_branch"] = (
                 self.calculate_stats_by_building_id_per_branch(
-                    "damage", columns_to_use, exposure_geoms
+                    "damage", columns_to_use, exposure_geoms,
+                    self.post_processing_config["per_branch_which_hazards"]
                 )
             )
 
@@ -287,21 +294,22 @@ class PostProcessor:
 
             summaries["damage_with_people_by_building_id_per_branch"] = (
                 self.calculate_stats_by_building_id_per_branch(
-                    "damage_with_people", columns_to_use, exposure_geoms
+                    "damage_with_people", columns_to_use, exposure_geoms,
+                    self.post_processing_config["per_branch_which_hazards"]
                 )
             )
 
         return summaries
 
 
-    def calculate_by_initial_and_final_damage_per_branch(self, target_output):
+    def calculate_by_initial_and_final_damage_per_branch(self, target_output, hazards):
         r"""
         This method calculates weighted means, weighted standard deviations and weighted
         quantiles of the number of buildings, incremental losses and cumulative losses by
         combination of initial and final damage state (target_output =
         "by_initial_and_final_damage"), or by final damage state only (target_output =
         "by_final_damage"), per branch of each hazard indicated in
-        'self.post_processing_config["logic_tree_meta"]'.
+        'self.post_processing_config["logic_tree_meta"]' and 'hazards'.
 
         Resulting statistics are exported to `self.general_output_path`\statistics with
         filenames following the pattern
@@ -317,6 +325,8 @@ class PostProcessor:
             target_output (str):
                 Kind of output over which to calculate stats. Supported values:
                 "by_initial_and_final_damage", "by_final_damage".
+            hazards (list of str):
+                List of hazard prefixes to be used.
 
         Returns:
             summary_number_files (Pandas DataFrame):
@@ -356,6 +366,9 @@ class PostProcessor:
         for haz in self.post_processing_config["logic_tree_meta"].keys():
 
             haz_prefix = self.post_processing_config["logic_tree_meta"][haz]["hazard_prefix"]
+
+            if haz_prefix not in hazards:
+                continue  # skip this hazard
 
             logger.info("    Working on hazard %s: %s" % (haz, haz_prefix))
 
@@ -768,12 +781,12 @@ class PostProcessor:
 
 
     def calculate_stats_by_building_id_per_branch(
-        self, output_type, columns_to_use, exposure_geoms
+        self, output_type, columns_to_use, exposure_geoms, hazards
     ):
         r"""
         This method calculates weighted means, weighted standard deviations and weighted
         quantiles of the columns in 'columns_to_use' of 'output_type', per branch of each
-        hazard indicated in 'self.post_processing_config["logic_tree_meta"]'.
+        hazard indicated in 'self.post_processing_config["logic_tree_meta"]' and 'hazards'.
 
         Resulting statistics are exported to `self.general_output_path`\statistics with
         filenames following the pattern
@@ -799,6 +812,8 @@ class PostProcessor:
             exposure_geoms (GeoPandas GeoDataFrame):
                 GeoDataFrame with the geometries of the exposure polygons. The indices are the
                 exposure "building_id"s.
+            hazards (list of str):
+                List of hazard prefixes to be used.
 
         Returns:
             summary_number_files (Pandas DataFrame):
@@ -819,6 +834,9 @@ class PostProcessor:
         for haz in self.post_processing_config["logic_tree_meta"].keys():
 
             haz_prefix = self.post_processing_config["logic_tree_meta"][haz]["hazard_prefix"]
+
+            if haz_prefix not in hazards:
+                continue  # skip this hazard
 
             logger.info("    Working on hazard %s: %s" % (haz, haz_prefix))
 

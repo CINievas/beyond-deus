@@ -148,6 +148,11 @@ Sub-parameters include:
   hazard run.
   - `final_damage_range`: List of integers designating the final damage states of the last
   hazard run.
+  - `per_branch_which_hazards`: List of hazards (as hazard prefixes from `logic_tree_meta`) for
+  which the per-branch results will be post-processed (if options such as
+  `by_final_damage_per_branch`, etc., are selected). If the prefixes here do not match those in
+  `logic_tree_meta`, no statistics will be produced (for example, if "None" is written), even if
+  the corresponding options in `types` are set to True).
   - `types`: Write True/False next to each option, to calculate and export or not each type of
   post-processing output:
     - `by_final_damage_all`: Mean, quantiles and standard deviation of number of buildings,

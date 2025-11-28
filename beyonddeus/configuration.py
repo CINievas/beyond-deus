@@ -177,6 +177,10 @@ class Configuration:
                 "final_damage_range" (list of int):
                     List of integers designating the final damage states (of the last hazard
                     run).
+                "per_branch_which_hazards" (list of str):
+                    List of hazards (as hazard prefixes from "logic_tree_meta") for which the
+                    per-branch results will be post-processed (if options such as
+                    "by_final_damage_per_branch", etc., are selected).
                 "types":
                     Dictionary indicating the kind of post-processing outputs to export, by
                     means of True/False. Options are sets of nested keys:
@@ -462,6 +466,10 @@ class Configuration:
                     logger.critical(error_message)
                     raise OSError(error_message)
 
+            self.post_processing["per_branch_which_hazards"] = self._assign_listed_parameters(
+                aux_post_processing, "per_branch_which_hazards"
+            )
+
             self.post_processing["types"] = self._assign_hierarchical_parameters(
                 aux_post_processing, "types"
             )
@@ -551,6 +559,9 @@ class Configuration:
 
         if assigned_parameter is None:
             return None
+
+        if isinstance(assigned_parameter, int):
+            assigned_parameter = str(int)
 
         assigned_parameter = assigned_parameter.split(", ")
 
