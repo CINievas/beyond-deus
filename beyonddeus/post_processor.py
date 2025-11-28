@@ -49,6 +49,9 @@ class PostProcessor:
                         quantiles of results.
                     "export_weight_per_file" (bool): If True, the weights used for each results
                         file of each post-processing ouput will be exported to a CSV.
+                    "export_filenames_in_all_values_outputs" (bool): If True, the names of the
+                        filenames from which each value stems are exported to the "all_values"
+                        output CSVs.
                     "logic_tree_meta" (dict):
                         Dictionary describing the logic trees of all hazards in the chain run so
                         far. The sub-keys are integers >= 1, indicating the order in which the
@@ -177,7 +180,8 @@ class PostProcessor:
         if self.post_processing_config["types"]["by_final_damage_all"]:
             summaries["by_final_damage_all"] = (
                 self.calculate_total_stats_by_initial_and_final_damage(
-                    "by_final_damage"
+                    "by_final_damage",
+                    self.post_processing_config["export_filenames_in_all_values_outputs"]
                 )
             )
 
@@ -191,7 +195,8 @@ class PostProcessor:
         if self.post_processing_config["types"]["by_initial_and_final_damage_all"]:
             summaries["by_initial_and_final_damage_all"] = (
                 self.calculate_total_stats_by_initial_and_final_damage(
-                    "by_initial_and_final_damage"
+                    "by_initial_and_final_damage",
+                    self.post_processing_config["export_filenames_in_all_values_outputs"]
                 )
             )
 
@@ -508,7 +513,7 @@ class PostProcessor:
         return summary_number_files
 
 
-    def calculate_total_stats_by_initial_and_final_damage(self, target_output):
+    def calculate_total_stats_by_initial_and_final_damage(self, target_output, exportfilenames):
         r"""
         This method calculates weighted means, weighted standard deviations and weighted
         quantiles of the number of buildings, incremental losses and cumulative losses by
@@ -540,6 +545,7 @@ class PostProcessor:
         realisation, one column per final damage state (target_output = "by_final_damage" ) or
         combination of initial-final damage states (target_output =
         "by_initial_and_final_damage"). Values are number of buildings.
+        In all of the above, if 'exportfilenames' is True, source filenames are included.
 
         If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
         the list of results files and weights used for the statistics is created.
@@ -548,6 +554,9 @@ class PostProcessor:
             target_output (str):
                 Kind of output over which to calculate stats. Supported values:
                 "by_initial_and_final_damage", "by_final_damage".
+            exportfilenames (bool):
+                If True, the names of the filenames from which each value of the "all_values"
+                files comes is exported.
 
         Returns:
             summary_number_files (Pandas DataFrame):
@@ -728,6 +737,9 @@ class PostProcessor:
                 all_data[:, j, :].T,
                 columns=out_combinations
             )
+            if exportfilenames:
+                out_df["filename"] = matching_files
+
             out_df.to_csv(
                 os.path.join(
                     self.general_output_path, "statistics",
@@ -741,6 +753,9 @@ class PostProcessor:
             all_data.sum(axis=0).T,
             columns=columns_to_use,
         )
+        if exportfilenames:
+            out_df["filename"] = matching_files
+
         out_df.to_csv(
             os.path.join(
                 self.general_output_path, "statistics",

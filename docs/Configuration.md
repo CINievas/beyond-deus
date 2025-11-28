@@ -132,6 +132,8 @@ Sub-parameters include:
   - `export_weight_per_file`: If True, the weights used for each results file of each
   post-processing ouput will be exported to a CSV. This option is useful to make sure the
   weights are as intended, specially when running in `by_exposure_intensity_combination` mode.
+  - `export_filenames_in_all_values_outputs`: If True, the names of the filenames from which
+  each value stems are exported to the "all_values" output CSVs.
   - `logic_tree_meta`: Nested dictionaries describing the logic trees of all hazards in the
   chain run so far. The sub-keys need to be integers >= 1, indicating the order in which the
   hazards were applied (1 = first hazard, 2 = second hazard, ...). For each hazard, the subkey

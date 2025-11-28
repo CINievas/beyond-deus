@@ -46,6 +46,7 @@ output_types:  # Write True/False next to each option, to export or not export t
 post_processing:
   target_quantiles: 0.05, 0.16, 0.25, 0.5, 0.75, 0.84, 0.95  # quantiles for stats
   export_weight_per_file: True
+  export_filenames_in_all_values_outputs: True
   logic_tree_meta:  # the logic tree must include previously-run hazards
     1:  # order in which the hazard was applied 1, 2, 3...
       hazard_prefix: PREHAZ  # hazard_prefix as used in the software run

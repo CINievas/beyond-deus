@@ -154,6 +154,9 @@ class Configuration:
                     quantiles of results.
                 "export_weight_per_file" (bool): If True, the weights used for each results file
                     of each post-processing ouput will be exported to a CSV.
+                "export_filenames_in_all_values_outputs" (bool): If True, the names of the
+                    filenames from which each value stems are exported to the "all_values"
+                    output CSVs.
                 "logic_tree_meta" (dict):
                     Dictionary describing the logic trees of all hazards in the chain run so
                     far. The sub-keys are integers >= 1, indicating the order in which the
@@ -409,6 +412,12 @@ class Configuration:
 
             self.post_processing["export_weight_per_file"] = self._assign_parameter(
                 aux_post_processing, "export_weight_per_file"
+            )
+
+            self.post_processing["export_filenames_in_all_values_outputs"] = (
+                self._assign_parameter(
+                    aux_post_processing, "export_filenames_in_all_values_outputs"
+                )
             )
 
             self.post_processing["logic_tree_meta"] = self._assign_hierarchical_parameters(
