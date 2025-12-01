@@ -561,7 +561,7 @@ class Configuration:
             return None
 
         if isinstance(assigned_parameter, int):
-            assigned_parameter = str(int)
+            assigned_parameter = str(assigned_parameter)
 
         assigned_parameter = assigned_parameter.split(", ")
 
