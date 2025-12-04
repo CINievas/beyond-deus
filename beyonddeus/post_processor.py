@@ -355,9 +355,9 @@ class PostProcessor:
         )
 
         if self.include_economic_losses:
-            columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
+            columns_to_use = ["number", "incremental_loss", "cum_loss_value", "ppl_census"]
         else:
-            columns_to_use = ["number"]
+            columns_to_use = ["number", "ppl_census"]
 
         gather_hazards = []
         gather_branches = []
@@ -598,9 +598,9 @@ class PostProcessor:
         )
 
         if self.include_economic_losses:
-            columns_to_use = ["number", "incremental_loss", "cum_loss_value"]
+            columns_to_use = ["number", "incremental_loss", "cum_loss_value", "ppl_census"]
         else:
-            columns_to_use = ["number"]
+            columns_to_use = ["number", "ppl_census"]
 
         # Initialise list to collect all data:
         all_data_slices = []  # each element will be a 2D array

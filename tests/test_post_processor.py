@@ -262,6 +262,7 @@ def test_PostProcessor_export():
     post_processing = {
         "target_quantiles": [0.5, 0.95],
         "export_weight_per_file": True,
+        "export_filenames_in_all_values_outputs": False,
         "logic_tree_meta":  {
             1: {
                 "hazard_prefix": "EQ",
@@ -280,6 +281,7 @@ def test_PostProcessor_export():
         },
         "initial_damage_range": [0, 1, 2, 3, 4],
         "final_damage_range": [0, 1, 2, 3, 4],
+        "per_branch_which_hazards": ["EQ", "TSU"],
         "types": {
             "by_final_damage_all": False,
             "by_final_damage_per_branch": False,
@@ -323,6 +325,7 @@ def test_PostProcessor_export():
         "by_initial_and_final_damage_total_all_values_cum_loss_value.csv",
         "by_initial_and_final_damage_total_all_values_incremental_loss.csv",
         "by_initial_and_final_damage_total_all_values_number.csv",
+        "by_initial_and_final_damage_total_all_values_ppl_census.csv",
         "portfolio_total_losses_all_values.csv"
     ]
 
