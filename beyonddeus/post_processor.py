@@ -254,6 +254,50 @@ class PostProcessor:
                 )
             )
 
+        if self.post_processing_config["types"]["loss_by_building_id_all_lightstats"]:
+            columns_to_use = [
+                "number",
+                "incremental_loss",
+                "cum_loss_value",
+                "incremental_loss_ratio",
+                "cum_loss_ratio"
+            ]
+            summaries["loss_by_building_id_all_lightstats"] = (
+                self.calculate_light_stats_by_building_id_total(
+                    "loss", columns_to_use, exposure_geoms
+                )
+            )
+
+        if self.post_processing_config["types"]["damage_by_building_id_all_lightstats"]:
+
+            columns_to_use = ["number"]
+            subtypes = ["number", "proportion"]
+            for subtype in subtypes:
+                for dmg_state in self.post_processing_config["final_damage_range"]:
+                    columns_to_use.append("%s_D%s" % (subtype, dmg_state))
+
+            summaries["damage_by_building_id_all_lightstats"] = (
+                self.calculate_light_stats_by_building_id_total(
+                    "damage", columns_to_use, exposure_geoms
+                )
+            )
+
+        if self.post_processing_config["types"][
+            "damage_with_people_by_building_id_all_lightstats"
+        ]:
+
+            columns_to_use = ["number"]
+            subtypes = ["number", "proportion", "ppl_census"]
+            for subtype in subtypes:
+                for dmg_state in self.post_processing_config["final_damage_range"]:
+                    columns_to_use.append("%s_D%s" % (subtype, dmg_state))
+
+            summaries["damage_with_people_by_building_id_all_lightstats"] = (
+                self.calculate_light_stats_by_building_id_total(
+                    "damage_with_people", columns_to_use, exposure_geoms
+                )
+            )
+
         if self.post_processing_config["types"]["loss_by_building_id_per_branch"]:
             columns_to_use = [
                 "number",
@@ -1290,6 +1334,258 @@ class PostProcessor:
             os.path.join(
                 self.general_output_path, "statistics",
                 "%s_by_building_id_total_stats.gpkg" % (output_type)
+            ),
+            driver="GPKG"
+        )
+
+        return summary_number_files
+
+
+    def calculate_light_stats_by_building_id_total(
+        self, output_type, columns_to_use, exposure_geoms
+    ):
+        r"""
+        This method calculates weighted means and weighted standard deviations of the columns in
+        'columns_to_use' of 'output_type', for the whole set of results available in
+        'self.general_output_path', assumed to correspond to all branches and realisations of
+        'self.post_processing_config["logic_tree_meta"]'.
+
+        Resulting statistics are exported to `self.general_output_path`\statistics with
+        filenames following the pattern
+        "OUTPUTTYPE_by_building_id_total_STATNAME_light.csv", where:
+        - OUTPUTTYPE: output_type (e.g., "loss", "damage_with_people").
+        - STATNAME: name of the statistics (means, stdev, ...)
+
+        All resulting statistics, combined with the exposure geometries in 'exposure_geoms', are
+        exported to a GeoPackage file as well. The filename follows the pattern:
+        "OUTPUTTYPE_by_building_id_total_stats_light.gpkg".
+
+        If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
+        the list of results files and weights used for the statistics is created.
+
+        Args:
+            output_type (str):
+                Type of output to calculate statistics from. E.g.: "loss", "damage_with_people".
+            columns_to_use (list of str):
+                List of names of columns of the output file (of 'output_type') to be used for
+                the statistics.
+            exposure_geoms (GeoPandas GeoDataFrame):
+                GeoDataFrame with the geometries of the exposure polygons. The indices are the
+                exposure "building_id"s.
+
+        Returns:
+            summary_number_files (Pandas DataFrame):
+                DataFrame summarising the number of files that were found and used to calculate
+                the statistics of each branch of each hazard. Columns:
+                    "hazard": Name (prefix) of the hazard.
+                    "branch": Name of the branch,
+                    "number_files": Number of files.
+        """
+        logger.info("Calculating total %s stats per building_id" % (output_type))
+
+        columns_to_use_as_index = pd.Index(columns_to_use)
+
+        # Initialise list to collect all data:
+        all_data_slices = []  # each element will be a 2D array
+
+        # Initialise "weights" to collect weights, same dimension as "depth" of "all_data"
+        weights = []
+
+        target_output = "%s_by_building_id.csv" % (output_type)
+        matching_files = [
+            f for f in os.listdir(self.general_output_path)
+            if target_output.lower() in f.lower()
+        ]
+
+        summary_number_files = pd.DataFrame(
+            {
+                "hazard": ["all"],
+                "branch": ["all"],
+                "number_files": [len(matching_files)]
+            }
+        )
+        summary_number_files.to_csv(
+            os.path.join(
+                self.general_output_path,
+                "statistics",
+                "%s_by_building_id_total_meta_summary_light.csv" % (output_type)
+            ),
+            index=False
+        )
+
+        logger.info("    Retrieving weights associated with %s files" % (len(matching_files)))
+
+        if len(matching_files) < 1:  # No files found
+            logger.info("        No stats to be produced")
+            return summary_number_files
+
+        # Gather the weights first, so as to be able to normalise
+        weights = np.zeros(len(matching_files))
+
+        for k, filename in enumerate(matching_files):
+            # Retrieve weight of this realisation
+            haz_branch_realisation_info = (
+                retrieve_hazard_branch_realisation_from_filename(filename)
+            )
+            filtered_weights = retrieve_weight(
+                haz_branch_realisation_info, self.all_logic_tree_combination_weights
+            )
+            weights[k] = filtered_weights.loc[0, "weight_realisations"]
+
+        normalised_weights = weights / weights.sum()
+
+        if self.post_processing_config["export_weight_per_file"]:
+            weights_df = pd.DataFrame(
+                {
+                    "weights_raw": weights,
+                    "weights_final": normalised_weights
+                },
+                index=matching_files
+            )
+            weights_df.to_csv(
+                os.path.join(
+                    self.general_output_path, "statistics",
+                    "%s_by_building_id_total_stats_weights_light.csv" % (output_type)
+                ),
+                index=True
+            )
+
+        # Gather the data and multiply it by the weights file by file
+        logger.info(
+            "    Gathering data and calculating mean associated with %s files"
+            % (len(matching_files))
+        )
+        rolling_mean = None
+        last_building_id_list = None
+
+        logging_thresholds = np.round(len(matching_files) * np.array([0.2, 0.4, 0.6, 0.8]))
+
+        for k, filename in enumerate(matching_files):
+            if k in logging_thresholds:
+                 logger.info("        %s %%" % (100.0 * k/len(matching_files)))
+
+            # Retrieve results of this realisation
+            df = pd.read_csv(
+                os.path.join(self.general_output_path, filename),
+                index_col=0
+            )
+
+            if rolling_mean is None: # create data structure for the first time
+                rolling_mean = np.zeros(
+                    (
+                        df.shape[0],  # reason why we cannot create this outside
+                        len(columns_to_use)
+                    )
+                )
+
+            # Check if all "columns_to_use" exist in df (they may not if, for example, some
+            # damage states did not occur for this exposure/intensity)
+            columns_exist = columns_to_use_as_index.isin(df.columns)
+            if not columns_exist.all():
+                missing_columns = columns_to_use_as_index[~columns_exist]
+                for col_name in missing_columns:
+                    df[col_name] = np.zeros(df.shape[0])
+
+            rolling_mean = rolling_mean + normalised_weights[k] * df[columns_to_use].to_numpy()
+
+            # Make sure building_ids are in the same order in all files (they should be)
+            building_ids = df.index.astype(str).to_list()  # current list of building_ids
+            if last_building_id_list is not None:
+                # Compare the last building_id list with the current one
+                the_same = (building_ids == last_building_id_list)  # boolean
+                if not the_same:
+                    error_message = (
+                        "The order of the building_ids is not the same in different "
+                        "result files. The method "
+                        "'calculate_light_stats_by_building_id_total' cannot run"
+                    )
+                    logger.critical(error_message)
+                    raise ValueError(error_message)
+
+            last_building_id_list = deepcopy(building_ids)
+
+        logger.info("    A total of %s realisations were retrieved" % (len(matching_files)))
+
+        weighted_means_df = pd.DataFrame(
+            rolling_mean,
+            columns=columns_to_use,
+            index=last_building_id_list
+        )
+        weighted_means_df.to_csv(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "%s_by_building_id_total_means_light.csv" % (output_type)
+            ),
+            index=True
+        )
+
+        stats_with_geoms = exposure_geoms.join(weighted_means_df)
+
+        # Gather the data, subtract mean, power, multiply by weight for standard deviation
+        logger.info(
+            "    Gathering data and calculating standard deviation associated with %s files"
+            % (len(matching_files))
+        )
+        rolling_stdev_numerator = np.zeros_like(rolling_mean)
+
+        for k, filename in enumerate(matching_files):
+            if k in logging_thresholds:
+                 logger.info("        %s %%" % (100.0 * k/len(matching_files)))
+
+            # Retrieve results of this realisation
+            df = pd.read_csv(
+                os.path.join(self.general_output_path, filename),
+                index_col=0
+            )
+
+            # Check if all "columns_to_use" exist in df (they may not if, for example, some
+            # damage states did not occur for this exposure/intensity)
+            columns_exist = columns_to_use_as_index.isin(df.columns)
+            if not columns_exist.all():
+                missing_columns = columns_to_use_as_index[~columns_exist]
+                for col_name in missing_columns:
+                    df[col_name] = np.zeros(df.shape[0])
+
+            rolling_stdev_numerator = (
+                rolling_stdev_numerator
+                + normalised_weights[k] * np.power(
+                    df[columns_to_use].to_numpy() - rolling_mean, 2.0
+                )
+            )
+
+            # Make sure building_ids are in the same order in all files (they should be)
+            # This was done for the mean. If it did not raise an error then, it's fine
+
+        logger.info("    A total of %s realisations were retrieved" % (len(matching_files)))
+
+        # Calculate unbiased weighted sample standard deviation sw with reliability weights
+        # See Wikipedia for further details:
+        # https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Weighted_sample_variance
+        v1 = normalised_weights.sum()
+        v2 = (np.power(normalised_weights, 2.0)).sum()
+        sw = np.sqrt(rolling_stdev_numerator / (v1 - (v2/v1)))
+
+        weighted_st_dev_df = pd.DataFrame(
+            sw,
+            columns=columns_to_use,
+            index=last_building_id_list
+        )
+        weighted_st_dev_df.to_csv(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "%s_by_building_id_total_stdev_light.csv" % (output_type)
+            ),
+            index=True
+        )
+
+        stats_with_geoms = stats_with_geoms.join(
+            weighted_st_dev_df, lsuffix="_mean", rsuffix="_stdev"
+        )
+
+        stats_with_geoms.to_file(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "%s_by_building_id_total_stats_light.gpkg" % (output_type)
             ),
             driver="GPKG"
         )

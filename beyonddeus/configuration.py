@@ -212,6 +212,25 @@ class Configuration:
                             standard deviation of number and proportion of buildings, and number
                             of census people per damage state, per building_id and for all
                             branches and realisations considered together, with their weights.
+                        "loss_by_building_id_all_lightstats": Mean and standard deviation of
+                            incremental loss (absolute and ratio) and cumulative loss (absolute
+                            and ratio) per building_id, for all branches and realisations
+                            considered together, with their weights. The calculation is done by
+                            loading each result file at a time, instead of all files together,
+                            and is thus more RAM-friendly than "loss_by_building_id_all".
+                        "damage_by_building_id_all_lightstats":  Mean and standard deviation of
+                            number and proportion of buildings per damage state, per building_id
+                            and for all branches and realisations considered together, with
+                            their weights. The calculation is done by loading each result file
+                            at a time, instead of all files together, and is thus more RAM-
+                            friendly than "damage_by_building_id_all".
+                        "damage_with_people_by_building_id_all_lightstats": Mean and standard
+                            deviation of number and proportion of buildings, and number of
+                            census people per damage state, per building_id and for all branches
+                            and realisations considered together, with their weights. The
+                            calculation is done by loading each result file at a time, instead
+                            of all files together, and is thus more RAM-friendly than
+                            "damage_with_people_by_building_id_all".
                         "loss_by_building_id_per_branch": Mean, quantiles and standard deviation
                             of incremental loss (absolute and ratio) and cumulative loss
                             (absolute and ratio) per building_id, for each branch of each hazard

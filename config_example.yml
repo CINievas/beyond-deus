@@ -67,6 +67,9 @@ post_processing:
     loss_by_building_id_all: True
     damage_by_building_id_all: True
     damage_with_people_by_building_id_all: True
+    loss_by_building_id_all_lightstats: True
+    damage_by_building_id_all_lightstats: True
+    damage_with_people_by_building_id_all_lightstats: True
     loss_by_building_id_per_branch: True
     damage_by_building_id_per_branch: True
     damage_with_people_by_building_id_per_branch: True
