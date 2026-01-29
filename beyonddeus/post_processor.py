@@ -604,6 +604,10 @@ class PostProcessor:
         "by_initial_and_final_damage"). Values are number of buildings.
         In all of the above, if 'exportfilenames' is True, source filenames are included.
 
+        Statistics (means, standard deviations, quantiles, (robust) coefficient of variation)
+        are also produced for the portfolio as a whole, i.e., not disaggregated by initial/final
+        damage states. These are exported to "portfolio_total_losses_stats.csv".
+
         If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
         the list of results files and weights used for the statistics is created.
 
@@ -805,11 +809,64 @@ class PostProcessor:
                 index=False
             )
 
-        # One row per realisation, one column per parameter, all damage states together
+        # One row per realisation, one column per parameter (columns_to_use),
+        # all damage states together
         out_df = pd.DataFrame(
             all_data.sum(axis=0).T,
             columns=columns_to_use,
         )
+
+        # Calculate stats of portfolio values
+        portfolio_means = out_df.mean(axis=0)  # one value per columns_to_use
+        portfolio_stdevs = out_df.std(axis=0)
+        portfolio_mins = out_df.min(axis=0)
+        portfolio_maxs = out_df.max(axis=0)
+        portfolio_quantiles = np.quantile(
+            out_df.to_numpy(),
+            self.post_processing_config["target_quantiles"],
+            axis=0,
+            weights=normalised_weights,
+            method="inverted_cdf"
+        )
+        portfolio_quantiles_df = pd.DataFrame(
+            portfolio_quantiles.T,
+            columns=[
+                "{:.2f}".format(quantile).replace(".", "_")
+                for quantile in self.post_processing_config["target_quantiles"]
+            ],
+            index=columns_to_use
+        )
+        portfolio_stats = pd.concat((portfolio_quantiles_df, portfolio_means), axis=1)
+        portfolio_stats.rename(columns={0: "mean"}, inplace=True)
+        portfolio_stats = pd.concat((portfolio_stats, portfolio_stdevs), axis=1)
+        portfolio_stats.rename(columns={0: "stdev"}, inplace=True)
+        portfolio_stats = pd.concat((portfolio_stats, portfolio_mins), axis=1)
+        portfolio_stats.rename(columns={0: "min"}, inplace=True)
+        portfolio_stats = pd.concat((portfolio_stats, portfolio_maxs), axis=1)
+        portfolio_stats.rename(columns={0: "max"}, inplace=True)
+
+        portfolio_stats["CoV"] = portfolio_stats["stdev"] / portfolio_stats["mean"]
+
+        if (
+            ("0_25" in portfolio_stats.columns) and
+            ("0_50" in portfolio_stats.columns) and
+            ("0_75" in portfolio_stats.columns)
+        ):
+            portfolio_stats["robust_CoV"] = (
+                portfolio_stats["0_75"] - portfolio_stats["0_25"]
+            ) / portfolio_stats["0_50"]
+
+        portfolio_stats = portfolio_stats.T
+
+        portfolio_stats.to_csv(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "portfolio_total_losses_stats.csv"
+            ),
+            index=True
+        )
+
+        # Export all values from all files
         if exportfilenames:
             out_df["filename"] = matching_files
 
