@@ -1105,6 +1105,7 @@ class PostProcessor:
                         columns=columns_to_use,
                         index=last_building_id_list
                     )
+
                     quantile_df.to_csv(
                         os.path.join(
                             self.general_output_path, "statistics",
@@ -1115,19 +1116,14 @@ class PostProcessor:
                         index=True
                     )
 
-                    stats_with_geoms = stats_with_geoms.join(
-                        quantile_df, rsuffix="_q_%s" % (quantile_str)
+                    # Add statistic's name to the column names
+                    renaming_dict = {col: f"{col}_q_{quantile_str}" for col in columns_to_use}
+                    quantile_df.rename(
+                        columns=renaming_dict,
+                        inplace=True
                     )
 
-                    if q == 0:
-                        # Manually add statistic's name
-                        renaming_dict = {}
-                        for col in columns_to_use:
-                            renaming_dict[col] = "%s_q_%s" % (col, quantile_str)
-                        stats_with_geoms.rename(
-                            columns=renaming_dict,
-                            inplace=True
-                        )
+                    stats_with_geoms = stats_with_geoms.join(quantile_df)
 
                 stats_with_geoms.to_file(
                     os.path.join(
@@ -1373,19 +1369,14 @@ class PostProcessor:
                 index=True
             )
 
-            stats_with_geoms = stats_with_geoms.join(
-                quantile_df, rsuffix="_q_%s" % (quantile_str)
+            # Add statistic's name to the column names
+            renaming_dict = {col: f"{col}_q_{quantile_str}" for col in columns_to_use}
+            quantile_df.rename(
+                columns=renaming_dict,
+                inplace=True
             )
 
-            if q == 0:
-                # Manually add statistic's name
-                renaming_dict = {}
-                for col in columns_to_use:
-                    renaming_dict[col] = "%s_q_%s" % (col, quantile_str)
-                stats_with_geoms.rename(
-                    columns=renaming_dict,
-                    inplace=True
-                )
+            stats_with_geoms = stats_with_geoms.join(quantile_df)
 
         stats_with_geoms.to_file(
             os.path.join(
