@@ -355,7 +355,8 @@ def process_by_exposure(all_intensity_values, initial_exposure_name_raw):
                 all_intensity_values[branch][realisation],
                 _config.parameters["intensity_threshold"],
                 _fragility_provider,
-                _loss_provider
+                _loss_provider,
+                _usability_model
             )
 
             step_logger.info("Exporting results")
@@ -364,7 +365,6 @@ def process_by_exposure(all_intensity_values, initial_exposure_name_raw):
                 initial_exposure_name,
                 _config.output_path,
                 _config.output_types,
-                _usability_model.data,
                 branch,
                 realisation,
                 updated_exposure,
@@ -449,7 +449,8 @@ def process_by_intensity_realisation(task: tuple):
         all_intensities,
         _config.parameters["intensity_threshold"],
         _fragility_provider,
-        _loss_provider
+        _loss_provider,
+        _usability_model
     )
 
     logger.info("Exporting results")
@@ -458,7 +459,6 @@ def process_by_intensity_realisation(task: tuple):
         initial_exposure_name,
         _config.output_path,
         _config.output_types,
-        _usability_model.data,
         branch,
         realisation,
         updated_exposure,
@@ -546,7 +546,8 @@ def process_by_exposure_intensity_combination(task: tuple):
         all_intensities,
         _config.parameters["intensity_threshold"],
         _fragility_provider,
-        _loss_provider
+        _loss_provider,
+        _usability_model
     )
 
     logger.info("Exporting results")
@@ -555,7 +556,6 @@ def process_by_exposure_intensity_combination(task: tuple):
         initial_exposure_name,
         _config.output_path,
         _config.output_types,
-        _usability_model.data,
         branch,
         realisation,
         updated_exposure,

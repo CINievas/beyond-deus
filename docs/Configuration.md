@@ -39,7 +39,9 @@ following parameters:
   (without quotation marks) if economic losses are not to be calculated.
   - `usability`: Path to `.csv` file indicating if buildings in each damage state are usable or
   unusable. This information is used to split the output updated exposure into one usable and
-  one unusable file, if `csv_by_usability` is True (see below).
+  one unusable file, if either  `csv_usable` or `csv_unusable` are True (see below). Write
+  "None" if no usability classification is desired (any previously-run usability status will be
+  maintained).
 - `output_path`: Path to the folder to which the outputs will be written. If it does not exist,
 it will be created. If it exists, it must be empty, otherwise the software will not run (to
 avoid overwritting results from previous runs).
@@ -89,9 +91,11 @@ corresponding output type:
   - `full_updated_exposure`:
     - `csv`: The full updated exposure model is written to a CSV file.
     - `csv_usable`: One CSV file containing the usable assets (rows) of the full updated
-    exposure model, as per the `usability` input file.
+    exposure model, as per the `usability` input file and usability status from previously-run
+    calculations (i.e., as in the input exposure model(s)).
     - `csv_unusable`: One CSV file containing the unusable assets (rows) of the full updated
-    exposure model, as per the `usability` input file.
+    exposure model, as per the `usability` input file and usability status from previously-run
+    calculations (i.e., as in the input exposure model(s)).
     - `hdf5_per_realisation`: The full updated exposure model is written to one HDF5 file per
     realisation of each logic tree branch.
   - `by_final_damage`:

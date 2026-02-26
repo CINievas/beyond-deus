@@ -31,8 +31,10 @@ from beyonddeus.exposure import (
     read_exposure_csv, read_exposure_geoms, check_all_building_ids_in_geoms, map_exposure,
     get_sorted_damage_states, get_updated_exposure_and_transitions, compute_loss,
     update_exposure_transitions_and_losses, retrieve_exposure_input_names,
-    read_exposure_intensity_combinations, check_exposure_intensity_combinations
+    read_exposure_intensity_combinations, check_exposure_intensity_combinations,
+    classify_updated_exposure_by_usability
 )
+from beyonddeus.usability import Usability
 
 
 def test_read_exposure_csv():
@@ -225,11 +227,76 @@ def test_check_exposure_intensity_combinations():
     assert "OSError" in str(excinfo.type)
 
 
+def test_classify_updated_exposure_by_usability():
+    
+    usability_model = pd.DataFrame(
+        {"usable": [True, True, False, False, False]},
+        index=[0, 1, 2, 3, 4],
+    )
+    usability_model.index.name = "damage_state"
+    
+    exposure = pd.DataFrame(
+        {
+            "transition": [
+                False, False, False, False, False,
+                False, False, False, False, False,
+                True, True, True, True, True,
+                True, True, True, True, True
+            ],
+            "cum_usability": [
+                0, 0, 0, 0, 0,
+                1, 1, 1, 1, 1,
+                0, 0, 0, 0, 0,
+                1, 1, 1, 1, 1
+            ],
+            "final_damage": [
+                0, 1, 2, 3, 4,
+                0, 1, 2, 3, 4,
+                0, 1, 2, 3, 4,
+                0, 1, 2, 3, 4
+            ],
+        }
+    )
+
+    expected_exposure = pd.DataFrame(
+        {
+            "transition": [
+                False, False, False, False, False, # no transition
+                False, False, False, False, False, # no transition
+                True, True, True, True, True, # transition
+                True, True, True, True, True # transition
+            ],
+            "cum_usability": [
+                0, 0, 0, 0, 0,  # no transition --> keep previous usability
+                1, 1, 1, 1, 1,  # no transition --> keep previous usability
+                0, 0, 0, 0, 0,  # transition, previously unusable --> unusable
+                1, 1, 0, 0, 0 # transition, previously usable --> usability_model
+            ],
+            "final_damage": [
+                0, 1, 2, 3, 4,
+                0, 1, 2, 3, 4,
+                0, 1, 2, 3, 4,
+                0, 1, 2, 3, 4
+            ],
+        }
+    )
+
+    returned_exposure = classify_updated_exposure_by_usability(exposure, usability_model)
+
+    assert returned_exposure.shape[0] == expected_exposure.shape[0]
+    assert returned_exposure.shape[1] == expected_exposure.shape[1]
+
+    for row in expected_exposure.index:
+        assert (
+            returned_exposure.loc[row, "cum_usability"] ==
+            expected_exposure.loc[row, "cum_usability"]
+        )
+
+    
 def test_map_exposure():
     """
     See as well test_schema_mapping() in test_schemamapping.py
     """
-
     schema_mapper = SchemaMapper.from_taxonomy_and_damage_state_conversion_files(
         os.path.join(os.path.dirname(__file__), "data", "conversion_taxonomy"),
         os.path.join(os.path.dirname(__file__), "data", "conversion_damage")
@@ -690,6 +757,7 @@ def test_update_exposure_transitions_and_losses():
     # Test case in which no conversion of building classes or damage states is needed
     # In this test, the exposure model does not include previous values of losses
     # (no existing "cum_loss_value" column)
+    # In this test, the updating of usability status is tested as well
 
     # Read test exposure file
     initial_exposure = read_exposure_csv(
@@ -730,12 +798,18 @@ def test_update_exposure_transitions_and_losses():
         os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
     )
 
+    # Read usability model
+    usability_model = Usability(
+        os.path.join(os.path.dirname(__file__), "data", "usability_test.csv")
+    )
+
     returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
         all_hazard_intensities,
         intensity_threshold,
         fragility_provider,
         loss_provider,
+        usability_model
     )
 
     # Read expected results
@@ -762,7 +836,7 @@ def test_update_exposure_transitions_and_losses():
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int_or_bool = [
-        "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+        "building_id", "taxonomy", "initial_damage", "final_damage", "transition", "cum_usability"
     ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
@@ -790,6 +864,8 @@ def test_update_exposure_transitions_and_losses():
     # Test case in which no conversion of building classes or damage states is needed
     # In this test, the exposure model includes previous values of losses (i.e.,
     # "cum_loss_value" column). It also includes a "loss_value" that should be ignored.
+    # In this test, the usability_model is "None", and thus the output "cum_usability" must
+    # remain as in the input exposure, not be updated with the newest damage states
 
     # Read test exposure file
     initial_exposure = read_exposure_csv(
@@ -832,12 +908,16 @@ def test_update_exposure_transitions_and_losses():
         os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
     )
 
+    # Read usability model
+    usability_model = Usability("None")
+
     returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
         all_hazard_intensities,
         intensity_threshold,
         fragility_provider,
         loss_provider,
+        usability_model
     )
 
     # Read expected results
@@ -859,12 +939,16 @@ def test_update_exposure_transitions_and_losses():
     expected_updated_exposure_and_losses["initial_damage"] = np.zeros(
         expected_updated_exposure_and_losses.shape[0], dtype=int
     )
+    # As usability_model is None, override the "cum_usability"
+    expected_updated_exposure_and_losses["cum_usability"] = np.ones(
+        expected_updated_exposure_and_losses.shape[0], dtype="int8"
+    )
 
     for col in expected_updated_exposure_and_losses.columns:
         assert col in returned_updated_exposure_and_losses
 
     cols_str_or_int_or_bool = [
-        "building_id", "taxonomy", "initial_damage", "final_damage", "transition"
+        "building_id", "taxonomy", "initial_damage", "final_damage", "transition", "cum_usability"
     ]
     cols_floats = [
         "number", "replacement_cost_tot", "ppl_census", "incremental_loss", "cum_loss_value"
@@ -938,12 +1022,16 @@ def test_update_exposure_transitions_and_losses():
         os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
     )
 
+    # Read usability model
+    usability_model = Usability("None")
+
     returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
         all_hazard_intensities,
         intensity_threshold,
         fragility_provider,
         loss_provider,
+        usability_model
     )
 
     # Read expected results
@@ -1044,12 +1132,16 @@ def test_update_exposure_transitions_and_losses():
         os.path.join(os.path.dirname(__file__), "data", "consequence_test.json")
     )
 
+    # Read usability model
+    usability_model = Usability("None")
+
     returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
         all_hazard_intensities,
         intensity_threshold,
         fragility_provider,
         loss_provider,
+        usability_model
     )
 
     # Read expected results
@@ -1140,12 +1232,16 @@ def test_update_exposure_transitions_and_losses():
     # Set loss_provider
     loss_provider = None
 
+    # Read usability model
+    usability_model = Usability("None")
+
     returned_updated_exposure_and_losses = update_exposure_transitions_and_losses(
         initial_exposure,
         all_hazard_intensities,
         intensity_threshold,
         fragility_provider,
         loss_provider,
+        usability_model
     )
 
     # Check that no economic loss columns have been created

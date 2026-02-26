@@ -290,6 +290,9 @@ def test_PostProcessor_export():
             "loss_by_building_id_all": False,
             "damage_by_building_id_all": False,
             "damage_with_people_by_building_id_all": False,
+            "loss_by_building_id_all_lightstats": False,
+            "damage_by_building_id_all_lightstats": False,
+            "damage_with_people_by_building_id_all_lightstats": False,
             "loss_by_building_id_per_branch": False,
             "damage_by_building_id_per_branch": False,
             "damage_with_people_by_building_id_per_branch": False
@@ -326,7 +329,8 @@ def test_PostProcessor_export():
         "by_initial_and_final_damage_total_all_values_incremental_loss.csv",
         "by_initial_and_final_damage_total_all_values_number.csv",
         "by_initial_and_final_damage_total_all_values_ppl_census.csv",
-        "portfolio_total_losses_all_values.csv"
+        "portfolio_total_losses_all_values.csv",
+        "portfolio_total_losses_stats.csv"
     ]
 
     for branch in tsu_branches:

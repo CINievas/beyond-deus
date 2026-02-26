@@ -31,7 +31,6 @@ class OutputGenerator:
         initial_exposure_name,
         output_path,
         output_types,
-        usability,
         branch,
         realisation,
         updated_exposure,
@@ -101,9 +100,6 @@ class OutputGenerator:
                     "damage_with_people_gpkg_per_realisation": Same as
                         'damage_gpkg_per_realisation', plus columns with number of census people
                         per damage state.
-            self.usability (dict):
-                Dictionary with keys "usable" and "unusable", each containing a list of damage
-                states associated with each condition.
             self.branch (str):
                 Name of the logic tree branch that 'updated_exposure' belongs to.
             self.realisation (str):
@@ -119,7 +115,6 @@ class OutputGenerator:
         self.initial_exposure_name = initial_exposure_name
         self.output_path = output_path
         self.output_types = output_types
-        self.usability = usability
         self.branch = branch
         self.realisation = realisation
         self.updated_exposure = updated_exposure
@@ -154,7 +149,7 @@ class OutputGenerator:
             self.output_types["full_updated_exposure"]["csv_unusable"]
         ):
             usable_assets, unusable_assets = split_updated_exposure_by_usability(
-                self.updated_exposure, self.usability
+                self.updated_exposure
             )
 
         if self.output_types["full_updated_exposure"]["csv_usable"]:
@@ -770,13 +765,9 @@ def filter_damage_by_bdg_id_only_transitioned(exposure, damage_by_bdg_id):
     return damage_by_bdg_id
 
 
-def split_updated_exposure_by_usability(exposure, usability):
+def split_updated_exposure_by_usability(exposure):
 
-    usable_bool = pd.Series([
-        usability.loc[final_damage, "usable"] for final_damage in exposure["final_damage"]
-    ])
-
-    usable_assets = exposure.loc[usable_bool, :].copy()
-    unusable_assets = exposure.loc[~usable_bool, :].copy()
+    usable_assets = exposure[exposure.cum_usability==1].copy()
+    unusable_assets = exposure[exposure.cum_usability==0].copy()
 
     return usable_assets, unusable_assets

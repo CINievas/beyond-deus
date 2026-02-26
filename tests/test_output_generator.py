@@ -150,14 +150,8 @@ def test_split_updated_exposure_by_usability():
         )
     )
 
-    usability = pd.DataFrame(
-        {"usable": [True, True, False, False, False]},
-        index=[0, 1, 2, 3, 4],
-    )
-    usability.index.name = "damage_state"
-
     returned_usable_assets, returned_unusable_assets = split_updated_exposure_by_usability(
-        updated_exposure, usability
+        updated_exposure
     )
 
     assert returned_usable_assets.shape[0] == 8

@@ -29,6 +29,9 @@ asset, independent of the time of the day or other factors. The number of people
 equal to "ppl_census"/"number".
 - `cum_loss_value` (float): Economic loss associated with the asset from a previously-run
 calculation (i.e., a hazardous event that occurred before).
+- `cum_usability` (int): Usability assessment from a previously-run calculation: 0 if unusable,
+1 if usable. If this column is missing from the CSV `.csv` file, it is assumed that all assets
+are input as usable.
 
 The GeoPackage (`.gpkg`) file contains the exposure polygons associated with each `building_id`
 of the `.csv` file. For each `building_id`, the file must contain the following data:

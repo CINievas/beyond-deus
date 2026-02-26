@@ -75,6 +75,9 @@ def read_exposure_csv(filename_csv):
     ["building_id", "taxonomy", "initial_damage"], those rows are grouped together (with summed
     values of "number", "replacement_cost_tot", "ppl_census" and "cum_loss_value").
 
+    If the CSV files does not contain a "cum_usability" column, it is added, assuming all assets
+    are usable.
+
     Args:
         filename_csv (str):
             Path to the exposure CSV/ZSTD file, with one row per exposure asset (a number of
@@ -100,6 +103,9 @@ def read_exposure_csv(filename_csv):
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
+                "cum_usability" (int):
+                    Usability assessment from a previously-run calculation: 0 if unusable, 1
+                    if usable.
 
     Returns:
         exposure_df (Pandas DataFrame):
@@ -140,6 +146,9 @@ def read_exposure_csv(filename_csv):
 
     if "cum_loss_value" not in exposure_df.columns:
         exposure_df["cum_loss_value"] = np.zeros(exposure_df.shape[0], dtype=float)
+
+    if "cum_usability" not in exposure_df.columns:
+        exposure_df["cum_usability"] = np.ones(exposure_df.shape[0], dtype="int8")
 
     # Group combinations of ["building_id", "taxonomy", "initial_damage"], if duplicates exist
     # (index doesn't matter because 'unique_combis' is only used to check if duplicates exist)
@@ -268,6 +277,7 @@ def update_exposure_transitions_and_losses(
     intensity_threshold,
     fragility_provider,
     loss_provider,
+    usability_model,
 ):
     """
     Function copied and modified from:
@@ -308,6 +318,9 @@ def update_exposure_transitions_and_losses(
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
+                "cum_usability" (int):
+                    Usability assessment from a previously-run calculation: 0 if unusable, 1
+                    if usable.
         hazard_intensities (Pandas DataFrame):
             DataFrame indicating the values of hazard intensity associated with all exposure
             polygons of 'exposure', identified by the "building_id" (index of the DataFrame).
@@ -328,6 +341,9 @@ def update_exposure_transitions_and_losses(
         loss_provider (LossProvider):
             Instance of LossProvider to access the economic consequence model (loss ratios per
             damage state) and building replacement costs.
+        usability_model (Usability):
+            Instance of Usability to access the usability model (usable/unusable classification
+            per damage state).
 
     Returns:
         updated_exposure_and_losses (Pandas DataFrame):
@@ -361,6 +377,12 @@ def update_exposure_transitions_and_losses(
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before) plus the incremental loss
                     calculated in this function (by calling 'compute_loss').
+                "cum_usability" (int):
+                    If usability_model.data is not None: Usability assessment from the current
+                        calculation, accounting for the usability status from previous
+                        calculations: 0 if unusable, 1 if usable.
+                    If usability_model.data is None: Usability assessment from a previously-run
+                        calculation, as in the input 'exposure_df': 0 if unusable, 1 if usable.
                 "transition" (bool):
                     True if the asset has changed damage state, False if it has not.
     """
@@ -369,6 +391,7 @@ def update_exposure_transitions_and_losses(
         hazard_intensities,
         intensity_threshold,
         loss_provider,
+        usability_model
     )
 
     updated_exposure = updater.update_df(exposure)
@@ -416,6 +439,9 @@ class Updater:
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
+                "cum_usability" (int):
+                    Usability assessment from a previously-run calculation: 0 if unusable, 1
+                    if usable.
         hazard_intensities (Pandas DataFrame):
             DataFrame indicating the values of hazard intensity associated with all exposure
             polygons of 'exposure', identified by the "building_id" (index of the DataFrame).
@@ -436,6 +462,9 @@ class Updater:
         loss_provider (LossProvider):
             Instance of LossProvider to access the economic consequence model (loss ratios per
             damage state) and building replacement costs.
+        usability_model (Usability):
+            Instance of Usability to access the usability model (usable/unusable classification
+            per damage state).
     """
 
     def __init__(
@@ -444,15 +473,20 @@ class Updater:
         hazard_intensities,
         intensity_threshold,
         loss_provider,
+        usability_model
     ):
         self.fragility_provider = fragility_provider
         self.hazard_intensities = hazard_intensities
         self.intensity_threshold = intensity_threshold
         self.loss_provider = loss_provider
+        self.usability_model = usability_model
 
     def update_df(self, exposure_df):
         """
         Runs the update for each row of the input exposure model ('exposure_df').
+
+        If self.usability_model.data is not None, the updating of 'cum_usability' is carried out
+        in this method, by calling 'classify_updated_exposure_by_usability'.
 
         Args:
         exposure_df (Pandas DataFrame):
@@ -478,6 +512,9 @@ class Updater:
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
+                "cum_usability" (int):
+                    Usability assessment from a previously-run calculation: 0 if unusable, 1
+                    if usable.
 
         Returns:
             updated_exposure_and_losses (Pandas DataFrame):
@@ -511,6 +548,13 @@ class Updater:
                         Economic loss associated with the asset from a previously-run calculation
                         (i.e., a hazardous event that occurred before) plus the incremental loss
                         calculated in this function (by calling 'compute_loss').
+                    "cum_usability" (int):
+                        If self.usability_model.data is not None: Usability assessment from the
+                            current calculation, accounting for the usability status from
+                            previous calculations: 0 if unusable, 1 if usable.
+                        If self.usability_model.data is None: Usability assessment from a
+                            previously-run calculation, as in the input 'exposure_df': 0 if
+                            unusable, 1 if usable.
                     "transition" (bool):
                         True if the asset has changed damage state, False if it has not.
         """
@@ -543,7 +587,9 @@ class Updater:
             exposure_bdg_id = exposure_df_run[exposure_df_run.building_id == bdg_id]
             # Calculate new damage, incremental and cumulative losses
             updated_exposure_bdg_id = self.update_exposure_polygon(
-                exposure_bdg_id, self.hazard_intensities.loc[bdg_id, :], self.intensity_threshold
+                exposure_bdg_id,
+                self.hazard_intensities.loc[bdg_id, :],
+                self.intensity_threshold
             )
 
             all_updated_exposure_bdg_id.extend(updated_exposure_bdg_id.to_dict(orient="records"))
@@ -558,6 +604,14 @@ class Updater:
 
         # if one of the two DFs concatenated is empty, "transition" is no longer boolean
         updated_exposure_df["transition"] = updated_exposure_df["transition"].astype(bool)
+
+        # Update usability (only for assets that transition, accounted for in the sub-method)
+        # (if self.usability_model is None, then "cum_usability" is not updated and the values
+        # in the input exposure model from the previous calculation are kept)
+        if self.usability_model.data is not None:
+            updated_exposure_df = classify_updated_exposure_by_usability(
+                updated_exposure_df, self.usability_model.data
+            )
 
         if self.loss_provider is None:
             if "cum_loss_value" in updated_exposure_df.columns:
@@ -617,6 +671,9 @@ class Updater:
                         Economic loss associated with the asset from a previously-run calculation
                         (i.e., a hazardous event that occurred before) plus the incremental loss
                         calculated in this function (by calling 'compute_loss').
+                    "cum_usability" (int):
+                        Usability assessment from a previously-run calculation: 0 if unusable, 1
+                        if usable. (Same values as in input).
                     "transition" (bool):
                         True if the asset has changed damage state, False if it has not.
         """
@@ -678,6 +735,9 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
+                "cum_usability" (int):
+                    Usability assessment from a previously-run calculation: 0 if unusable, 1
+                    if usable.
         source_schema (string):
             Name of the source building schema, that is, the one used within the input
             'exposure'.
@@ -693,8 +753,8 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
             DataFrame with the same structure as 'old_exposure', and with each combination of
             taxonomy and damage state of 'old_exposure' converted from the 'source_schema' to
             the 'target_schema'. Its rows are ordered as per the contents of the following
-            columns (in order of consideration for sorting): "building_id", "taxonomy" and
-            "initial_damage". The "building_id"s of 'old_exposure' are kept.
+            columns (in order of consideration for sorting): "building_id", "taxonomy",
+            "initial_damage" and "cum_usability". The "building_id"s of 'old_exposure' are kept.
     """
 
     if source_schema == target_schema:
@@ -745,8 +805,9 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
     all_mapped_sub_exposure["replacement_cost_tot"] = []
     all_mapped_sub_exposure["ppl_census"] = []
     all_mapped_sub_exposure["cum_loss_value"] = []
+    all_mapped_sub_exposure["cum_usability"] = []
 
-    # Go one by one each unique combination of "taxonomy" and "initial_damage"
+    # Go one by one each unique combination of "taxonomy" and "initial_damage" and "cum_usability"
     for i in unique_dmgd_bdg_classes.index:
         old_taxonomy = unique_dmgd_bdg_classes.loc[i, "taxonomy"]
         old_dmg_state = unique_dmgd_bdg_classes.loc[i, "initial_damage"]
@@ -789,6 +850,10 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
             sub_exposure["building_id"], np.ones(len(mapping["proportions"]), dtype=int)
         ).flatten()
 
+        new_cum_usability = np.outer(
+            sub_exposure["cum_usability"], np.ones(len(mapping["proportions"]), dtype="int8")
+        ).flatten()
+
         all_mapped_sub_exposure["building_id"].extend(new_building_id)
         all_mapped_sub_exposure["taxonomy"].extend(new_taxonomies)
         all_mapped_sub_exposure["initial_damage"].extend(new_dmg_states)
@@ -796,20 +861,21 @@ def map_exposure(old_exposure, source_schema, target_schema, schema_mapper):
         all_mapped_sub_exposure["replacement_cost_tot"].extend(new_costs)
         all_mapped_sub_exposure["ppl_census"].extend(new_ppl_census)
         all_mapped_sub_exposure["cum_loss_value"].extend(new_cum_loss_values)
+        all_mapped_sub_exposure["cum_usability"].extend(new_cum_usability)
 
     mapped_exposure = pd.DataFrame(all_mapped_sub_exposure)
 
-    # Group combinations of ["building_id", "taxonomy", "initial_damage"]
+    # Group combinations of ["building_id", "taxonomy", "initial_damage", "cum_usability"]
     # There might be several rows repeating a combination due to them stemming from different
     # assets of the input 'old_exposure'
     mapped_exposure = mapped_exposure.groupby(
-        ["building_id", "taxonomy", "initial_damage"]
+        ["building_id", "taxonomy", "initial_damage", "cum_usability"]
     ).agg(
         {
             "number": "sum",
             "replacement_cost_tot": "sum",
             "ppl_census": "sum",
-            "cum_loss_value": "sum",
+            "cum_loss_value": "sum"
         }
     )
     mapped_exposure.reset_index(inplace=True)
@@ -830,6 +896,9 @@ def get_updated_exposure_and_transitions(
 
     The intensity measures are retrieved from the 'intensity_provider' at the position defined
     by 'intensity_position'.
+
+    The 'cum_usability' column of 'exposure' is NOT updated here. The output 'cum_usability'
+    from this method is the same as in the input.
 
     Args:
         exposure (Pandas DataFrame):
@@ -855,6 +924,9 @@ def get_updated_exposure_and_transitions(
                 "cum_loss_value" (float):
                     Economic loss associated with the asset from a previously-run calculation
                     (i.e., a hazardous event that occurred before).
+                "cum_usability" (int):
+                    Usability assessment from a previously-run calculation: 0 if unusable, 1
+                    if usable.
         intensity_values (Pandas Series):
             Values of hazard intensity associated with the exposure polygon that the input
             'exposure' corresponds to. The labels of the Series are the hazard intensity
@@ -882,6 +954,7 @@ def get_updated_exposure_and_transitions(
         result_expo = deepcopy(exposure)
         result_expo["final_damage"] = exposure["initial_damage"]
         result_expo["transition"] = [False for i in range(result_expo.shape[0])]
+        # "cum_usability" remains the same
         return result_expo
 
     aux_result_expo = {}
@@ -893,6 +966,7 @@ def get_updated_exposure_and_transitions(
     aux_result_expo["replacement_cost_tot"] = []
     aux_result_expo["ppl_census"] = []
     aux_result_expo["cum_loss_value"] = []
+    aux_result_expo["cum_usability"] = []
 
     for row in exposure.index:
         n_bdgs = exposure.loc[row, "number"]
@@ -901,6 +975,7 @@ def get_updated_exposure_and_transitions(
         replacement_cost = exposure.loc[row, "replacement_cost_tot"]
         ppl_census = exposure.loc[row, "ppl_census"]
         cum_loss_value = exposure.loc[row, "cum_loss_value"]
+        cum_usability = exposure.loc[row, "cum_usability"]
         building_id = exposure.loc[row, "building_id"]
 
         # Retrieve damage states that are worse than 'old_damage_state'
@@ -947,6 +1022,8 @@ def get_updated_exposure_and_transitions(
         aux_result_expo["replacement_cost_tot"].extend(list(replacement_cost * poos))
         aux_result_expo["ppl_census"].extend(list(ppl_census * poos))
         aux_result_expo["cum_loss_value"].extend(list(cum_loss_value * poos))
+        # at this stage, keep on carrying the previous-run usability
+        aux_result_expo["cum_usability"].extend([cum_usability for i in range(poos.shape[0])])
 
     result_expo = pd.DataFrame(aux_result_expo)
 
@@ -954,16 +1031,19 @@ def get_updated_exposure_and_transitions(
     result_expo["final_damage"] = result_expo["final_damage"].astype(int)
 
     # Group duplicate combinations, if duplicates exist
-    criteria_cols = ["building_id", "taxonomy", "initial_damage", "final_damage"]
+    criteria_cols = [
+        "building_id", "taxonomy", "initial_damage", "final_damage", "cum_usability"
+    ]
     unique_combis = result_expo[criteria_cols].drop_duplicates()  # index doesn't matter
 
     if unique_combis.shape[0] < result_expo.shape[0]:
+        # There are duplicate combinations that can be grouped
         result_expo = result_expo.groupby(criteria_cols).agg(
             {
                 "number": "sum",
                 "replacement_cost_tot": "sum",
                 "ppl_census": "sum",
-                "cum_loss_value": "sum",
+                "cum_loss_value": "sum"
             }
         )
         result_expo.reset_index(inplace=True)
@@ -974,6 +1054,77 @@ def get_updated_exposure_and_transitions(
     result_expo["transition"] = (result_expo["initial_damage"] != result_expo["final_damage"])
 
     return result_expo
+
+
+def classify_updated_exposure_by_usability(exposure, usability):
+    """
+    This method updates the 'cum_usability' column of 'exposure', as a function of the usability
+    model 'usability'.
+
+    The update is as follows:
+    - If the asset does not transition (column 'transition' is False), the input values of
+    'cum_usability' are kept (this method introduces no change to those assets).
+    - If the asset does transition (column 'transition' is True), the values of 'cum_usability'
+    are updated. Any asset remains usable only if it was usable before (input 'cum_usability')
+    and is assessed as usable based on the input 'final_damage' and 'usability' (i.e., any asset
+    is unusable if assessed as unusable by at least one of the two assessments, the one from the
+    previous calculation and the one from the current calculation).
+
+    Args:
+        exposure (Pandas DataFrame):
+            DataFrame with one row per exposure asset (a number of buildings of a particular
+            building class, in a particular damage state, at a particular location) and the
+            following columns:
+                "building_id" (str):
+                    ID of the exposure polygon that the asset belongs to. One exposure polygon
+                    (i.e., a geographic area) can contain several assets.
+                "taxonomy" (str):
+                    Building class of the asset.
+                "initial_damage" (int):
+                    Initial damage state of the asset, as an integer.
+                "final_damage" (int):
+                    Final damage state of the asset, as an integer.
+                "number" (float):
+                    Number of buildings in the asset.
+                "replacement_cost_tot" (float):
+                    Total replacement cost of all the buildings in the asset. The replacement
+                    cost per building is equal to "replacement_cost_tot"/"number".
+                "ppl_census" (float):
+                    Total number of people who normally occupy all the buildings in the asset,
+                    independent of the time of the day or other factors. The number of people
+                    per building is equal to "ppl_census"/"number".
+                "cum_loss_value" (float):
+                    Economic loss associated with the asset from a previously-run calculation
+                    (i.e., a hazardous event that occurred before).
+                "cum_usability" (int):
+                    Usability assessment from a previously-run calculation: 0 if unusable, 1
+                    if usable.
+                "transition" (bool):
+                    True if the asset has changed damage state, False if it has not.
+        usability (Pandas DataFrame):
+            DataFrame with index "damage_state", in terms of integers and one column labelled
+            "usable" (bool), containing True/False.
+
+    Returns:
+        exposure (Pandas DataFrame):
+            Same DataFrame as input, with an updated 'cum_usability' column.
+    """
+
+    # New usability of assets that transition
+    new_usability_transitioned = np.array([
+        usability.loc[final_damage, "usable"]
+        for final_damage in exposure[exposure.transition]["final_damage"]
+    ]).astype("int8") # 0 if unusable, 1 if usable
+
+    # Assets that do not transition keep the usability assessment from the previous calculation
+    # Nothing to be done here, as it would be overwriting with the same values
+
+    # Assets that transition: currently usable only if usable now and before\
+    exposure.loc[exposure.index[exposure.transition], "cum_usability"] = (
+        exposure[exposure.transition]["cum_usability"] * new_usability_transitioned
+    )  # product of previous usability and new usability (will only be 1 if both are 1)
+
+    return exposure
 
 
 def compute_loss(updated_exposure, loss_provider, schema):
