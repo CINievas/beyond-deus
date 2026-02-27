@@ -36,6 +36,8 @@ def test_damage_by_building_id_as_columns():
     expected_damage_by_bdg_id = pd.DataFrame(
         {
             "number": [126.0, 12.0],
+            "number_usable": [42.0, 12.0],
+            "number_unusable": [84.0, 0.0],
             "number_D0": [10.0, 12.0],
             "number_D1": [32.0, 0.0],
             "number_D2": [34.0, 0.0],
@@ -110,6 +112,8 @@ def test_filter_damage_by_bdg_id_only_transitioned():
     expected_damage_by_bdg_id = pd.DataFrame(
         {
             "number": [126.0],
+            "number_usable": [42.0],
+            "number_unusable": [84.0],
             "number_D0": [10.0],
             "number_D1": [32.0],
             "number_D2": [34.0],

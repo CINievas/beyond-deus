@@ -76,31 +76,31 @@ class OutputGenerator:
                     "by_building_id":
                         "loss_csv_per_realisation": Losses per building_id of the exposed assets
                             due to each realisation of each logic tree branch.
-                        "loss_gpkg_per_realisation": Same as "loss_csv_per_realisation", with the
-                            associated exposure geometries.
-                    "only_transitioned_loss_csv_per_realisation": Same as
-                        'loss_csv_per_realisation', but keeping only the building_ids for which
-                        at least one of the assets transitions damage state.
-                    "only_transitioned_loss_gpkg_per_realisation": Same as
-                        'loss_gpkg_per_realisation', but keeping only the building_ids for which
-                        at least one of the assets transitions damage state.
+                        "loss_gpkg_per_realisation": Same as "loss_csv_per_realisation", with
+                            the associated exposure geometries.
+                        "only_transitioned_loss_csv_per_realisation": Same as
+                            'loss_csv_per_realisation', but keeping only the building_ids for
+                            which at least one of the assets transitions damage state.
+                        "only_transitioned_loss_gpkg_per_realisation": Same as
+                            'loss_gpkg_per_realisation', but keeping only the building_ids for
+                            which at least one of the assets transitions damage state.
                         "damage_csv_per_realisation": Number of buildings per final damage state
-                            due to each realisation of each logic tree branch.
+                            and usability due to each realisation of each logic tree branch.
                         "damage_gpkg_per_realisation": Same as "damage_csv_per_realisation",
                             with the associated exposure geometries.
-                    "only_transitioned_damage_csv_per_realisation": Same as
-                        'damage_csv_per_realisation', but keeping only the building_ids for
-                        which at least one of the assets transitions damage state.
-                    "only_transitioned_damage_gpkg_per_realisation": Same as
-                        'damage_gpkg_per_realisation', but keeping only the building_ids for
-                        which at least one of the assets transitions damage state.
-                    "damage_with_people_csv_per_realisation": Same as
-                        'damage_csv_per_realisation', plus columns with number of census people
-                        per damage state.
-                    "damage_with_people_gpkg_per_realisation": Same as
-                        'damage_gpkg_per_realisation', plus columns with number of census people
-                        per damage state.
-            self.branch (str):
+                        "only_transitioned_damage_csv_per_realisation": Same as
+                            'damage_csv_per_realisation', but keeping only the building_ids for
+                            which at least one of the assets transitions damage state.
+                        "only_transitioned_damage_gpkg_per_realisation": Same as
+                            'damage_gpkg_per_realisation', but keeping only the building_ids for
+                            which at least one of the assets transitions damage state.
+                        "damage_with_people_csv_per_realisation": Same as
+                            'damage_csv_per_realisation', plus columns with number of census
+                            people per damage state.
+                        "damage_with_people_gpkg_per_realisation": Same as
+                            'damage_gpkg_per_realisation', plus columns with number of census
+                            people per damage state.
+                self.branch (str):
                 Name of the logic tree branch that 'updated_exposure' belongs to.
             self.realisation (str):
                 Name of the hazard intensity realisation that 'updated_exposure' belongs to,
@@ -617,6 +617,10 @@ def write_damage_by_building_id(
                     Total number of buildings of 'building_id'.
                 "number_DX" (float):
                     Number of buildings of 'building_id' in damage state "X".
+                "number_usable" (float):
+                    Number of buildings of 'building_id' that are usable.
+                "number_unusable" (float):
+                    Number of buildings of 'building_id' that are unusable.
                 "proportion_DX" (float):
                     Proportion of buildings of 'building_id' in damage state "X".
                 "ppl_census_DX" (float):
@@ -671,6 +675,10 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
             DataFrame with index equal to 'building_id', and the following columns:
                 "number" (float):
                     Total number of buildings of 'building_id'.
+                "number_usable" (float):
+                    Number of buildings of 'building_id' that are usable.
+                "number_unusable" (float):
+                    Number of buildings of 'building_id' that are unusable.
                 "number_DX" (float):
                     Number of buildings of 'building_id' in damage state "X".
                 "proportion_DX" (float):
@@ -680,18 +688,32 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
                     'include_people' is True).
     """
     if include_people:
+
         damage_by_bdg_id_aux = exposure.groupby(
             ["building_id", "final_damage"]
         ).agg({"number": "sum", "ppl_census": "sum"})
+
+        usability_by_bdg_id_aux = exposure.groupby(
+            ["building_id", "cum_usability"]
+        ).agg({"number": "sum", "ppl_census": "sum"})
+
     else:
+
         damage_by_bdg_id_aux = exposure.groupby(
             ["building_id", "final_damage"]
+        ).agg({"number": "sum"})
+
+        usability_by_bdg_id_aux = exposure.groupby(
+            ["building_id", "cum_usability"]
         ).agg({"number": "sum"})
 
     unique_damage_levels = damage_by_bdg_id_aux.index.get_level_values("final_damage").unique()
 
     # Initialise output
     damage_by_bdg_id = exposure.groupby(["building_id"]).agg({"number": "sum"})
+
+    damage_by_bdg_id["number_usable"] = np.zeros(damage_by_bdg_id.shape[0])
+    damage_by_bdg_id["number_unusable"] = np.zeros(damage_by_bdg_id.shape[0])
 
     for final_damage in unique_damage_levels:
         damage_by_bdg_id["number_D%s" % (final_damage)] = np.zeros(damage_by_bdg_id.shape[0])
@@ -705,7 +727,7 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
     for final_damage in unique_damage_levels:
         # Filter rows associated with 'final_damage'
         # (note not all combinations of (building_id, final_damage)
-        # exist in 'damage_by_bdg_id_aux'
+        # exist in 'damage_by_bdg_id_aux')
         just_final_damage_rows = damage_by_bdg_id_aux.loc[:, final_damage, :]
 
         # 'idx' is boolean for each element of the index of 'damage_by_bdg_id', indicating
@@ -728,6 +750,21 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
             damage_by_bdg_id["number_D%s" % (final_damage)] / damage_by_bdg_id["number"]
         )
 
+    for usability_val, usability_label in enumerate(["number_unusable", "number_usable"]):
+        # Filter rows associated with 'usability_val'
+        # (note not all combinations of (building_id, usability_val)
+        # exist in 'usability_by_bdg_id_aux')
+        just_usability_val_rows = usability_by_bdg_id_aux.loc[:, usability_val, :]
+
+        # 'idx' is boolean for each element of the index of 'damage_by_bdg_id', indicating
+        # whether that index exists in the index of 'just_usability_val_rows'
+        idx = damage_by_bdg_id.index.isin(just_usability_val_rows.index)
+
+        # For those rows whose index exist, add the corresponding buildings
+        damage_by_bdg_id.loc[idx, usability_label] += (
+            just_usability_val_rows.loc[:, "number"]
+        )
+
     return damage_by_bdg_id
 
 
@@ -743,6 +780,10 @@ def filter_damage_by_bdg_id_only_transitioned(exposure, damage_by_bdg_id):
             DataFrame with index equal to 'building_id', and the following columns:
                 "number" (float):
                     Total number of buildings of 'building_id'.
+                "number_usable" (float):
+                    Number of buildings of 'building_id' that are usable.
+                "number_unusable" (float):
+                    Number of buildings of 'building_id' that are unusable.
                 "number_DX" (float):
                     Number of buildings of 'building_id' in damage state "X".
                 "proportion_DX" (float):
