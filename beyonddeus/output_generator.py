@@ -73,6 +73,10 @@ class OutputGenerator:
                             occupants and losses of the whole portfolio, reported per all
                             combinations of initial and final damage states, due to each
                             realisation of each logic tree branch.
+                    "by_usability":
+                        "csv_per_realisation": Number of buildings, replacement cost, census
+                            people and losses of the whole portfolio, reported per usability
+                            status, due to each realisation of each logic tree branch.
                     "by_building_id":
                         "loss_csv_per_realisation": Losses per building_id of the exposed assets
                             due to each realisation of each logic tree branch.
@@ -226,6 +230,15 @@ class OutputGenerator:
                 )
             )
             write_output_by_initial_and_final_damage(
+                self.updated_exposure,
+                os.path.join(self.output_path, out_filename)
+            )
+
+        if self.output_types["by_usability"]["csv_per_realisation"]:
+            out_filename = "%s_b_%s_r_%s_%s_by_usability.csv" % (
+                self.hazard_prefix, self.branch, self.realisation, self.initial_exposure_name
+            )
+            write_output_by_usability(
                 self.updated_exposure,
                 os.path.join(self.output_path, out_filename)
             )
@@ -398,7 +411,7 @@ def write_exposure_to_HDF5(exposure, filename, dataset_name="updated_exposure"):
 
 def write_output_by_final_damage(exposure, filename):
     """
-    This methods outputs number of buildings, total repleacement costs, total number of census
+    This method outputs number of buildings, total repleacement costs, total number of census
     occupants, total incremental losses and total cumulative losses aggregated by final damage
     state, to a CSV file.
 
@@ -436,7 +449,7 @@ def write_output_by_final_damage(exposure, filename):
 
 def write_output_by_initial_and_final_damage(exposure, filename):
     """
-    This methods outputs number of buildings, total repleacement costs, total number of census
+    This method outputs number of buildings, total repleacement costs, total number of census
     occupants, total incremental losses and total cumulative losses aggregated by initial and
     final damage states, to a CSV file.
 
@@ -471,6 +484,48 @@ def write_output_by_initial_and_final_damage(exposure, filename):
         )
 
     by_initial_and_final_damage.to_csv(filename, index=True)
+
+
+def write_output_by_usability(exposure, filename):
+    """
+    This method outputs number of buildings, total repleacement costs, total number of census
+    occupants, total incremental losses and total cumulative losses aggregated by usability
+    status, to a CSV file.
+
+    Args:
+        exposure (Pandas DataFrame):
+            Exposure Pandas DataFrame.
+        filename (str):
+            Full path to the CSV file to which results by final damage state will be written.
+    """
+    if ("incremental_loss" in exposure.columns) and ("cum_loss_value" in exposure.columns):
+        by_usability = exposure.groupby(
+            ["cum_usability"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum",
+                "incremental_loss": "sum",
+                "cum_loss_value": "sum"
+            },
+        )
+    else:
+        by_usability = exposure.groupby(
+            ["cum_usability"]
+        ).agg(
+            {
+                "number": "sum",
+                "replacement_cost_tot": "sum",
+                "ppl_census": "sum"
+            },
+        )
+
+    # Rename index
+    mapping = {0: "unusable", 1: "usable"}
+    by_usability.rename(index=mapping, inplace=True)
+
+    by_usability.to_csv(filename, index=True)
 
 
 def write_loss_by_building_id(

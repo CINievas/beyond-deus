@@ -112,13 +112,18 @@ class Configuration:
                     "hdf5_per_realisation": The full updated exposure model as one HDF5 file per
                         realisation of each logic tree branch.
                 "by_final_damage":
-                    "csv_per_realisation": Number of buildings, replacement cost and losses of
-                        the whole portfolio, reported per final damage state, due to each
-                        realisation of each logic tree branch.
+                    "csv_per_realisation": Number of buildings, replacement cost, census people
+                        and losses of the whole portfolio, reported per final damage state, due
+                        to each realisation of each logic tree branch.
                 "by_initial_and_final_damage":
-                    "csv_per_realisation: Number of buildings, replacement cost and losses of
-                        the whole portfolio, reported per all combinations of initial and final
-                        damage states, due to each realisation of each logic tree branch.
+                    "csv_per_realisation": Number of buildings, replacement cost, census people
+                        and losses of the whole portfolio, reported per all combinations of
+                        initial and final damage states, due to each realisation of each logic
+                        tree branch.
+                "by_usability":
+                    "csv_per_realisation": Number of buildings, replacement cost, census people
+                        and losses of the whole portfolio, reported per usability status, due to
+                        each realisation of each logic tree branch.
                 "by_building_id":
                     "loss_csv_per_realisation": Losses per building_id of the exposed assets due
                         to each realisation of each logic tree branch.
@@ -200,6 +205,15 @@ class Configuration:
                             deviation of number of buildings, incremental loss and cumulative
                             loss, per combination of initial-final damage states, for each
                             branch of each hazard run so far.
+                        "by_usability_all": Mean, quantiles and standard deviation of number
+                            of buildings, census people, incremental loss and cumulative loss,
+                            per usability status, for all branches and realisations considered
+                            together, with their weights. All individual values are exported as
+                            well.
+                        "by_usability_per_branch": Mean, quantiles and standard deviation of
+                            number of buildings, census people, incremental loss and cumulative
+                            loss, per usability status, for each branch of each hazard run so
+                            far.
                         "loss_by_building_id_all": Mean, quantiles and standard deviation
                             of incremental loss (absolute and ratio) and cumulative loss
                             (absolute and ratio) per building_id, for all branches and
@@ -357,6 +371,11 @@ class Configuration:
             self._assign_parameter(
                 config["output_types"]["by_initial_and_final_damage"], "csv_per_realisation"
             )
+        )
+
+        self.output_types["by_usability"] = {}
+        self.output_types["by_usability"]["csv_per_realisation"] = self._assign_parameter(
+            config["output_types"]["by_usability"], "csv_per_realisation"
         )
 
         self.output_types["by_building_id"] = {}

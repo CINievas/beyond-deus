@@ -32,6 +32,8 @@ output_types:  # Write True/False next to each option, to export or not export t
     csv_per_realisation: True
   by_initial_and_final_damage:
     csv_per_realisation: True
+  by_usability:
+    csv_per_realisation: True
   by_building_id:
     loss_csv_per_realisation: True
     loss_gpkg_per_realisation: True
@@ -64,6 +66,8 @@ post_processing:
     by_final_damage_per_branch: True
     by_initial_and_final_damage_all: True
     by_initial_and_final_damage_per_branch: True
+    by_usability_all: True
+    by_usability_per_branch: True
     loss_by_building_id_all: True
     damage_by_building_id_all: True
     damage_with_people_by_building_id_all: True

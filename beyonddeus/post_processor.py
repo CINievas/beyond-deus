@@ -97,6 +97,15 @@ class PostProcessor:
                                 standard deviation of number of buildings, incremental loss and
                                 cumulative loss, per combination of initial-final damage states,
                                 for each branch of each hazard run so far.
+                            "by_usability_all": Mean, quantiles and standard deviation of number
+                                of buildings, census people, incremental loss and cumulative
+                                loss, per usability status, for all branches and realisations
+                                considered together, with their weights. All individual values
+                                are exported as well.
+                            "by_usability_per_branch": Mean, quantiles and standard deviation of
+                                number of buildings, census people, incremental loss and
+                                cumulative loss, per usability status, for each branch of each
+                                hazard run so far.
                             "loss_by_building_id_all": Mean, quantiles and standard deviation
                                 of incremental loss (absolute and ratio) and cumulative loss
                                 (absolute and ratio) per building_id, for all branches and
@@ -211,6 +220,14 @@ class PostProcessor:
                     self.post_processing_config["per_branch_which_hazards"]
                 )
             )
+
+        if self.post_processing_config["types"]["by_usability_all"]:
+            #TO DO
+            pass
+
+        if self.post_processing_config["types"]["by_usability_per_branch"]:
+            #TO DO
+            pass
 
         if self.post_processing_config["types"]["loss_by_building_id_all"]:
             columns_to_use = [
