@@ -670,12 +670,22 @@ def write_damage_by_building_id(
             DataFrame with index equal to 'building_id', and the following columns:
                 "number" (float):
                     Total number of buildings of 'building_id'.
-                "number_DX" (float):
-                    Number of buildings of 'building_id' in damage state "X".
                 "number_usable" (float):
                     Number of buildings of 'building_id' that are usable.
                 "number_unusable" (float):
                     Number of buildings of 'building_id' that are unusable.
+                "proportion_usable" (float):
+                    Proportion of buildings of 'building_id' that are usable.
+                "proportion_unusable" (float):
+                    Proportion of buildings of 'building_id' that are unusable.
+                "ppl_census_usable" (float):
+                    Number of census people of 'building_id' in usable buildings (if
+                    'include_people' is True).
+                "ppl_census_unusable" (float):
+                    Number of census people of 'building_id' in unusable buildings (if
+                    'include_people' is True).
+                "number_DX" (float):
+                    Number of buildings of 'building_id' in damage state "X".
                 "proportion_DX" (float):
                     Proportion of buildings of 'building_id' in damage state "X".
                 "ppl_census_DX" (float):
@@ -734,6 +744,16 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
                     Number of buildings of 'building_id' that are usable.
                 "number_unusable" (float):
                     Number of buildings of 'building_id' that are unusable.
+                "proportion_usable" (float):
+                    Proportion of buildings of 'building_id' that are usable.
+                "proportion_unusable" (float):
+                    Proportion of buildings of 'building_id' that are unusable.
+                "ppl_census_usable" (float):
+                    Number of census people of 'building_id' in usable buildings (if
+                    'include_people' is True).
+                "ppl_census_unusable" (float):
+                    Number of census people of 'building_id' in unusable buildings (if
+                    'include_people' is True).
                 "number_DX" (float):
                     Number of buildings of 'building_id' in damage state "X".
                 "proportion_DX" (float):
@@ -769,6 +789,11 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
 
     damage_by_bdg_id["number_usable"] = np.zeros(damage_by_bdg_id.shape[0])
     damage_by_bdg_id["number_unusable"] = np.zeros(damage_by_bdg_id.shape[0])
+    damage_by_bdg_id["proportion_usable"] = np.zeros(damage_by_bdg_id.shape[0])
+    damage_by_bdg_id["proportion_unusable"] = np.zeros(damage_by_bdg_id.shape[0])
+    if include_people:
+        damage_by_bdg_id["ppl_census_usable"] = np.zeros(damage_by_bdg_id.shape[0])
+        damage_by_bdg_id["ppl_census_unusable"] = np.zeros(damage_by_bdg_id.shape[0])
 
     for final_damage in unique_damage_levels:
         damage_by_bdg_id["number_D%s" % (final_damage)] = np.zeros(damage_by_bdg_id.shape[0])
@@ -805,7 +830,7 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
             damage_by_bdg_id["number_D%s" % (final_damage)] / damage_by_bdg_id["number"]
         )
 
-    for usability_val, usability_label in enumerate(["number_unusable", "number_usable"]):
+    for usability_val, usability_label in enumerate(["unusable", "usable"]):
         # Filter rows associated with 'usability_val'
         # (note not all combinations of (building_id, usability_val)
         # exist in 'usability_by_bdg_id_aux')
@@ -816,9 +841,22 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
         idx = damage_by_bdg_id.index.isin(just_usability_val_rows.index)
 
         # For those rows whose index exist, add the corresponding buildings
-        damage_by_bdg_id.loc[idx, usability_label] += (
+        damage_by_bdg_id.loc[idx, "number_%s" % (usability_label)] += (
             just_usability_val_rows.loc[:, "number"]
         )
+
+        if include_people:
+            # For those rows whose index exist, add the corresponding census people
+            damage_by_bdg_id.loc[idx, "ppl_census_%s" % (usability_label)] += (
+                just_usability_val_rows.loc[:, "ppl_census"]
+            )
+
+    damage_by_bdg_id["proportion_usable"] = (
+        damage_by_bdg_id["number_usable"] / damage_by_bdg_id["number"]
+    )
+    damage_by_bdg_id["proportion_unusable"] = (
+        damage_by_bdg_id["number_unusable"] / damage_by_bdg_id["number"]
+    )
 
     return damage_by_bdg_id
 

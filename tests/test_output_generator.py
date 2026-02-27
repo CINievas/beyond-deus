@@ -38,6 +38,10 @@ def test_damage_by_building_id_as_columns():
             "number": [126.0, 12.0],
             "number_usable": [42.0, 12.0],
             "number_unusable": [84.0, 0.0],
+            "proportion_usable": [0.3333333333, 1.0],
+            "proportion_unusable": [0.6666666667, 0.0],
+            "ppl_census_usable": [84.0, 24.0],
+            "ppl_census_unusable": [168.0, 0.0],
             "number_D0": [10.0, 12.0],
             "number_D1": [32.0, 0.0],
             "number_D2": [34.0, 0.0],
@@ -76,6 +80,8 @@ def test_damage_by_building_id_as_columns():
     # Excluding census people
     for dmg_state in range(5):
         del expected_damage_by_bdg_id["ppl_census_D%s" % (dmg_state)]
+    del expected_damage_by_bdg_id["ppl_census_usable"]
+    del expected_damage_by_bdg_id["ppl_census_unusable"]
 
     returned_damage_by_bdg_id = damage_by_building_id_as_columns(
         updated_exposure, include_people=False
@@ -114,6 +120,10 @@ def test_filter_damage_by_bdg_id_only_transitioned():
             "number": [126.0],
             "number_usable": [42.0],
             "number_unusable": [84.0],
+            "proportion_usable": [0.3333333333],
+            "proportion_unusable": [0.6666666667],
+            "ppl_census_usable": [84.0],
+            "ppl_census_unusable": [168.0],
             "number_D0": [10.0],
             "number_D1": [32.0],
             "number_D2": [34.0],
