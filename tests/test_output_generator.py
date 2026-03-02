@@ -97,6 +97,44 @@ def test_damage_by_building_id_as_columns():
                 round(expected_damage_by_bdg_id.loc[bdg_id, col], 6)
             )
 
+    # Case in which one usability value does not exist in the input DataFrame
+    updated_exposure_usable = updated_exposure[updated_exposure.cum_usability == 1]
+
+    expected_damage_by_bdg_id = pd.DataFrame(
+        {
+            "number": [42.0, 12.0],
+            "number_usable": [42.0, 12.0],
+            "number_unusable": [0.0, 0.0],
+            "proportion_usable": [1.0, 1.0],
+            "proportion_unusable": [0.0, 0.0],
+            "ppl_census_usable": [84.0, 24.0],
+            "ppl_census_unusable": [0.0, 0.0],
+            "number_D0": [10.0, 12.0],
+            "number_D1": [32.0, 0.0],
+            "proportion_D0": [0.238095238, 1.0],
+            "proportion_D1": [0.761904762, 0.0],
+            "ppl_census_D0": [20.0, 24.0],
+            "ppl_census_D1": [64.0, 0.0]
+        },
+        index=["B1", "B2"]
+    )
+    expected_damage_by_bdg_id.index.name = "building_id"
+
+    # Including census people
+    returned_damage_by_bdg_id = damage_by_building_id_as_columns(
+        updated_exposure_usable, include_people=True
+    )
+
+    assert returned_damage_by_bdg_id.shape[0] == expected_damage_by_bdg_id.shape[0]
+    assert returned_damage_by_bdg_id.shape[1] == expected_damage_by_bdg_id.shape[1]
+
+    for bdg_id in expected_damage_by_bdg_id.index:
+        for col in expected_damage_by_bdg_id.columns:
+            assert (
+                round(returned_damage_by_bdg_id.loc[bdg_id, col], 6) ==
+                round(expected_damage_by_bdg_id.loc[bdg_id, col], 6)
+            )
+
 
 def test_filter_damage_by_bdg_id_only_transitioned():
 

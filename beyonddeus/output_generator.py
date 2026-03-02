@@ -830,7 +830,14 @@ def damage_by_building_id_as_columns(exposure, include_people=False):
             damage_by_bdg_id["number_D%s" % (final_damage)] / damage_by_bdg_id["number"]
         )
 
-    for usability_val, usability_label in enumerate(["unusable", "usable"]):
+    usability_labels = {0: "unusable", 1: "usable"}
+    existing_usability_vals = usability_by_bdg_id_aux.index.get_level_values(
+        "cum_usability"
+    ).unique()  # usability_by_bdg_id_aux may not have both usability values (0 and 1)
+
+    for usability_val in existing_usability_vals:
+        usability_label = usability_labels[usability_val]
+
         # Filter rows associated with 'usability_val'
         # (note not all combinations of (building_id, usability_val)
         # exist in 'usability_by_bdg_id_aux')
