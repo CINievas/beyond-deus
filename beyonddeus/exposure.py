@@ -152,11 +152,13 @@ def read_exposure_csv(filename_csv):
 
     # Group combinations of ["building_id", "taxonomy", "initial_damage"], if duplicates exist
     # (index doesn't matter because 'unique_combis' is only used to check if duplicates exist)
-    unique_combis = exposure_df[["building_id", "taxonomy", "initial_damage"]].drop_duplicates()
+    unique_combis = exposure_df[
+        ["building_id", "taxonomy", "initial_damage", "cum_usability"]
+    ].drop_duplicates()
 
     if unique_combis.shape[0] < exposure_df.shape[0]:
         exposure_df = exposure_df.groupby(
-            ["building_id", "taxonomy", "initial_damage"]
+            ["building_id", "taxonomy", "initial_damage", "cum_usability"]
         ).agg(
             {
                 "number": "sum",
