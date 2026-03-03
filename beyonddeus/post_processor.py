@@ -222,12 +222,18 @@ class PostProcessor:
             )
 
         if self.post_processing_config["types"]["by_usability_all"]:
-            #TO DO
-            pass
+            summaries["by_usability_all"] = (
+                self.calculate_total_stats_by_usability(
+                    self.post_processing_config["export_filenames_in_all_values_outputs"]
+                )
+            )
 
         if self.post_processing_config["types"]["by_usability_per_branch"]:
-            #TO DO
-            pass
+            summaries["by_usability_per_branch"] = (
+                self.calculate_stats_by_usability_per_branch(
+                    self.post_processing_config["per_branch_which_hazards"]
+                )
+            )
 
         if self.post_processing_config["types"]["loss_by_building_id_all"]:
             columns_to_use = [
@@ -891,6 +897,433 @@ class PostProcessor:
             os.path.join(
                 self.general_output_path, "statistics",
                 "portfolio_total_losses_all_values.csv"
+            ),
+            index=False
+        )
+
+        return summary_number_files
+
+
+    def calculate_total_stats_by_usability(self, exportfilenames):
+        r"""
+        This method calculates weighted means, weighted standard deviations and weighted
+        quantiles of the number of buildings, incremental losses and cumulative losses by
+        usability, for the whole set of results available in 'self.general_output_path',
+        assumed to correspond to all branches and realisations of
+        'self.post_processing_config["logic_tree_meta"]'.
+
+        Resulting statistics are exported to `self.general_output_path`\statistics with
+        filenames following the pattern "by_usability_STATNAME.csv", where STATNAME is the name
+        of the statistics (means, stdev, ...).
+
+        All the individual values from all realisations are also exported as (economic losses
+        only if self.include_economic_losses is True):
+        - "by_usability_total_all_values_cum_loss_value.csv": One row per inidividual
+        realisation, one column per usable/unusable. Values are cumulative economic losses.
+        - "by_usability_total_all_values_incremental_loss.csv: One row per inidividual
+        realisation, one column per usable/unusable. Values are incremental economic losses.
+        - "by_usability_total_all_values_number.csv": One row per inidividual
+        realisation, one column per usable/unusable. Values are number of buildings.
+        - "by_usability_total_all_values_ppl_census.csv": One row per inidividual
+        realisation, one column per usable/unusable. Values are number of census people.
+
+        In all of the above, if 'exportfilenames' is True, source filenames are included.
+
+        If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
+        the list of results files and weights used for the statistics is created.
+
+        Args:
+            exportfilenames (bool):
+                If True, the names of the filenames from which each value of the "all_values"
+                files comes is exported.
+
+        Returns:
+            summary_number_files (Pandas DataFrame):
+                DataFrame summarising the number of files that were found and used to calculate
+                the statistics of each branch of each hazard. Columns:
+                    "hazard": Name (prefix) of the hazard.
+                    "branch": Name of the branch,
+                    "number_files": Number of files.
+        """
+        logger.info(
+            "Calculating total stats of number of buildings and losses by usability"
+        )
+
+        out_combinations = pd.Index(["unusable", "usable"])
+        index_columns=0
+        rows_out_combinations = np.array(
+            range(out_combinations.shape[0])
+        )
+
+        if self.include_economic_losses:
+            columns_to_use = ["number", "incremental_loss", "cum_loss_value", "ppl_census"]
+        else:
+            columns_to_use = ["number", "ppl_census"]
+
+        # Initialise list to collect all data:
+        all_data_slices = []  # each element will be a 2D array
+
+        # Initialise "weights" to collect weights, same dimension as "depth" of "all_data"
+        weights = []
+
+        matching_files = [
+            f for f in os.listdir(self.general_output_path)
+            if "by_usability" in f.lower()
+        ]
+
+        summary_number_files = pd.DataFrame(
+            {
+                "hazard": ["all"],
+                "branch": ["all"],
+                "number_files": [len(matching_files)]
+            }
+        )
+        summary_number_files.to_csv(
+            os.path.join(
+                self.general_output_path,
+                "statistics",
+                "by_usability_total_meta_summary.csv"
+            ),
+            index=False
+        )
+
+        logger.info("    Found %s files" % (len(matching_files)))
+
+        if len(matching_files) < 1:  # No files found
+            logger.info("        No stats to be produced")
+            return summary_number_files
+
+        for k, filename in enumerate(matching_files):
+            # Retrieve results of this realisation
+            df = pd.read_csv(
+                os.path.join(self.general_output_path, filename),
+                index_col=index_columns
+            )
+
+            # All arrays that go into "all_data_slices" need to have the same shape, but it may
+            # be that this df does not have all possible usability states,
+            # so cast into standard shape
+            structure_array = np.zeros((out_combinations.shape[0], len(columns_to_use)))
+            rows_to_fill = rows_out_combinations[out_combinations.isin(df.index)]
+            structure_array[rows_to_fill, :] = df[columns_to_use].to_numpy()
+            # If this df didn't have all combinations, those rows will have zeroes
+
+            all_data_slices.append(structure_array)
+
+            # Retrieve weight of this realisation
+            haz_branch_realisation_info = (
+                retrieve_hazard_branch_realisation_from_filename(filename)
+            )
+            filtered_weights = retrieve_weight(
+                haz_branch_realisation_info, self.all_logic_tree_combination_weights
+            )
+            weights.append(filtered_weights.loc[0, "weight_realisations"])
+
+        all_data = np.stack(all_data_slices, axis=2)
+        # Dimensions of "all_data":
+        # rows: all usability cases (unusable/usable)
+        # columns: columns_to_use
+        # depth: the number of data results
+
+        logger.info("    A total of %s realisations were retrieved" % (all_data.shape[2]))
+
+        weights = np.array(weights)
+        normalised_weights = weights / weights.sum()
+
+        if self.post_processing_config["export_weight_per_file"]:
+            weights_df = pd.DataFrame(
+                {
+                    "weights_raw": weights,
+                    "weights_final": normalised_weights
+                },
+                index=matching_files
+            )
+            weights_df.to_csv(
+                os.path.join(
+                    self.general_output_path, "statistics",
+                    "by_usability_total_stats_weights.csv"
+                ),
+                index=True
+            )
+
+        weighted_means = np.average(
+            all_data, axis=2, weights=normalised_weights
+        )
+        weighted_means_df = pd.DataFrame(
+            weighted_means,
+            columns=columns_to_use,
+            index=out_combinations
+        )
+        weighted_means_df.to_csv(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "by_usability_total_means.csv"
+            ),
+            index=True
+        )
+
+        weighted_st_dev_df = pd.DataFrame(
+            weighted_sample_unbiased_stdev_3D(
+                all_data, normalised_weights, weighted_means
+            ),
+            columns=columns_to_use,
+            index=out_combinations
+        )
+        weighted_st_dev_df.to_csv(
+            os.path.join(
+                self.general_output_path, "statistics",
+                "by_usability_total_stdev.csv"
+            ),
+            index=True
+        )
+
+        quantiles = np.quantile(
+            all_data,
+            self.post_processing_config["target_quantiles"],
+            axis=2,
+            weights=normalised_weights,
+            method="inverted_cdf"
+        )
+
+        for q, quantile in enumerate(self.post_processing_config["target_quantiles"]):
+            quantile_str = "{:.2f}".format(quantile).replace(".", "_")
+
+            quantile_df = pd.DataFrame(
+                quantiles[q, :, :],
+                columns=columns_to_use,
+                index=out_combinations
+            )
+            quantile_df.to_csv(
+                os.path.join(
+                    self.general_output_path, "statistics",
+                    "by_usability_total_q_%s.csv" % (quantile_str)
+                ),
+                index=True
+            )
+
+        # Export all individual values from all realisations
+        for j, parameter in enumerate(columns_to_use):
+            # One row per realisation, one column per initial-final damage combination
+            out_df = pd.DataFrame(
+                all_data[:, j, :].T,
+                columns=out_combinations
+            )
+            if exportfilenames:
+                out_df["filename"] = matching_files
+
+            out_df.to_csv(
+                os.path.join(
+                    self.general_output_path, "statistics",
+                    "by_usability_total_all_values_%s.csv" % (parameter)
+                ),
+                index=False
+            )
+
+        return summary_number_files
+
+
+    def calculate_stats_by_usability_per_branch(self, hazards):
+        r"""
+        This method calculates weighted means, weighted standard deviations and weighted
+        quantiles of the number of buildings, incremental losses and cumulative losses by
+        usability, per branch of each hazard indicated in
+        'self.post_processing_config["logic_tree_meta"]' and 'hazards'.
+
+        Resulting statistics are exported to `self.general_output_path`\statistics with
+        filenames following the pattern
+        "by_usability_by_branch_STATNAME_HAZPREFIX_b_BRANCHNAME.csv", where:
+        - STATNAME: name of the statistics (means, stdev, ...)
+        - HAZPREFIX: hazard prefix
+        - BRANCHNAME: branch name
+
+        If self.post_processing_config["export_weight_per_file"] is True, a CSV file containing
+        the list of results files and weights used for the statistics is created.
+
+        Args:
+            hazards (list of str):
+                List of hazard prefixes to be used.
+
+        Returns:
+            summary_number_files (Pandas DataFrame):
+                DataFrame summarising the number of files that were found and used to calculate
+                the statistics of each branch of each hazard. Columns:
+                    "hazard": Name (prefix) of the hazard.
+                    "branch": Name of the branch,
+                    "number_files": Number of files.
+        """
+        logger.info(
+            "Calculating per-branch stats of number of buildings and losses by usability"
+        )
+
+        out_combinations = pd.Index(["unusable", "usable"])
+        index_columns=0
+        rows_out_combinations = np.array(
+            range(out_combinations.shape[0])
+        )
+
+        if self.include_economic_losses:
+            columns_to_use = ["number", "incremental_loss", "cum_loss_value", "ppl_census"]
+        else:
+            columns_to_use = ["number", "ppl_census"]
+
+        gather_hazards = []
+        gather_branches = []
+        gather_number_files = []
+
+        for haz in self.post_processing_config["logic_tree_meta"].keys():
+
+            haz_prefix = self.post_processing_config["logic_tree_meta"][haz]["hazard_prefix"]
+
+            if haz_prefix not in hazards:
+                continue  # skip this hazard
+
+            logger.info("    Working on hazard %s: %s" % (haz, haz_prefix))
+
+            for branch in self.logic_tree_weights[haz_prefix]:
+                logger.info("        Working on branch %s" % (branch))
+
+                # Retrieve filenames associated with this branch of this hazard
+                substring = ("%s_b_%s_r_" % (haz_prefix, branch))
+
+                matching_files = [
+                    f for f in os.listdir(self.general_output_path)
+                    if substring.lower() in f.lower()
+                ]
+
+                # Now filter those 'matching_files' to be only those that contain
+                # "by_usability" results
+                matching_files = [
+                    f for f in matching_files
+                    if "by_usability" in f.lower()
+                ]
+
+                logger.info("            Found %s files" % (len(matching_files)))
+
+                gather_hazards.append(haz_prefix)
+                gather_branches.append(branch)
+                gather_number_files.append(len(matching_files))
+
+                if len(matching_files) < 1:  # No files found
+                    logger.info("                No stats to be produced")
+                    break
+
+                all_data = np.zeros(
+                    (
+                        out_combinations.shape[0],
+                        len(columns_to_use),
+                        len(matching_files)
+                    )
+                )
+                weights = np.zeros(len(matching_files))
+
+                for k, filename in enumerate(matching_files):
+                    # Retrieve results of this realisation
+                    df = pd.read_csv(
+                        os.path.join(self.general_output_path, filename),
+                        index_col=index_columns
+                    )
+
+                    # It may be that this df does not have all possible values of usability,
+                    # so cast into standard shape
+                    rows_to_fill = rows_out_combinations[out_combinations.isin(df.index)]
+                    all_data[rows_to_fill, :, k] = df[columns_to_use].to_numpy()
+
+                    # Retrieve weight of this realisation
+                    haz_branch_realisation_info = (
+                        retrieve_hazard_branch_realisation_from_filename(filename)
+                    )
+                    filtered_weights = retrieve_weight(
+                        haz_branch_realisation_info, self.all_logic_tree_combination_weights
+                    )
+                    weights[k] = filtered_weights.loc[0, "weight_realisations"]
+
+                normalised_weights = weights / weights.sum()
+
+                filename_stem = ("%s_b_%s" % (haz_prefix, branch))
+
+                if self.post_processing_config["export_weight_per_file"]:
+                    weights_df = pd.DataFrame(
+                        {
+                            "weights_raw": weights,
+                            "weights_final": normalised_weights
+                        },
+                        index=matching_files
+                    )
+                    weights_df.to_csv(
+                        os.path.join(
+                            self.general_output_path, "statistics",
+                            "by_usability_by_branch_stats_weights_%s.csv" % (filename_stem)
+                        ),
+                        index=True
+                    )
+
+                weighted_means = np.average(
+                    all_data, axis=2, weights=normalised_weights
+                )
+                weighted_means_df = pd.DataFrame(
+                    weighted_means,
+                    columns=columns_to_use,
+                    index=out_combinations
+                )
+                weighted_means_df.to_csv(
+                    os.path.join(
+                        self.general_output_path, "statistics",
+                        "by_usability_by_branch_means_%s.csv" % (filename_stem)
+                    ),
+                    index=True
+                )
+
+                weighted_st_dev_df = pd.DataFrame(
+                    weighted_sample_unbiased_stdev_3D(
+                        all_data, normalised_weights, weighted_means
+                    ),
+                    columns=columns_to_use,
+                    index=out_combinations
+                )
+                weighted_st_dev_df.to_csv(
+                    os.path.join(
+                        self.general_output_path, "statistics",
+                        "by_usability_by_branch_stdev_%s.csv" % (filename_stem)
+                    ),
+                    index=True
+                )
+
+                quantiles = np.quantile(
+                    all_data,
+                    self.post_processing_config["target_quantiles"],
+                    axis=2,
+                    weights=normalised_weights,
+                    method="inverted_cdf"
+                )
+
+                for q, quantile in enumerate(self.post_processing_config["target_quantiles"]):
+                    quantile_str = "{:.2f}".format(quantile).replace(".", "_")
+
+                    quantile_df = pd.DataFrame(
+                        quantiles[q, :, :],
+                        columns=columns_to_use,
+                        index=out_combinations
+                    )
+                    quantile_df.to_csv(
+                        os.path.join(
+                            self.general_output_path, "statistics",
+                            "by_usability_by_branch_q_%s_%s.csv" % (quantile_str, filename_stem)
+                        ),
+                        index=True
+                    )
+
+        summary_number_files = pd.DataFrame(
+            {
+                "hazard": gather_hazards,
+                "branch": gather_branches,
+                "number_files": gather_number_files
+            }
+        )
+        summary_number_files.to_csv(
+            os.path.join(
+                self.general_output_path,
+                "statistics",
+                "by_usability_by_branch_meta_summary.csv"
             ),
             index=False
         )
