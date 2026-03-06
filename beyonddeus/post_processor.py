@@ -300,7 +300,10 @@ class PostProcessor:
 
         if self.post_processing_config["types"]["damage_by_building_id_all_lightstats"]:
 
-            columns_to_use = ["number", "number_usable", "number_unusable"]
+            columns_to_use = [
+                "number", "number_usable", "number_unusable",
+                "proportion_usable", "proportion_unusable"
+            ]
             subtypes = ["number", "proportion"]
             for subtype in subtypes:
                 for dmg_state in self.post_processing_config["final_damage_range"]:
@@ -316,7 +319,11 @@ class PostProcessor:
             "damage_with_people_by_building_id_all_lightstats"
         ]:
 
-            columns_to_use = ["number", "number_usable", "number_unusable"]
+            columns_to_use = [
+                "number", "number_usable", "number_unusable",
+                "proportion_usable", "proportion_unusable",
+                "ppl_census_usable", "ppl_census_unusable"
+            ]
             subtypes = ["number", "proportion", "ppl_census"]
             for subtype in subtypes:
                 for dmg_state in self.post_processing_config["final_damage_range"]:
