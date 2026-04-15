@@ -1,0 +1,53 @@
+{
+"meta":{
+"id": "target_schema_name",
+"assetCategory": "buildings",
+"lossCategory": "structural",
+"taxonomy_source": "source_schema_name",
+"damage_states": "my_id",
+"format": "continuous",
+"shape": "logistic",
+"description": "Fragility model for testing logistic",
+"taxonomy" : "['source_1', 'source_2']",
+"limit states":[
+"D1",
+"D2",
+"D3",
+"D4"
+]
+},
+"data":[
+{
+"taxonomy" : "source_1",
+"D1_a" : -6.008596,
+"D1_b" : 6.543512,
+"D2_a" : -6.256472,
+"D2_b" : 8.455764,
+"D3_a" : -5.706633,
+"D3_b" : 9.591508,
+"D4_a" : -4.985643,
+"D4_b" : 9.932733,
+"D5_a": -4.773390,
+"D5_b": 9.724112,
+"id":"unique_id",
+"imt": "max_inundation_depth",
+"imu": "m"
+},
+{
+"taxonomy" : "source_2",
+"D1_a" : -6.008596,
+"D1_b" : 6.543512,
+"D2_a" : -6.256472,
+"D2_b" : 8.455764,
+"D3_a" : -5.706633,
+"D3_b" : 9.591508,
+"D4_a" : -4.985643,
+"D4_b" : 9.932733,
+"D5_a": -4.773390,
+"D5_b": 9.724112,
+"id":"unique_id",
+"imt": "max_inundation_depth",
+"imu": "m"
+}
+]
+}

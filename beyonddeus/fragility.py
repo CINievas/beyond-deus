@@ -39,6 +39,8 @@ class LogncdfFactory:
 
     def __init__(self):
         self.cache = {}
+        self.name_param_1 = "mean"
+        self.name_param_2 = "stddev"
 
     def __call__(self, mean, stddev):
         """
@@ -54,6 +56,43 @@ class LogncdfFactory:
         func = lognorm(scale=np.exp(mean), s=stddev)
 
         result = CachedFunction(func.cdf)
+
+        self.cache[key] = result
+        return result
+
+
+class LogisticFactory:
+    """
+    This class is a factory for fragility models defined by a logistic function of the type:
+        probability_exceedance = 1.0 / (1.0 + exp(a*intensity + b))
+    """
+
+    def __init__(self):
+        self.cache = {}
+        self.name_param_1 = "a"
+        self.name_param_2 = "b"
+
+    def __call__(self, param_a, param_b):
+        """
+        Args:
+            param_a, param_b (floats)
+        """
+
+        key = FactoryCacheKey(param_a, param_b)
+
+        if key in self.cache:
+            return self.cache[key]
+
+        # Create the function without evaluating it
+        def logistic_exceedance(intensity):
+            if intensity<=0.0:
+                poe = 0.0
+            else:
+                poe = 1.0 / (1.0 + np.exp(param_a * intensity + param_b))
+
+            return poe
+
+        result = CachedFunction(logistic_exceedance)
 
         self.cache[key] = result
         return result
@@ -147,6 +186,7 @@ class NullPoE:
 
 SUPPORTED_FRAGILITY_FUNCTION_FACTORIES = {
     "logncdf": LogncdfFactory(),
+    "logistic": LogisticFactory(),
     "allones": UnitPoE(),
     "allzeroes": NullPoE(),
 }
@@ -295,10 +335,13 @@ class Fragility:
             taxonomy = dataset["taxonomy"]
             intensity_field = dataset["imt"]
 
-            for damage_state_mean_key in [
+            parameter_first = fragility_function.name_param_1  # e.g., "mean", "a"
+            parameter_second = fragility_function.name_param_2  # e.g., "stddev", "b"
+
+            for damage_state_param1_key in [
                 k
                 for k in dataset.keys()
-                if k.startswith("D") and k.endswith("_mean")
+                if k.startswith("D") and k.endswith("_%s" % (parameter_first))
             ]:
                 #
                 # the data is in the format
@@ -308,11 +351,10 @@ class Fragility:
                 # D01, so that it is the damage state from 0 to 1 or
                 # D_0_1 or D0_1
                 #
-                to_state = int(
-                    re.search(r"(\d)_mean$", damage_state_mean_key).group(1)
-                )
+                pattern = rf"(\d)_{re.escape(parameter_first)}$"
+                to_state = int(re.search(pattern, damage_state_param1_key).group(1))
                 from_state = int(
-                    re.search(r"^D_?(\d)_", damage_state_mean_key).group(1)
+                    re.search(r"^D_?(\d)_", damage_state_param1_key).group(1)
                 )
 
                 if to_state == from_state:
@@ -320,9 +362,11 @@ class Fragility:
                     # both regexp read the same value
                     from_state = 0
 
-                mean = dataset[damage_state_mean_key]
-                stddev = dataset[
-                    damage_state_mean_key.replace("_mean", "_stddev")
+                param_1_val = dataset[damage_state_param1_key]
+                param_2_val = dataset[
+                    damage_state_param1_key.replace(
+                        "_%s" % (parameter_first), "_%s" % (parameter_second)
+                    )
                 ]
 
                 damage_state = DamageState(
@@ -330,7 +374,7 @@ class Fragility:
                     from_state=from_state,
                     to_state=to_state,
                     intensity_field=intensity_field,
-                    fragility_function=fragility_function(mean, stddev),
+                    fragility_function=fragility_function(param_1_val, param_2_val),
                 )
 
                 damage_states_by_taxonomy[taxonomy].append(damage_state)

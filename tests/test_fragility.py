@@ -22,7 +22,7 @@ import pandas as pd
 from beyonddeus.fragility import Fragility, LogncdfFactory, AllOnes, UnitPoE
 
 
-def test_fragility_data_without_sublevel():
+def test_lognorm_fragility_data_without_sublevel():
     """
     Test adapted from:
         Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
@@ -165,7 +165,7 @@ def test_fragility_data_exception_input_missing_lower():
     assert "OSError" in str(excinfo.type)
 
 
-def test_fragility_data_with_sublevel():
+def test_lognorm_fragility_data_with_sublevel():
     """
     Test adapted from:
         Brinckmann, Nils; Gomez-Zapata, Juan Camilo; Pittore, Massimiliano; Rüster, Matthias
@@ -269,7 +269,70 @@ def test_fragility_data_with_sublevel():
                 expected_poes[from_damage_state][to_damage_state], 6
             )
 
-def test_fragility_read_from_file():
+
+def test_logistic_fragility_data_with_sublevel():
+    """
+    Test fragility data (logistic function) with sublevels.
+    """
+    data = {
+        "meta": {
+            "shape": "logistic",
+            "id": "Test Model",
+        },
+        "data": [
+            {
+                "taxonomy": "URM1",
+                "D_0_1_a" : -6.008596,
+                "D_0_1_b" : 6.543512,
+                "D_0_2_a" : -6.256472,
+                "D_0_2_b" : 8.455764,
+                "D_0_3_a" : -5.706633,
+                "D_0_3_b" : 9.591508,
+                "D_0_4_a" : -4.985643,
+                "D_0_4_b" : 9.932733,
+                "D_0_5_a": -4.773390,
+                "D_0_5_b": 9.724112,
+                "D_1_3_a" : -6.256472,
+                "D_1_3_b" : 8.455764,
+                "imt": "max_inundation_depth",
+                "imu": "m",
+            },
+        ],
+    }
+
+    frag = Fragility(data)
+    fragprov = frag.to_fragility_provider()
+
+    taxonomy_data_urm1 = fragprov.get_damage_states_for_taxonomy("URM1")
+
+    assert len(taxonomy_data_urm1) == 30
+
+    expected_poes = {
+        0: {1: 0.921967, 2: 0.716861, 3: 0.262782},
+        1: {1: 1.000000, 2: 0.716861, 3: 0.716861},
+        2: {1: 0.000000, 2: 1.000000, 3: 0.716861},
+    } # values calculated with separate code
+
+    for from_damage_state in [0, 1, 2]:
+        for to_damage_state in [1, 2, 3]:
+            ds_requested = [
+                ds
+                for ds in taxonomy_data_urm1
+                if ds.from_state == from_damage_state
+                and ds.to_state == to_damage_state
+            ]
+            assert len(ds_requested) == 1
+            assert ds_requested[0].from_state == from_damage_state
+            assert ds_requested[0].to_state == to_damage_state
+            poe_returned = ds_requested[0].get_probability_for_intensity(
+                {"max_inundation_depth": 1.5}
+            )
+            assert round(poe_returned, 6) == round(
+                expected_poes[from_damage_state][to_damage_state], 6
+            )
+
+
+def test_lognorm_fragility_read_from_file():
     """
     Test Fragility.from_file(), using realistic fragility curve values.
     Test that PoE = 0 for IM < 0 when using a lognormal CDF.
@@ -356,6 +419,102 @@ def test_fragility_read_from_file():
             assert ds_requested[0].to_state == to_damage_state
             poe_returned = ds_requested[0].get_probability_for_intensity(
                 {"PGA": 0.0}
+            )
+            if from_damage_state == to_damage_state:
+                assert round(poe_returned, 6) == 1.0
+            else:
+                assert round(poe_returned, 6) == 0.0
+
+
+def test_logistic_fragility_read_from_file():
+    """
+    Test Fragility.from_file(), using realistic fragility curve values.
+    Test that PoE = 0 for IM < 0 when using a logistic function.
+    """
+
+    fragprov = Fragility.from_file(
+       os.path.join(os.path.dirname(__file__), "data", "fragility_test_logistic.json")
+    ).to_fragility_provider()
+
+    assert len(fragprov.get_taxonomies()) == 2
+
+    data_bdg_class_1 = fragprov.get_damage_states_for_taxonomy("source_1")
+
+    assert len(data_bdg_class_1) == 30
+
+    expected_poes = {
+        0: {1: 0.921967, 2: 0.716861, 3: 0.262782, 4: 0.079127, 5: 0.071490},
+        1: {1: 1.000000, 2: 0.716861, 3: 0.262782, 4: 0.079127, 5: 0.071490},
+        2: {1: 0.000000, 2: 1.000000, 3: 0.262782, 4: 0.079127, 5: 0.071490},
+        3: {1: 0.000000, 2: 0.000000, 3: 1.000000, 4: 0.079127, 5: 0.071490},
+        4: {1: 0.000000, 2: 0.000000, 3: 0.000000, 4: 1.000000, 5: 0.071490},
+        5: {1: 0.000000, 2: 0.000000, 3: 0.000000, 4: 0.000000, 5: 1.000000}
+    }  # values calculated with separate code
+
+    for from_damage_state in [0, 1, 2, 3, 4, 5]:
+        for to_damage_state in [1, 2, 3, 4, 5]:
+            ds_requested = [
+                ds
+                for ds in data_bdg_class_1
+                if ds.from_state == from_damage_state
+                and ds.to_state == to_damage_state
+            ]
+            assert len(ds_requested) == 1
+            assert ds_requested[0].from_state == from_damage_state
+            assert ds_requested[0].to_state == to_damage_state
+            poe_returned = ds_requested[0].get_probability_for_intensity(
+                {"max_inundation_depth": 1.5}
+            )
+            assert round(poe_returned, 6) == round(
+                expected_poes[from_damage_state][to_damage_state], 6
+            )
+
+    # It should return 0 for all IM < 0 (logistic curve)
+    expected_poes = {
+        0: {1: 0.000000, 2: 0.000000, 3: 0.000000, 4: 0.000000, 5: 0.000000},
+        1: {1: 0.000000, 2: 0.000000, 3: 0.000000, 4: 0.000000, 5: 0.000000},
+        2: {1: 0.000000, 2: 0.000000, 3: 0.000000, 4: 0.000000, 5: 0.000000},
+        3: {1: 0.000000, 2: 0.000000, 3: 0.000000, 4: 0.000000, 5: 0.000000},
+        4: {1: 0.000000, 2: 0.000000, 3: 0.000000, 4: 0.000000, 5: 0.000000},
+        5: {1: 0.000000, 2: 0.000000, 3: 0.000000, 4: 0.000000, 5: 0.000000}
+    }
+
+    for from_damage_state in [0, 1, 2, 3, 4, 5]:
+        for to_damage_state in [1, 2, 3, 4, 5]:
+            ds_requested = [
+                ds
+                for ds in data_bdg_class_1
+                if ds.from_state == from_damage_state
+                and ds.to_state == to_damage_state
+            ]
+            assert len(ds_requested) == 1
+            assert ds_requested[0].from_state == from_damage_state
+            assert ds_requested[0].to_state == to_damage_state
+            poe_returned = ds_requested[0].get_probability_for_intensity(
+                {"max_inundation_depth": -2.0}
+            )
+            assert round(poe_returned, 12) == round(
+                expected_poes[from_damage_state][to_damage_state], 12
+            )
+
+    # When the target intensity value is 0.0, get_probability_for_intensity() should return:
+    # * 0.0 if to_damage_state > from_damage_state (i.e. it is not possible to get more damage)
+    # * 1.0 if to_damage_state = from_damage_state (i.e. the object is already in that damage state)
+    data_bdg_class_2 = fragprov.get_damage_states_for_taxonomy("source_2")
+
+    for from_damage_state in [0, 1, 2, 3, 4, 5]:
+        for to_damage_state in [1, 2, 3, 4, 5]:
+            ds_requested = [
+                ds
+                for ds in data_bdg_class_2
+                if ds.from_state == from_damage_state
+                and ds.to_state == to_damage_state
+            ]
+            assert len(ds_requested) == 1
+            assert ds_requested[0].from_state == from_damage_state
+            assert ds_requested[0].to_state == to_damage_state
+            poe_returned = ds_requested[0].get_probability_for_intensity(
+                {"max_inundation_depth": 0.0}
             )
             if from_damage_state == to_damage_state:
                 assert round(poe_returned, 6) == 1.0
