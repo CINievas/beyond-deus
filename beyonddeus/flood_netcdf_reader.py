@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+
+# Copyright (C) 2025:
+#  GFZ Helmholtz-Zentrum für Geoforschung | GFZ Helmholtz Centre for Geosciences
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see http://www.gnu.org/licenses/.
+
+import logging
+from netCDF4 import Dataset
+
+from beyonddeus.intensityprovider import IntensityProvider
+from beyonddeus.intensitydatawrapper import DictWithListDataWrapper
+
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+
+class FL_NetCDF_fields:
+    """
+    Factory class for reading flood inundation fields from a NetCDF file.
+    """
+
+    def __init__(self, file_name):
+
+        (
+            self.sites,
+            self.max_flow_depth,
+        ) = read_flood_inundations_NetCDF(file_name)
+
+
+    def to_intensity_provider(self):
+        """
+        Returns an instance of intensityprovider.IntensityProvider, which later enables access
+        to the intensity data point that is closest to a target location.
+        """
+
+        data = {}
+        data["lon"] = self.sites["lon"]
+        data["lat"] = self.sites["lat"]
+        data["flow_depth"] = self.max_flow_depth
+
+        wrapped_data = DictWithListDataWrapper(
+            data=data,
+            possible_x_columns=["lon"],
+            possible_y_columns=["lat"],
+        )
+
+        return IntensityProvider(intensity_data=wrapped_data)
+
+
+def read_flood_inundations_NetCDF(file_name):
+    """
+    Method for reading the flood inundation fields NetCDF file.
+
+    Args:
+        file_name (str):
+            Full path to the NetCDF file.
+
+    Returns:
+        sites (dict)
+            Dictionary containing the sites (locations) at which the inundation values are
+            provided. Keys:
+            - "lon": Longitude (decimal float).
+            - "lat": Latitude (decimal float).
+        max_flow_depth (arr of float):
+            Array of values of maximum flow depths (above on-land topography) for each point
+            defined by (lons, lats).
+    """
+
+    nc_dataset = Dataset(file_name)
+
+    sites = {}
+    sites["lon"] = nc_dataset["longitude"][:].filled(0.0)
+    sites["lat"] = nc_dataset["latitude"][:].filled(0.0)
+
+    max_flow_depth = nc_dataset["flow_depth"][:].filled(0.0)
+
+    return sites, max_flow_depth

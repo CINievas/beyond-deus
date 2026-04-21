@@ -54,7 +54,7 @@ def test_read_intensity_files():
     assert len(intensity_provider.keys()) == len(expected_branches)
 
     for branch in expected_branches:
-    
+
         assert branch in intensity_provider.keys()
         assert len(intensity_provider[branch].keys()) == len(expected_realisations)
 
@@ -101,7 +101,7 @@ def test_read_intensity_files():
             "xml"
         )
     assert "OSError" in str(excinfo.type)
-    
+
     # 6 The intensity_file_type is not supported
     intensity_provider = read_intensity_files(
         os.path.join(os.path.dirname(__file__), "data", "reading_intensity_one_branch"),
@@ -110,7 +110,7 @@ def test_read_intensity_files():
 
     assert isinstance(intensity_provider, dict)
     assert len(intensity_provider.keys()) == 0
-    
+
     # 7 Set of Tsunami NetCDF files provided in sub-directories
     intensity_provider = read_intensity_files(
         os.path.join(os.path.dirname(__file__), "data", "reading_intensity_two_branch_Tsu"),
@@ -123,7 +123,7 @@ def test_read_intensity_files():
     assert len(intensity_provider.keys()) == len(expected_branches)
 
     for branch in expected_branches:
-    
+
         assert branch in intensity_provider.keys()
         assert len(intensity_provider[branch].keys()) == len(expected_realisations)
 
@@ -138,6 +138,25 @@ def test_read_intensity_files():
 
     expected_branches = ["Branch01", "Branch02"]
     expected_realisations = ["0", "1", "2"]
+
+    assert len(intensity_provider.keys()) == len(expected_branches)
+
+    for branch in expected_branches:
+
+        assert branch in intensity_provider.keys()
+        assert len(intensity_provider[branch].keys()) == len(expected_realisations)
+
+        for realisation in expected_realisations:
+            assert realisation in intensity_provider[branch].keys()
+
+    # 9 Set of Flood NetCDF files provided in sub-directories
+    intensity_provider = read_intensity_files(
+        os.path.join(os.path.dirname(__file__), "data", "reading_intensity_two_branch_Flood"),
+        "netcdf_flood"
+    )
+
+    expected_branches = ["subdir_1", "subdir_2"]
+    expected_realisations = ["FL_inundation_fields_test_01", "FL_inundation_fields_test_02"]
 
     assert len(intensity_provider.keys()) == len(expected_branches)
 

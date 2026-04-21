@@ -72,8 +72,9 @@ written, if `profiling.py` is manually run.
   - `intensity_file_type`: Type of intensity input files. Currently supported values: "xml",
   "hdf5" (i.e., earthquake ground motions as output by
   [shakyground2](https://git.gfz.de/shakemap/shakyground2)), "netcdf_tsu" (i.e., tsunami
-  inundations as output by [TsunAWI](https://tsunami.awi.de/), and "netcdf_temp" (i.e.,
-  temperature fields).
+  inundations as output by [TsunAWI](https://tsunami.awi.de/), "netcdf_temp" (i.e., temperature
+  fields), and "netcdf_flood" (same format as "netcdf_tsu", but the intensity measure's name is
+  expected to be "flow_depth", and not "max_wave_height", as in the tsunami case).
   - `intensity_threshold`: Threshold of hazard intensity, to be used so that if the intensity
   value at a target exposure location is smaller than the threshold, no further damage is
   assumed (i.e., the current damage state remains unmodified and the detailed calculation is

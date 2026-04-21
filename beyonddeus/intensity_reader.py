@@ -22,6 +22,8 @@ from beyonddeus.shakemap import Shakemaps
 from beyonddeus.earthquake_hdf_reader import EQ_HDF_fields
 from beyonddeus.tsunami_netcdf_reader import TSU_NetCDF_fields
 from beyonddeus.temperature_netcdf_reader import TEMP_NetCDF_fields
+from beyonddeus.flood_netcdf_reader import FL_NetCDF_fields
+
 
 
 logger = logging.getLogger()
@@ -51,7 +53,8 @@ def read_intensity_files(intensity_path, intensity_file_type):
             Path to either (1) a directory containing a series of .xml or NetCDF files or
             (2) an HDF5 file with shakyground2 format (https://git.gfz.de/shakemap/shakyground2).
         intensity_file_type (str):
-            Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu, netcdf_temp.
+            Type of intensity input files. Supported values: xml, hdf5, netcdf_tsu, netcdf_temp,
+            netcdf_flood.
 
     Returns:
         intensity_provider (dict):
@@ -198,6 +201,50 @@ def read_intensity_files(intensity_path, intensity_file_type):
                 % (os.path.join(intensity_path, branch))
             )
             raise OSError(error_message)
+
+        return intensity_provider
+
+    if intensity_file_type.lower() == "netcdf_flood":
+
+        filenames, sub_dirs = get_list_of_contents(intensity_path)
+
+        intensity_provider = {}
+
+        if len(sub_dirs) > 0 :
+            # There are logic tree branches
+            logger.info(
+                "      %s branches of a logic tree found" % (len(sub_dirs))
+            )
+
+            for branch in sub_dirs:
+                intensity_provider[branch] = {}
+
+                branch_filenames = os.listdir(os.path.join(intensity_path, branch))
+                number_intensity_reals = len(branch_filenames)
+
+                logger.info(
+                    "          Branch '%s': %s file(s) found"
+                    % (branch, number_intensity_reals)
+                )
+
+                for k, filename in enumerate(branch_filenames):
+                    realisation = filename.split(".")[0]
+                    intensity_provider[branch][realisation] = FL_NetCDF_fields(
+                        os.path.join(intensity_path, branch, filename)
+                    ).to_intensity_provider()
+
+        if len(filenames) > 0:
+            # Only one logic tree branch
+            logger.info(
+                "      Only one logic tree branch found, with %s file(s)" % (len(filenames))
+            )
+            intensity_provider["unique"] = {}
+
+            for k, filename in enumerate(filenames):
+                realisation = filename.split(".")[0]
+                intensity_provider["unique"][realisation] = FL_NetCDF_fields(
+                    os.path.join(intensity_path, filename)
+                ).to_intensity_provider()
 
         return intensity_provider
 

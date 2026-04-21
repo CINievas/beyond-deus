@@ -23,6 +23,12 @@ each branch.
 the path defined in the [configuration file](Configuration.md), and only one `NetCDF` file per
 sub-directory. Each sub-directory (and thus, each file) is interpreted as a logic tree branch,
 which is assumed to contain one or more realisations for that branch.
+- Flood flow depth `NetCDF` files: Each file contains a realisation of the flood intensity,
+which is assumed to be "flow_depth". More than one file can be provided under the path defined
+in the [configuration file](Configuration.md). If the files are not organised into
+sub-directories, they are all treated as realisations of intensity of one logic tree branch. If
+the files are organised into sub-directories, it is assumed that each sub-directory corresponds
+to a logic tree branch, and all files within are realisations within each branch.
 
 In each run of Beyond DEUS, all intensity files must be of the same kind.
 
