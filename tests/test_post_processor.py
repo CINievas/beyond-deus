@@ -234,6 +234,12 @@ def test_weighted_sample_unbiased_stdev_1D():
 
     assert round(returned, 6) == 6.681528
 
+    # Test case in which "weights" contains just one element ("data_1D" and weighted mean are
+    # irrelevant here because the code returns 0.0 before using it)
+    returned = weighted_sample_unbiased_stdev_1D(None, np.array([1.0]), None)
+
+    assert round(returned, 6) == 0.0
+
 
 def test_weighted_sample_unbiased_stdev_3D():
     # The test data is the same as for 'test_weighted_sample_unbiased_stdev_1D', just repeated

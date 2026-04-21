@@ -2399,6 +2399,9 @@ def weighted_sample_unbiased_stdev_1D(data_1D, weights, weighted_mean):
     v1 = weights.sum()
     v2 = (np.power(weights, 2.0)).sum()
 
+    if round(v1, 10) == round(v2, 10):  # happens when there is only 1 weight
+        return 0.0  # i.e. standard deviation is zero with just one data point
+
     numerator = (weights * np.power(data_1D - weighted_mean, 2.0)).sum()
     sw = np.sqrt(numerator / (v1 - (v2/v1)))
 
