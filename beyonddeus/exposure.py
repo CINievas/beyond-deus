@@ -116,9 +116,13 @@ def read_exposure_csv(filename_csv):
 
     # Read input CSV/ZSTD
     if filename_extension.lower()=="csv":
-        exposure_df = pd.read_csv(filename_csv)
+        exposure_df = pd.read_csv(
+            filename_csv, dtype={"building_id": str, "initial_damage":int}
+        )
     elif filename_extension.lower()=="zstd":
-        exposure_df = pd.read_csv(filename_csv, compression="zstd")
+        exposure_df = pd.read_csv(
+            filename_csv, dtype={"building_id": str, "initial_damage":int}, compression="zstd"
+        )
     else:
         error_message = (
             "Input exposure file extension not recognised. Supported formats: .csv, .zstd"
