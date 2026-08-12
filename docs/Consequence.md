@@ -12,3 +12,5 @@ cumulative losses are not fictitiously inflated as an artifact of using differen
 models for different hazards.
 
 An example of a consequence model input file can be found [here](../tests/data/consequence_test.json).
+
+Return to [documentation index](README.md).

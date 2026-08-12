@@ -37,3 +37,5 @@ the software will determine the nearest neighbour of each target exposure site o
 the first intensity field it retrieves.
 
 An example of an intensity field input file can be found [here](../tests/data/intensity_test.xml).
+
+Return to [documentation index](README.md).

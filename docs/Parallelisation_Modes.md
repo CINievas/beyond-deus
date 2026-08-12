@@ -45,3 +45,5 @@ exposure_02.csv,branch_01,another_real
 In the example above, the input exposure `exposure_01.csv` will be run with realisation`a_real`
 of the hazard intensity branch `branch_01`, while `exposure_02.csv1` will be run with
 realisation `another_real` of the same branch instead.
+
+Return to [documentation index](README.md).

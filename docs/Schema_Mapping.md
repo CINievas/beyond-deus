@@ -36,3 +36,5 @@ buildings in damage state 2.
 
 Examples of damage scale compatibility input files can be found
 [here](../tests/data/conversion_damage).
+
+Return to [documentation index](README.md).

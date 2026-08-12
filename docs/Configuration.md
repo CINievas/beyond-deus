@@ -174,10 +174,16 @@ Sub-parameters include:
     - `by_initial_and_final_damage_all`: Mean, quantiles and standard deviation of number of
     buildings, incremental loss and cumulative loss, per combination of initial-final damage
     states, for all branches and realisations considered together, with their weights. All
-    individual values and aggregated portfolio statistics are exported as well.
+    individual values and aggregated portfolio statistics are exported as well. Note that, if
+    damage compatibility matrices are used, this initial-final damage output will refer to the
+    target damage scale and not the initial damage scale used by the previously-run hazard and
+    implicit in the input damaged exposure model(s).
     - `by_initial_and_final_damage_per_branch`: Mean, quantiles and standard deviation of number
     of buildings, incremental loss and cumulative loss, per combination of initial-final damage
-    states, for each branch of each hazard run so far.
+    states, for each branch of each hazard run so far.  Note that, if damage compatibility
+    matrices are used, this initial-final damage output will refer to the target damage scale
+    and not the initial damage scale used by the previously-run hazard and implicit in the input
+    damaged exposure model(s).
     - `by_usability_all`: Mean, quantiles and standard deviation of number of buildings, census
     people, incremental loss and cumulative loss, per usability status, for all branches and
     realisations considered together, with their weights. All individual values are exported as
@@ -221,3 +227,5 @@ Sub-parameters include:
     building_id and for each branch of each hazard run so far.
 
 An example of a config.yml file can be found [here](../config_example.yml).
+
+Return to [documentation index](README.md).

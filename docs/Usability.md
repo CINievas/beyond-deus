@@ -30,3 +30,5 @@ exposure model(s) into a "usable" and an "unusable" dataset, also if requested i
 If no usability classification is desired, the user can enter "None" under `usability` in the
 `config.yml` file. In this case, the `cum_usability` column from the input exposure model(s) is
 kept as the current usability status.
+
+Return to [documentation index](README.md).

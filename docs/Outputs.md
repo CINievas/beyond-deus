@@ -75,3 +75,5 @@ The kind of outputs exported is controlled by the following parameters (True/Fal
   with number of census people per damage state.
   - `damage_with_people_gpkg_per_realisation`: Same as `damage_gpkg_per_realisation`, plus
   columns with number of census people per damage state.
+
+Return to [documentation index](README.md).

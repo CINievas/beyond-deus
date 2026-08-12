@@ -49,3 +49,5 @@ assumed that all input exposure `.csv` files correspond to this one GeoPackage (
 
 Examples of input exposure files can be found here: [csv](../tests/data/exposure.csv),
 [csv](../tests/data/exposure_polygons.gpkg).
+
+Return to [documentation index](README.md).

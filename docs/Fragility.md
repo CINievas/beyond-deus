@@ -18,3 +18,5 @@ will be compatible with those implied by the fragility model.
 Examples of fragility model input files can be found here:
 - [Log-normal CDF](../tests/data/fragility_test.json)
 - [Logistic function](../tests/data/fragility_test_logistic.json)
+
+Return to [documentation index](README.md).

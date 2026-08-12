@@ -39,7 +39,7 @@ pip3 install -e .
 ```
 
 
-# Running
+## Running
 
 Beyond DEUS expects a `config.yml` file to be located in the running directory. To run the
 software, navigate to the running directory and type:
