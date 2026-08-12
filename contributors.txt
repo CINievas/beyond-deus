@@ -1,0 +1,5 @@
+Direct contributors to this code:
+Cecilia I. Nievas (GFZ, cecilia.nievas@gfz.de)
+
+Portions of this software are derived from the software DEUS:
+https://github.com/gfzriesgos/deus. These are indicated in the docstrings.
