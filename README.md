@@ -84,8 +84,6 @@ General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see http://www.gnu.org/licenses/.
 
-Also add information on how to contact you by electronic and paper mail.
-
 If your software can interact with users remotely through a computer
 network, you should also make sure that it provides a way for users to
 get its source. For example, if your program is a web application, its
@@ -94,18 +92,6 @@ of the code. There are many ways you could offer source, and different
 solutions will be better for different programs; see section 13 for the
 specific requirements.
 
-Portions of this software are derived from work licensed under the
-Apache License, Version 2.0.
-
-In accordance with Section 4 of the Apache License, we include a copy of
-the Apache License 2.0 and any required NOTICE files with this
-distribution (no NOTICE files existed in the original software).
-
-The Apache‑licensed components remain under the terms of the Apache
-License, Version 2.0.
-
-All original modifications and all other parts of this program are
-licensed under the GNU Affero General Public License, version 3 or any
-later version.
+Contact info: cecilia.nievas@gfz.de.
 
 See the [LICENSE](./LICENSE) for the full license text.

@@ -1,5 +1,8 @@
 Direct contributors to this code:
 Cecilia I. Nievas (GFZ, cecilia.nievas@gfz.de)
 
+Artificial Inteligence was used for assistance in implementing first version of parallelisation
+modes.
+
 Portions of this software are derived from the software DEUS:
 https://github.com/gfzriesgos/deus. These are indicated in the docstrings.

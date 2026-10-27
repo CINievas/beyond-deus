@@ -22,7 +22,7 @@ tests_require = ["pytest"]
 
 setup(
     name="beyonddeus",
-    version="0.1.0",
+    version="1.0.0",
     description="",
     keywords="multi-hazard, multi-risk, damage assessment, loss assessment",
     author="Cecilia Nievas",
