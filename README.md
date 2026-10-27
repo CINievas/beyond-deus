@@ -51,9 +51,14 @@ beyonddeus
 
 ## Citation
 
-Software: COMING SOON.
+### Software:
 
-Journal paper: COMING SOON.
+Nievas CI (2026) Beyond DEUS. Zenodo.
+[https://doi.org/10.5281/zenodo.23694844](https://doi.org/10.5281/zenodo.23694844)
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23694844.svg)](https://doi.org/10.5281/zenodo.23694844)
+
+### Journal paper: COMING SOON.
 
 
 ## Acknowledgements
